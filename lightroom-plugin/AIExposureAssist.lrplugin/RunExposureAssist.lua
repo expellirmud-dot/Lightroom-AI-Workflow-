@@ -137,7 +137,29 @@ function RunExposureAssist.run()
         -- Build the CLI command
         local bridgeResultPath = LrPathUtils.child(stagingDir, "bridge-result-" .. jobId .. ".json")
         local pythonCmd = "uv run lr-ai-exposure"
-        local args = " --selection \"" .. selectionPath .. "\" --lrdata \"" .. LrPathUtils.parent(catalogPath) .. "\" --bridge-result \"" .. bridgeResultPath .. "\""
+
+        -- --lrdata MUST point at the .lrdata directory itself, never the catalog
+        -- parent directory. Source it explicitly from config/settings.json
+        -- "preview_cache_path" and fail closed if it is missing or empty. Do NOT
+        -- infer lrdata from the catalog parent (LrPathUtils.parent(catalogPath)),
+        -- which resolves to a non-.lrdata directory and breaks cache extraction.
+        local settingsPath = LrPathUtils.child(repoRoot, "config\\settings.json")
+        local sFile = io.open(settingsPath, "rb")
+        if not sFile then
+            error("Cannot read config/settings.json for preview_cache_path: " .. tostring(settingsPath))
+        end
+        local settingsContent = sFile:read("*a")
+        sFile:close()
+        local settings = Json.decode(settingsContent)
+        if type(settings) ~= "table" then
+            error("config/settings.json is not a JSON object")
+        end
+        local lrdataPath = settings.preview_cache_path
+        if type(lrdataPath) ~= "string" or lrdataPath == "" then
+            error("config/settings.json missing non-empty preview_cache_path (do not infer lrdata from catalog parent)")
+        end
+
+        local args = " --selection \"" .. selectionPath .. "\" --lrdata \"" .. lrdataPath .. "\" --bridge-result \"" .. bridgeResultPath .. "\""
         if jobData.requested_mode == "APPLY" then
             args = args .. " --apply --authorize-apply " .. jobId
         else
@@ -167,31 +189,39 @@ function RunExposureAssist.run()
         if not bridgeResult then
             error("Malformed bridge result JSON")
         end
-        
+
         if bridgeResult.protocol_version ~= "1.0" then
             error("Protocol version mismatch")
         end
-        
-        if bridgeResult.job_id ~= jobId then
-            error("Job ID mismatch")
-        end
-        
+
+        -- C. Process/status consistency: fail closed on contradictory settlement
+        --    BEFORE any success-only identity check, so a safe error result with
+        --    job_id == "unknown" surfaces its real upstream cause instead of a
+        --    "Job ID mismatch" mask.
         if bridgeResult.status == "error" and exitStatus == 0 then
             error("Process exit 0 contradicts error status")
         end
         if bridgeResult.status == "ok" and exitStatus ~= 0 then
             error("Process exit non-zero contradicts ok status")
         end
-        
+
+        -- D. Authoritative error path: surface the upstream error and stop. Do
+        --    NOT run success-only request_id, job_id, manifest, evidence,
+        --    refresh, or apply validation on an error result.
         if bridgeResult.status == "error" then
             error(tostring(bridgeResult.error))
         end
-        
+
+        -- E. Success-only path (status == "ok"): validate identity and artifacts.
+        if bridgeResult.job_id ~= jobId then
+            error("Job ID mismatch")
+        end
+
         local evidencePath = bridgeResult.analysis_evidence
         if jobData.requested_mode == "APPLY" and bridgeResult.apply_evidence and bridgeResult.apply_evidence ~= "" then
             evidencePath = bridgeResult.apply_evidence
         end
-        
+
         if not evidencePath or evidencePath == "" or not LrFileUtils.exists(evidencePath) then
             error("Reported artifact does not exist: " .. tostring(evidencePath))
         end
