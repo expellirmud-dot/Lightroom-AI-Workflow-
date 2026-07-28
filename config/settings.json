@@ -1,0 +1,12 @@
+{
+  "catalog_path": "C:\\Users\\Expellirmud\\Pictures\\LR\\ToTo\\ToTo.lrcat",
+  "preview_cache_path": "C:\\Users\\Expellirmud\\Pictures\\LR\\ToTo\\ToTo Previews.lrdata",
+  "runtime_directory": "runtime",
+  "export_root": "G:\\Drive",
+  "preview_size": 2048,
+  "maximum_delta_ev": 1.0,
+  "minimum_apply_confidence": 0.8,
+  "dry_run": true,
+  "ai_model": "",
+  "ai_endpoint": ""
+}

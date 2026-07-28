@@ -27,3 +27,9 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+
+# Ruff / uv artifacts
+uv.lock
+
+# Build artifacts (pip editable install)
+src/*.egg-info/
