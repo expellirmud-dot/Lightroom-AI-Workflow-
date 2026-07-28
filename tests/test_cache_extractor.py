@@ -22,9 +22,10 @@ def dummy_lrdata(tmp_path):
     rdb_path = lrdata / "root-pixels.db"
     rdb = sqlite3.connect(str(rdb_path))
     rdb.execute("CREATE TABLE RootPixels (uuid TEXT, digest TEXT, colorProfile TEXT, croppedWidth REAL, croppedHeight REAL, quality REAL, jpegData BLOB)")
-    rdb.execute("INSERT INTO RootPixels VALUES ('UUID-101', 'digest', 'prof', 600, 400, 0.8, x'FFD8FFE0')")
+    fake_jpeg = b"\xff\xd8" + b"\x00" * 150
+    rdb.execute("INSERT INTO RootPixels VALUES ('UUID-101', 'digest', 'prof', 600, 400, 0.8, ?)", (fake_jpeg,))
     # UUID-102 missing root pixel
-    rdb.execute("INSERT INTO RootPixels VALUES ('UUID-103', 'digest', 'prof', 600, 400, 0.8, x'FFD8FFE1')")
+    rdb.execute("INSERT INTO RootPixels VALUES ('UUID-103', 'digest', 'prof', 600, 400, 0.8, ?)", (fake_jpeg,))
     rdb.commit()
     rdb.close()
     
