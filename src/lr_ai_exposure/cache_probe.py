@@ -1,17 +1,24 @@
 import sqlite3
 import os
 
-def find_preview_uuid(previews_db_path: str, id_local: int | float) -> str | None:
+def find_preview_uuid(previews_db_path: str, id_local: int | float) -> dict:
     """
     Find the preview UUID for a given Lightroom id_local using ImageCacheEntry.
-    Connects in read-only mode to prevent locking or mutation.
+    Enforces exact cardinality.
+    Returns: {"status": "FOUND"|"MISSING"|"AMBIGUOUS", "uuid": str|None}
     """
-    # SQLite uri=True allows mode=ro
     db = sqlite3.connect(f"file:{previews_db_path}?mode=ro", uri=True)
     try:
         cursor = db.execute("SELECT uuid FROM ImageCacheEntry WHERE imageId = ?;", (id_local,))
-        row = cursor.fetchone()
-        return row[0] if row else None
+        rows = cursor.fetchall()
+        
+        count = len(rows)
+        if count == 0:
+            return {"status": "MISSING", "uuid": None}
+        elif count == 1:
+            return {"status": "FOUND", "uuid": rows[0][0]}
+        else:
+            return {"status": "AMBIGUOUS", "uuid": None}
     finally:
         db.close()
 
@@ -37,10 +44,11 @@ def run_mapping_probe(previews_db: str, root_db: str, id_local: int | float, out
     """
     End-to-end mapping from Lightroom id_local to extracted JPEG.
     """
-    uuid = find_preview_uuid(previews_db, id_local)
-    if not uuid:
-        return {"status": "MISSING_CACHE_ENTRY", "id_local": id_local}
+    res = find_preview_uuid(previews_db, id_local)
+    if res["status"] != "FOUND":
+        return {"status": res["status"], "id_local": id_local, "uuid": None}
         
+    uuid = res["uuid"]
     success = extract_root_pixel_jpeg(root_db, uuid, out_jpg)
     if not success:
         return {"status": "MISSING_JPEG_DATA", "id_local": id_local, "uuid": uuid}

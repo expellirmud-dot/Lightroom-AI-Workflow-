@@ -133,9 +133,9 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 
 | Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
 |---|---|---|---|---|---|---|---|
-| VLD-048 | 2026-07-28 | pytest WO-015 | pytest -q tests/test_cache_probe.py | 3 passed, 0 failed | src/lr_ai_exposure/cache_probe.py + tests/ | WO-015 | pending |
-| VLD-049 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-015 | pending |
-| VLD-050 | 2026-07-28 | E2E probe run | python scratch/run_probe.py | pass, jpeg written | Real Lightroom cache DBs | WO-015 | pending |
+| VLD-048 | 2026-07-28 | pytest WO-015 | pytest -q tests/test_cache_probe.py | 4 passed, 0 failed | src/lr_ai_exposure/cache_probe.py + tests/ | WO-015 | 52431b5 |
+| VLD-049 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-015 | 52431b5 |
+| VLD-050 | 2026-07-28 | E2E probe run | python scratch/run_remediation_probe.py | pass, jpeg written | Real Lightroom cache DBs | WO-015 | 52431b5 |
 
 ## Evidence Scope Definitions
 
