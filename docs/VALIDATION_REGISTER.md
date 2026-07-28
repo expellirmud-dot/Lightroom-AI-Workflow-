@@ -110,6 +110,13 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-042 | 2026-07-28 | pytest WO-010.2 | `pytest -q tests/test_image_triage.py tests/test_quality_safety.py` | 13 passed, 0 failed | src/lr_ai_exposure/ + tests/ | WO-010.2 | pending |
 | VLD-043 | 2026-07-28 | Syntax check | `compileall -q src` | pass | src/lr_ai_exposure/ | WO-010.2 | pending |
 
+### WO-010 (XMP Read and Backup) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-044 | 2026-07-28 | pytest WO-010 | pytest -q tests/test_xmp.py | 7 passed, 0 failed | src/lr_ai_exposure/xmp.py + tests/ | WO-010 | pending |
+| VLD-045 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-010 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

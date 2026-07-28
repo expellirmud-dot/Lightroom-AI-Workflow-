@@ -1,6 +1,6 @@
 # WO-010 — XMP Read and Backup
 
-STATUS: PLANNED
+STATUS: DONE
 
 ## Objective
 
@@ -14,8 +14,8 @@ Safely locate, parse, and back up XMP sidecars without modifying source XMP.
 
 | Capability | Before | Target After |
 |---|---|---|
-| XMP Exposure2012 read | NOT_STARTED | TESTED |
-| XMP backup | NOT_STARTED | TESTED |
+| XMP Exposure2012 read | NOT_STARTED | TESTED | (Done) |
+| XMP backup | NOT_STARTED | TESTED | (Done) |
 
 ## Scope
 
