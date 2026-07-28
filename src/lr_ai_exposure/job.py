@@ -56,6 +56,7 @@ class ManifestEntry:
     extraction_status: str = "PENDING"
     uuid: Optional[str] = None
     preview_bytes: int = 0
+    preview_sha256: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,11 @@ class Manifest:
 
     job_id: str
     entries: list[ManifestEntry] = field(default_factory=list)
+    total_selected: int = 0
+    total_found: int = 0
+    total_missing: int = 0
+    total_ambiguous: int = 0
+    total_failed: int = 0
 
 
 def create_job_directory(runtime_root: Path, job_id: Optional[str] = None) -> Path:
@@ -133,6 +139,8 @@ def validate_manifest_entries(
 
     seen_seq: set[int] = set()
     seen_ids: set[str] = set()
+    seen_previews: set[str] = set()
+    seen_raws: set[str] = set()
     expected_seq = 1
 
     for idx, entry in enumerate(entries):
@@ -158,6 +166,16 @@ def validate_manifest_entries(
         if entry.image_id in seen_ids:
             raise ManifestError(f"Duplicate image_id: {entry.image_id}")
         seen_ids.add(entry.image_id)
+        
+        # Duplicate preview_path
+        if entry.preview_path in seen_previews:
+            raise ManifestError(f"Duplicate preview_path: {entry.preview_path}")
+        seen_previews.add(entry.preview_path)
+        
+        # Duplicate raw_path
+        if entry.raw_path in seen_raws:
+            raise ManifestError(f"Duplicate raw_path: {entry.raw_path}")
+        seen_raws.add(entry.raw_path)
 
         # seq must be a positive integer and contiguous from 1
         if entry.seq < 1:
@@ -199,6 +217,11 @@ def write_manifest(job_dir: Path, manifest: Manifest) -> Path:
 
     payload = {
         "job_id": manifest.job_id,
+        "total_selected": manifest.total_selected,
+        "total_found": manifest.total_found,
+        "total_missing": manifest.total_missing,
+        "total_ambiguous": manifest.total_ambiguous,
+        "total_failed": manifest.total_failed,
         "entries": [
             {
                 "image_id": e.image_id,
@@ -209,16 +232,19 @@ def write_manifest(job_dir: Path, manifest: Manifest) -> Path:
                 "extraction_status": e.extraction_status,
                 "uuid": e.uuid,
                 "preview_bytes": e.preview_bytes,
+                "preview_sha256": e.preview_sha256,
             }
             for e in manifest.entries
         ],
     }
 
     manifest_path = job_dir / "manifest.json"
-    manifest_path.write_text(
+    temp_manifest_path = job_dir / "manifest.json.tmp"
+    temp_manifest_path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+    temp_manifest_path.replace(manifest_path)
     return manifest_path
 
 
@@ -265,13 +291,22 @@ def read_manifest(job_dir: Path) -> Manifest:
                     extraction_status=item.get("extraction_status", "PENDING"),
                     uuid=item.get("uuid"),
                     preview_bytes=int(item.get("preview_bytes", 0)),
+                    preview_sha256=item.get("preview_sha256"),
                 )
             )
         except (TypeError, ValueError) as exc:
             raise ManifestError(f"Entry {idx} has invalid field types: {exc}") from exc
 
     job_id = raw.get("job_id", job_dir.name)
-    manifest = Manifest(job_id=job_id, entries=entries)
+    manifest = Manifest(
+        job_id=job_id, 
+        entries=entries,
+        total_selected=raw.get("total_selected", 0),
+        total_found=raw.get("total_found", 0),
+        total_missing=raw.get("total_missing", 0),
+        total_ambiguous=raw.get("total_ambiguous", 0),
+        total_failed=raw.get("total_failed", 0),
+    )
     validate_manifest_entries(manifest.entries, job_dir)
     return manifest
 

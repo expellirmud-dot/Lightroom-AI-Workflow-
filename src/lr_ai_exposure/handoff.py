@@ -13,12 +13,22 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
     snapshots the cache, extracts the previews, and writes manifest.json.
     Returns the job_id.
     """
+    import hashlib
+    import shutil
+    
     runtime_path = Path(runtime_root)
     with open(selection_json_path, "r", encoding="utf-8") as f:
         selection = json.load(f)
         
     job_id = selection.get("job_id", f"job-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}")
     job_dir = create_job_directory(runtime_path, job_id)
+    
+    # Write selection atomically to job_dir
+    dest_selection = job_dir / "selection.json"
+    temp_selection = job_dir / "selection.json.tmp"
+    with open(temp_selection, "w", encoding="utf-8") as f:
+        json.dump(selection, f, indent=2, ensure_ascii=False)
+    temp_selection.replace(dest_selection)
     
     # Snapshot cache
     snapshot_dir = job_dir / "cache_snapshots"
@@ -32,6 +42,12 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
     
     # Build manifest entries
     entries = []
+    
+    total_found = 0
+    total_missing = 0
+    total_ambiguous = 0
+    total_failed = 0
+    
     for i, res in enumerate(results):
         src_path = identities[i].get("path", "")
         stem = os.path.splitext(os.path.basename(src_path))[0]
@@ -44,12 +60,27 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
         
         status = res["status"]
         preview_bytes = 0
+        preview_sha256 = None
         
         if status == "FOUND" and res.get("output") and os.path.exists(res.get("output", "")):
-            preview_bytes = os.path.getsize(res["output"])
+            out_path = res["output"]
+            preview_bytes = os.path.getsize(out_path)
+            
+            hasher = hashlib.sha256()
+            with open(out_path, "rb") as f:
+                hasher.update(f.read())
+            preview_sha256 = hasher.hexdigest()
+            
             # Ensure every FOUND preview path exists
             if not (job_dir / preview_path_rel).exists():
                 raise FileNotFoundError(f"Extracted preview missing at expected relative path: {preview_path_rel}")
+            total_found += 1
+        elif status == "MISSING":
+            total_missing += 1
+        elif status == "AMBIGUOUS":
+            total_ambiguous += 1
+        else:
+            total_failed += 1
             
         entry = ManifestEntry(
             image_id=str(identities[i].get("id_local", "")),
@@ -59,11 +90,20 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
             seq=i + 1,
             extraction_status=status,
             uuid=res.get("uuid"),
-            preview_bytes=preview_bytes
+            preview_bytes=preview_bytes,
+            preview_sha256=preview_sha256
         )
         entries.append(entry)
         
-    manifest = Manifest(job_id=job_id, entries=entries)
+    manifest = Manifest(
+        job_id=job_id, 
+        entries=entries,
+        total_selected=len(identities),
+        total_found=total_found,
+        total_missing=total_missing,
+        total_ambiguous=total_ambiguous,
+        total_failed=total_failed
+    )
     write_manifest(job_dir, manifest)
     
     return job_id
