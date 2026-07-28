@@ -55,3 +55,6 @@ Rules:
 | CAP-015 | Repository read-first preflight skill | TESTED | WO-004 | pending | pytest 18 passed (8 new + 10 existing) compileall check git diff --check pass | WO-005 integration |
 | CAP-018 | Preview validation | TESTED | WO-008 | pending | pytest 8 passed compileall check | WO-009 mock judge |
 | CAP-019 | Deterministic mock judge | TESTED | WO-009 | pending | pytest 15 passed compileall check | WO-010 integration |
+| CAP-031 | Dry-run orchestration | INTEGRATED | WO-012 | pending | pytest test_main.py | WO-013 |
+| CAP-032 | Result reporting | INTEGRATED | WO-012 | pending | pytest test_main.py | WO-013 |
+| CAP-033 | Cross-component error settlement | TESTED | WO-012 | pending | pytest test_main.py | WO-013 |

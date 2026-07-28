@@ -123,6 +123,12 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 |---|---|---|---|---|---|---|---|
 | VLD-046 | 2026-07-28 | pytest WO-011 | pytest -q tests/test_xmp.py | 12 passed, 0 failed | src/lr_ai_exposure/xmp.py + tests/ | WO-011 | pending |
 
+### WO-012 (End-to-End Dry-Run Integration) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-047 | 2026-07-28 | pytest WO-012 | pytest -q tests/test_main.py | 1 passed, 0 failed | src/lr_ai_exposure/main.py + tests/ | WO-012 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

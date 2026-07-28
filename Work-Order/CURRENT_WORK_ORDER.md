@@ -1,6 +1,6 @@
 # Current Work Order
 
-STATUS: NONE
+STATUS: DONE
 
 REPOSITORY_ROOT: `D:\ai-tools\lightroom-ai-exposure`
 
