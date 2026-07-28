@@ -76,6 +76,14 @@ A superseded document must identify its replacement.
 Historical and draft documents must not be used as current implementation
 authority.
 
+## New Canonical Documents (registered by WO-003)
+
+| Document | Authority / Purpose | Read When | Update Trigger |
+|---|---|---|---|
+| `docs/PROJECT_STATUS.md` | Current project phase, risks, and next seam | Setup or integration tasks | Phase change, risks updated, or next seam changes |
+| `docs/CAPABILITY_MATRIX.md` | Capability maturity register and status model | Architecture or capability work | Capability status changes |
+| `docs/VALIDATION_REGISTER.md` | Executed evidence and validation scope | Validation or closeout tasks | New validation executed |
+
 ## Closeout Checklist
 
 Before closing every Work Order:

@@ -337,3 +337,52 @@ Every final report must include:
 - `CURRENT_WORK_ORDER_STATUS`
 
 Do not claim documentation closeout without inspecting the actual files.
+
+## Project Traceability
+
+Every material Work Order must maintain traceability from project
+objective through capability, work order, files, validation, commit,
+and current status to the next required gate.
+
+### Before Implementation
+
+The coding agent must identify:
+
+1. Affected capability IDs from `docs/CAPABILITY_MATRIX.md`
+2. Current status of each affected capability
+3. Target status after this Work Order
+4. The exact evidence required for the target status
+5. Whether existing evidence already supports the target status
+
+### Before Closeout
+
+The coding agent must reconcile target versus actual status and update:
+
+1. `docs/CAPABILITY_MATRIX.md` — update affected capability rows
+2. `docs/VALIDATION_REGISTER.md` — add executed evidence rows
+3. `docs/PROJECT_STATUS.md` — update status table and known risks
+4. This section of `AGENTS.md` — record status-truth rules
+
+### Status-Truth Rules
+
+- A capability's status must never exceed what repository evidence
+  proves.
+- `TESTED` requires passing automated or bounded test evidence.
+- `INTEGRATED` requires successful cross-component workflow validation.
+- `LIVE_VERIFIED` requires representative use with Lightroom Classic
+  and real project data.
+- Code existence alone supports at most `IMPLEMENTED`.
+- Focused automated tests alone support at most `TESTED`.
+- Planned or expected work must not be recorded as completed work.
+- A status downgrade (e.g., `INTEGRATED` → `TESTED`) is allowed when
+  evidence shows the higher status is not yet justified.
+- Unknown or unverifiable status must be `NOT_STARTED`, not guessed.
+
+### Status-Truth Stop Conditions
+
+Stop closeout and report when:
+
+- A capability would need to be promoted beyond its evidence level.
+- The register contains invented validation evidence.
+- `CURRENT_WORK_ORDER.md` points to a completed Work Order after
+  closeout.

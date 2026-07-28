@@ -1,15 +1,10 @@
 # Current Work Order
 
-STATUS: ACTIVE
+STATUS: NONE
 
-WORK_ORDER: `Work-Order/WO-003-PROJECT-TRACEABILITY-REGISTERS.md`
+WORK_ORDER: NONE
 
-REPOSITORY_ROOT: `D:\ai-tools\lightroom-ai-exposure`
+LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-003-PROJECT-TRACEABILITY-REGISTERS.md`
 
-REMOTE: `https://github.com/expellirmud-dot/Lightroom-AI-Workflow-.git`
-
-Only the referenced Work Order is authorized.
-
-The coding worker may create exactly one validated commit for WO-003.
-
-It must not push or continue to another Work Order.
+No active Work Order. The repository is in a clean closeout state.
+The next recommended bounded seam is WO-004 — Lightroom plugin bridge and job directory runtime.

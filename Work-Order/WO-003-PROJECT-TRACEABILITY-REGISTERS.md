@@ -166,8 +166,7 @@ Each capability row must include:
 Initial status must be conservative and evidence-based. `CAP-001` may be
 recorded as `TESTED` based on WO-001 validation. `CAP-002` may be recorded as
 `TESTED` based on WO-002 documentation and clean Git validation. All other
-capabilities must remain `NOT_STARTED` or `DEFERRED` unless repository evidence
-proves otherwise. `CAP-014` is `DEFERRED` for MVP Round 2.
+capabilities must remain `NOT_STARTED`. `CAP-014` is `DEFERRED`.
 
 ### 3. `docs/VALIDATION_REGISTER.md`
 
@@ -227,7 +226,7 @@ Also add explicit status-truth rules from this Work Order.
 
 ### 5. Update `docs/INDEX.md`
 
-Register these maintained canonical documents:
+Register these new canonical documents:
 
 - `docs/PROJECT_STATUS.md`
 - `docs/CAPABILITY_MATRIX.md`
@@ -315,7 +314,7 @@ Perform targeted content checks proving:
 - `CURRENT_WORK_ORDER.md` is terminal and does not point to WO-002 or active
   WO-003 after closeout.
 
-Use PowerShell or a small read-only one-shot validation command. Do not add a
+Use a read-only one-shot validation command. Do not add a
 new permanent validation script in this Work Order.
 
 ## Commit Authorization
@@ -337,7 +336,7 @@ docs: add project traceability registers
 - Confirm `git status --short` is empty after commit.
 - Stop after the commit.
 
-## Documentation Closeout Requirements
+## Traceability and Closeout
 
 Required outcomes:
 
@@ -356,6 +355,7 @@ Knowledge captured must include:
 - Existing verified repository baseline
 - Difference between tested, integrated, and live-verified status
 - Required future closeout reconciliation
+- Linking of committed Work Orders to capabilities they delivered
 
 ## Stop Conditions
 
@@ -379,7 +379,9 @@ WORK_ORDER: WO-003-PROJECT-TRACEABILITY-REGISTERS
 STATUS: DONE | BLOCKED
 COMMIT_SHA: <sha or NONE>
 FILES_COMMITTED:
+- ...
 CAPABILITY_IMPACT:
+CAP-001 through CAP-014 status table
 VALIDATION:
 DOCUMENTATION_REVIEWED:
 DOCUMENTATION_UPDATED:
@@ -389,4 +391,13 @@ CURRENT_WORK_ORDER_STATUS:
 GIT_STATUS:
 REMAINING_RISKS:
 WORKER_DONE
+
+## Closeout
+
+- All required traceability documents created.
+- AGENTS.md Project Traceability section added.
+- docs/INDEX.md updated with new canonical documents.
+- docs/PROJECT_STATUS.md, docs/CAPABILITY_MATRIX.md, and docs/VALIDATION_REGISTER.md created.
+- Work-Order/CURRENT_WORK_ORDER.md reconciled to STATUS: NONE.
+- No code, test, or runtime file was changed.
 ```
