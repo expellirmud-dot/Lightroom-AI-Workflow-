@@ -1,10 +1,11 @@
 # Project Status
 
-LAST_UPDATED: 2026-07-28
-PROJECT_PHASE: Scaffold and documentation governance complete
+LAST_UPDATED: 2026-07-29
+PROJECT_PHASE: Reproducible CLI Certification Complete
 CURRENT_WORK_ORDER: NONE
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-011-EXPOSURE2012-SAFE-WRITE.md
-LATEST_COMMIT: pending
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-024-REPRODUCIBLE-CLI-CERTIFICATION.md
+LATEST_COMMIT: 2c324d1
+LAST_VERIFIED_EVIDENCE: Windows CI py312/py313 PASSED (GitHub Actions runs 30382636338 and 30384086375 on commits 17a82dd and e274c74)
 
 ## Project Objective
 
@@ -18,24 +19,20 @@ manually.
 
 | Status | Count | Capabilities |
 |---|---|---|
-| `TESTED` | 5 | CAP-001 (configuration foundation), CAP-002 (documentation governance), CAP-003 (job directory creation), CAP-004 (ordered image manifest), CAP-015 (preflight skill) |
-| `INTEGRATED` | 4 | CAP-005 (selected-photo retrieval), CAP-006 (rendered-preview export), CAP-016 (plug-in loading), CAP-017 (menu command registration) |
-| `NOT_STARTED` | 8 | CAP-007, CAP-008, CAP-009, CAP-010, CAP-011, CAP-012, CAP-013, CAP-018 |
+| `TESTED` | 20 | CAP-001..CAP-004, CAP-008..CAP-011, CAP-015, CAP-017..CAP-026, CAP-033 |
+| `INTEGRATED` | 4 | CAP-005, CAP-006, CAP-031, CAP-032 |
+| `NOT_STARTED` | 3 | CAP-007, CAP-012, CAP-013 |
 | `DEFERRED` | 1 | CAP-014 (automatic export) |
 
 ## Known Risks
 
-- No Lightroom integration has been implemented or tested with real
-  Lightroom Classic data.
+- REAL_XMP_APPLY_NOT_AUTHORIZED
+- No Lightroom integration has been implemented or tested with real Lightroom Classic data.
 - No Vision AI API integration has been implemented.
-- No XMP write path has been validated against real Lightroom catalogs
-  or XMP sidecars.
+- No live XMP write has been validated against real Lightroom catalogs or XMP sidecars.
 - No end-to-end workflow has been validated with the Lightroom plugin.
-- The checked-in `config/settings.json` references example paths that
-  are machine-specific.
+- The checked-in `config/settings.json` references example paths that are machine-specific.
 
 ## Next Recommended Bounded Seam
 
-WO-007 — Preview export and manifest handoff (extends RunExposureAssist.lua; INTEGRATED via contract test)
-WO-009 — AI Decision Contract and Mock Judge (Done)
-WO-010 — XMP Read and Backup (next bounded seam)
+WO-025 preparation only
