@@ -1,0 +1,16 @@
+[
+  {
+    "image_id": "IMG_001",
+    "subject_type": "person",
+    "subject_exposure": "SLIGHTLY_UNDEREXPOSED",
+    "background_exposure": "BALANCED",
+    "scene_intent": "outdoor_daylight",
+    "highlight_risk": "low",
+    "group_id": "group_1",
+    "reference_image_id": "IMG_001",
+    "recommended_delta_ev": 0.25,
+    "action": "APPLY",
+    "confidence": 0.9,
+    "reason": "Person is slightly underexposed despite balanced background."
+  }
+]

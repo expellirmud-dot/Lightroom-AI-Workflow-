@@ -29,10 +29,17 @@ The judge returns a JSON object with an `images` array. Each entry has exactly t
 ```json
 {
   "image_id": "PTO_3392",
-  "delta_ev": 0.35,
+  "subject_type": "person",
+  "subject_exposure": "SLIGHTLY_UNDEREXPOSED",
+  "background_exposure": "BALANCED",
+  "scene_intent": "outdoor_daylight",
+  "highlight_risk": "low",
+  "group_id": "group1",
+  "reference_image_id": "PTO_3392",
+  "recommended_delta_ev": 0.25,
+  "action": "APPLY",
   "confidence": 0.91,
-  "reject": false,
-  "reason": ""
+  "reason": "Slight underexposure of the main subject."
 }
 ```
 
@@ -41,29 +48,38 @@ The judge returns a JSON object with an `images` array. Each entry has exactly t
 | Field | Type | Required | Constraint |
 |-------|------|----------|------------|
 | `image_id` | `string` | Yes | Must match exactly one manifest `image_id`. No invented IDs. |
-| `delta_ev` | `number` | Yes | Numeric. Clamped to `[-maximum_delta_ev, +maximum_delta_ev]`. |
+| `subject_type` | `string` | Yes | Describes the main subject (e.g., person). |
+| `subject_exposure` | `string` | Yes | `ExposureClass` enum value. |
+| `background_exposure` | `string` | Yes | `ExposureClass` enum value. |
+| `scene_intent` | `string` | Yes | `SceneIntent` enum value. |
+| `highlight_risk` | `string` | Yes | `HighlightRisk` enum value (low, medium, high). |
+| `group_id` | `string` | Yes | Identifier for the visual batch grouping. |
+| `reference_image_id` | `string` | Yes | The reference frame ID for the group. |
+| `recommended_delta_ev` | `number` | Yes | Numeric. Clamped to `[-maximum_delta_ev, +maximum_delta_ev]`. |
+| `action` | `string` | Yes | `Action` enum value (APPLY, REVIEW, SKIP). |
 | `confidence` | `number` | Yes | Must be in `[0.0, 1.0]`. |
-| `reject` | `boolean` | Yes | `true` if the image should be suggested for rejection (blur, motion, tilt, irrelevant). |
-| `reason` | `string` | No | Human-readable explanation for reject or notable adjustments. Empty string if not rejecting. |
+| `reason` | `string` | Yes | Human-readable explanation for decisions or notable adjustments. |
 
 ### Mandatory Rules
 
 1. **Exactly one decision** for every manifest image — no omissions, no duplicates.
 2. `image_id` values must **match** manifest `image_id` values exactly. No invented IDs.
-3. `delta_ev` is the *suggested change* to exposure. Positive = brighter, negative = darker.
-4. `confidence` must be in the closed interval `[0.0, 1.0]`. Low-confidence decisions must not be applied automatically.
-5. `reject` is a suggestion only in MVP — the actual Lightroom reject action is manual.
-6. `reason` is mandatory when `reject` is `true`; empty string otherwise.
-7. The AI **never** writes files directly — the CLI validates and applies decisions.
+3. `recommended_delta_ev` is the *suggested change* to exposure. Positive = brighter, negative = darker.
+4. `confidence` must be in the closed interval `[0.0, 1.0]`. Low-confidence decisions (`< 0.8`) must downgrade to `REVIEW`.
+5. `action` specifies whether the change should be applied or reviewed. Reject/delete semantics belong to relevance triage, not exposure judgment.
+6. The AI **never** writes files directly — the CLI validates and applies decisions.
 
 ## Validation Rules Applied by CLI
 
 Before applying any decision, the CLI must:
 
-1. Reject any decision whose `delta_ev` is non-numeric.
-2. Reject any decision whose `confidence` is not in `[0.0, 1.0]`.
-3. Clamp `delta_ev` to `[-maximum_delta_ev, +maximum_delta_ev]`.
-4. Reject decisions with `confidence < minimum_apply_confidence` (apply as "skip" with reason).
-5. Reject duplicate or unknown `image_id` values.
-6. Reject any decision missing required fields.
-7. Log all rejected decisions in `result.json` with reasons.
+1. Reject any decision missing required fields.
+2. Reject invalid enum values.
+3. Reject any decision whose `recommended_delta_ev` or `confidence` is non-numeric or non-finite.
+4. Reject any decision whose `confidence` is not in `[0.0, 1.0]`.
+5. Clamp `recommended_delta_ev` to `[-maximum_delta_ev, +maximum_delta_ev]`.
+6. Downgrade `action` to `REVIEW` if `confidence < minimum_apply_confidence`.
+7. Downgrade `action` to `REVIEW` if `highlight_risk` is `high` and delta is positive.
+8. Check for large exposure jumps within groups and flag for review.
+9. Reject duplicate or unknown `image_id` values.
+10. Log all reviewed or rejected decisions in `result.json` with reasons.

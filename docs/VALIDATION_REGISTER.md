@@ -96,6 +96,13 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-038 | 2026-07-28 | pytest full suite | pytest -q | 68 passed (1 skip), 0 failed | src/ and tests/ | WO-009 | pending |
 | VLD-039 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-009 | pending |
 
+### WO-010.1 (Exposure Judgment) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-040 | 2026-07-28 | pytest WO-010.1 | pytest -q tests/test_exposure_judgment.py tests/test_batch_consistency.py | 15 passed, 0 failed | src/lr_ai_exposure/ + tests/ | WO-010.1 | pending |
+| VLD-041 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-010.1 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

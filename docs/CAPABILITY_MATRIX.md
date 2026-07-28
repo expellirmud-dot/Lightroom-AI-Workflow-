@@ -37,6 +37,10 @@ Rules:
 | CAP-005 | Lightroom selected-photo retrieval | INTEGRATED | WO-007 | pending | LrSelection via catalog:getTargetPhotos; WO-007 contract test | WO-008 judge integration |
 | CAP-006 | Lightroom rendered-preview export | INTEGRATED | WO-007 | pending | LrExportSession JPEG render; WO-007 contract test | WO-008 judge integration |
 | CAP-007 | Vision AI batch submission | NOT_STARTED | WO-008+ | — | — | AI judge reads previews |
+| CAP-020 | Subject-aware exposure judgment | TESTED | WO-010.1 | pending | pytest | WO-011 |
+| CAP-021 | Scene-intent classification | TESTED | WO-010.1 | pending | pytest | WO-011 |
+| CAP-022 | Batch grouping and reference-frame selection | TESTED | WO-010.1 | pending | pytest | WO-011 |
+| CAP-023 | Batch exposure consistency | TESTED | WO-010.1 | pending | pytest | WO-011 |
 | CAP-017 | Menu command registration | TESTED | WO-006 | pending | PluginInit.lua binds `AI Exposure Assist` under Plug-in Extras | WO-007 integration |
 | CAP-008 | AI decision schema validation | TESTED | WO-009 | pending | pytest 15 passed compileall check | WO-010 integration |
 | CAP-009 | Exposure delta limiting | TESTED | WO-009 | pending | pytest clamp_ev compileall check | WO-010 integration |
