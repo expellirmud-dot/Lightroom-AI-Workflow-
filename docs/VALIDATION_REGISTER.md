@@ -211,11 +211,23 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-078 | 2026-07-28 | Fail-closed rejection matrix | `pytest tests/test_manual_batch_provider.py` (missing/unknown/duplicate/malformed/missing-id/escape cases) | UNKNOWN_RESPONSES_0, MISSING_RESPONSES_0 enforced by preflight rejection; no partial artifacts | resolve_manual_response_map | WO-023 | pending |
 | VLD-079 | 2026-07-28 | Diff check | `git diff --check` | pass (CRLF warnings only) | All WO-023 allowed files | WO-023 | COMMIT: THIS_COMMIT |
 | VLD-080 | 2026-07-28 | Git scope | `git status --short` | only WO-023 allowed files | WO-023 file scope | WO-023 | COMMIT: THIS_COMMIT |
-| VLD-081 | 2026-07-29 | Synthetic fixtures | `pytest -q tests/` (fixtures) | 181 passed, 2 skipped | tests/fixtures/ + tests/integration/ | WO-024 | COMMIT: THIS_COMMIT |
-| VLD-082 | 2026-07-29 | CLI config smoke | `lr-ai-exposure --check-config` | exit 0, dry_run=true | Config validation | WO-024 | COMMIT: THIS_COMMIT |
-| VLD-083 | 2026-07-29 | ANALYZE_ONLY integration | `pytest -q tests/integration/` | 3 passed, 0 failed | ANALYZE_ONLY cannot reach apply; no XMP mutation | WO-024 | COMMIT: THIS_COMMIT |
-| VLD-084 | 2026-07-29 | Diff check | `git diff --check` | pass (CRLF warnings only) | All WO-024 allowed files | WO-024 | COMMIT: THIS_COMMIT |
-| VLD-085 | 2026-07-29 | Git scope | `git status --short` | only WO-024 allowed files | WO-024 file scope | WO-024 | COMMIT: THIS_COMMIT |
+
+### WO-024 (Reproducible CLI Certification) — status: BLOCKED_PENDING_CI
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-081 | 2026-07-29 | Synthetic fixtures | `pytest -q tests/` (fixtures) | 181 passed, 2 skipped | tests/fixtures/ + tests/integration/ | WO-024 | 17a82dd |
+| VLD-082 | 2026-07-29 | CLI config smoke | `lr-ai-exposure --check-config` | exit 0, dry_run=true | Config validation | WO-024 | 17a82dd |
+| VLD-083 | 2026-07-29 | ANALYZE_ONLY integration | `pytest -q tests/integration/` | 3 passed, 0 failed | ANALYZE_ONLY cannot reach apply; no XMP mutation | WO-024 | 17a82dd |
+| VLD-084 | 2026-07-29 | Diff check | `git diff --check` | pass (CRLF warnings only) | All WO-024 allowed files | WO-024 | 17a82dd |
+| VLD-085 | 2026-07-29 | Git scope | `git status --short` | only WO-024 allowed files | WO-024 file scope | WO-024 | 17a82dd |
+| VLD-086 | 2026-07-29 | Windows CI py312 | GitHub Actions matrix `python-version: "3.12"` | NOT_RUN — workflow defined, not yet executed on Actions | .github/workflows/ci.yml | WO-024 | PENDING |
+| VLD-087 | 2026-07-29 | Windows CI py313 | GitHub Actions matrix `python-version: "3.13"` | NOT_RUN — workflow defined, not yet executed on Actions | .github/workflows/ci.yml | WO-024 | PENDING |
+
+WO-024 closure markers `WINDOWS_PY312_CI_PASSED` and `WINDOWS_PY313_CI_PASSED`
+remain `NOT_RUN`. Do not promote WO-024 to COMPLETED until VLD-086 and VLD-087
+report verified successful GitHub Actions runs. Local (non-CI) evidence above is
+truthful and re-verified on 2026-07-29.
 
 ## Evidence Scope Definitions
 

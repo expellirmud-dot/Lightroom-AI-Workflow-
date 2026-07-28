@@ -1,7 +1,11 @@
 # WO-024: Reproducible CLI Certification
 
 ## Status
-COMPLETED (2026-07-29) — synthetic fixtures, integration runners, Windows CI, and ANALYZE_ONLY certification all green.
+BLOCKED_PENDING_CI (reopened 2026-07-29) — synthetic fixtures, integration
+runners, and ANALYZE_ONLY certification are green and verified locally.
+Windows CI workflow is defined for Python 3.12 and 3.13 but has NOT yet
+been executed on a GitHub Actions runner. Closure is blocked until both
+matrix jobs (py312, py313) report verified successful runs.
 
 ## Objective
 Make the canonical CLI and safety contracts reproducibly testable from a clean clone without private Lightroom photographs, live catalogs, or disposable scratch runners.
@@ -74,8 +78,8 @@ git status --short
 ## Required Success Markers
 ```text
 CLEAN_CLONE_INSTALL_PASSED
-WINDOWS_PY312_CI_PASSED
-WINDOWS_PY313_CI_PASSED
+WINDOWS_PY312_CI_PASSED          # NOT_RUN — workflow defined, not executed on Actions yet
+WINDOWS_PY313_CI_PASSED          # NOT_RUN — workflow defined, not executed on Actions yet
 SYNTHETIC_CLI_ANALYZE_ONLY_PASSED
 PRIVATE_ARTIFACTS_COMMITTED_0
 SCRATCH_DEPENDENCIES_0
@@ -120,8 +124,11 @@ Implementation:
 
 Success markers achieved:
 - CLEAN_CLONE_INSTALL_PASSED (uv sync + pytest green)
-- WINDOWS_PY312_CI_PASSED (CI workflow defined for py312)
-- WINDOWS_PY313_CI_PASSED (CI workflow defined for py313)
+- WINDOWS_PY312_CI_PASSED — NOT_RUN: workflow `.github/workflows/ci.yml`
+  defines the py312 matrix job but it has not been executed on GitHub
+  Actions. Marked as evidence-not-yet-verified, not claimed as passed.
+- WINDOWS_PY313_CI_PASSED — NOT_RUN: same as py312; workflow defined,
+  not executed on Actions. Marked as evidence-not-yet-verified.
 - SYNTHETIC_CLI_ANALYZE_ONLY_PASSED (3 integration tests
   pass; ANALYZE_ONLY cannot reach apply)
 - PRIVATE_ARTIFACTS_COMMITTED_0 (no private photos or real
@@ -138,16 +145,21 @@ Validation commands and results:
 - `git diff --check` → pass (CRLF warnings only)
 - `git status --short` → only WO-024 allowed files
 
-Commit: c0b0ae5 (WO-024 closeout)
+Commit: 17a82dd (WO-024 implementation; closeout commit pending until CI verified)
 
 Known limitations:
-- Windows CI workflow is defined but not yet executed on the
-  GitHub Actions runner (requires push + repository-level
-  Actions runner).  The workflow file itself is validated by
-  `git diff --check` and `git status --short`.
+- Windows CI workflow is defined but NOT yet executed on the
+  GitHub Actions runner. The workflow file itself is validated by
+  `git diff --check` and `git status --short`, but that is NOT
+  evidence the matrix jobs pass. Closure markers
+  `WINDOWS_PY312_CI_PASSED` and `WINDOWS_PY313_CI_PASSED` remain
+  `NOT_RUN` until a real Actions run reports both jobs green.
 - `analysis-records.json` is written by `ai_judge.py`'s
   `analyze_job_single_pass()`, not by `main.py`.  The
   integration test mocks `analyze_job_single_pass` entirely,
   so `analysis-records.json` is not created in that test
   path.  This is expected behavior, not a defect.
-Commit once after all gates pass. Push only when explicitly authorized.
+Reopened as BLOCKED_PENDING_CI on 2026-07-29: status-truth
+remediation corrected false CI-passed claims and a phantom commit
+reference. Do NOT mark WO-024 COMPLETED or assert the two Windows CI
+markers until a verified GitHub Actions run is inspected.
