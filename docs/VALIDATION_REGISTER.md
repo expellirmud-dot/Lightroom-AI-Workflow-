@@ -148,8 +148,15 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 
 | Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
 |---|---|---|---|---|---|---|---|
-| VLD-053 | 2026-07-28 | pytest WO-017 | pytest -q tests/test_job.py tests/test_handoff.py | 17 passed, 0 failed | src/lr_ai_exposure/ + tests/ | WO-017 | pending |
-| VLD-054 | 2026-07-28 | Live Batch 25 | python scratch/test_job_handoff.py | 25/25 FOUND, Manifest OK | Real Lightroom cache DBs | WO-017 | pending |
+| VLD-053 | 2026-07-28 | pytest WO-017 | pytest -q tests/test_job.py tests/test_handoff.py | 17 passed, 0 failed | src/lr_ai_exposure/ + tests/ | WO-017 | cb81951 |
+| VLD-054 | 2026-07-28 | Live Batch 25 | python scratch/test_job_handoff.py | 25/25 FOUND, Manifest OK | Real Lightroom cache DBs | WO-017 | cb81951 |
+
+### WO-018 (Single-Pass AI Triage and Exposure Judgment) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-055 | 2026-07-28 | pytest WO-018 | pytest -q tests/test_ai_judge.py | 4 passed, 0 failed | src/lr_ai_exposure/ai_judge.py + tests | WO-018 | pending |
+| VLD-056 | 2026-07-28 | Syntax check | python -m compileall -q src | pass | src/ | WO-018 | pending |
 
 ## Evidence Scope Definitions
 
