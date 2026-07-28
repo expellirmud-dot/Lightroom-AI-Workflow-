@@ -47,4 +47,5 @@ git status --short
 ```
 
 ## Status
-BLOCKED_BY_WO_018
+CLOSED
+
