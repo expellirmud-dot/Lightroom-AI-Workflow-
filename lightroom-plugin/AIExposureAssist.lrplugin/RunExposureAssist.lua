@@ -9,7 +9,7 @@ local LrDialogs = import "LrDialogs"
 local LrPathUtils = import "LrPathUtils"
 local LrFileUtils = import "LrFileUtils"
 local LrTasks = import "LrTasks"
-local LrJson = import "LrJson"
+local Json = require "Json"
 local LrProgressScope = import "LrProgressScope"
 
 local RunExposureAssist = {}
@@ -95,12 +95,7 @@ function RunExposureAssist.run()
             jobData.requested_mode = "ANALYZE_ONLY"
         end
         
-        local json = ""
-        if LrJson and LrJson.encode then
-            json = LrJson.encode(jobData)
-        else
-            error("LrJson not found. Cannot encode JSON securely.")
-        end
+        local json = Json.encode(jobData)
         
         local selectionPath = LrPathUtils.child(stagingDir, "selection.json")
         local ok, fileErr = LrFileUtils.writeFile(selectionPath, json)
@@ -152,7 +147,7 @@ function RunExposureAssist.run()
         end
         
         local evidenceContent = LrFileUtils.readFile(evidencePath)
-        local evidencePayload = LrJson.decode(evidenceContent)
+        local evidencePayload = Json.decode(evidenceContent)
         
         if not evidencePayload then
             error("Failed to parse evidence artifact")
