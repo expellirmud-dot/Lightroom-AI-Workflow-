@@ -1,19 +1,30 @@
 --[[
 AI Exposure Assist — Lightroom Classic plug-in metadata.
 
-WO-006 skeleton only. This file declares valid Lightroom SDK plug-in
-metadata. It performs no Python execution, preview export, AI logic,
-catalog mutation, or XMP writes.
+This file follows the Lightroom Classic SDK Info.lua contract. The menu item
+is declared here so Lightroom can load and expose the command without relying
+on runtime menu registration.
 ]]
 
 return {
-    LrPluginInfo = {
-        AUTHOR = { "AI Exposure Assist Project" },
-        VERSION = { 1, 0, 0 },
-        CONTACT = { "noreply@example.com" },
-        URL = { "https://github.com/expellirmud-dot/Lightroom-AI-Workflow-" },
+    LrSdkVersion = 10.0,
+    LrSdkMinimumVersion = 6.0,
+
+    LrToolkitIdentifier = "com.expellirmud.aiExposureAssist",
+    LrPluginName = "AI Exposure Assist",
+
+    LrLibraryMenuItems = {
+        {
+            title = "AI Exposure Assist",
+            file = "RunExposureAssist.lua",
+            enabledWhen = "photosSelected",
+        },
     },
-    LrPluginInit = {
-        init = "PluginInit.lua",
+
+    VERSION = {
+        major = 1,
+        minor = 0,
+        revision = 0,
+        build = 1,
     },
 }
