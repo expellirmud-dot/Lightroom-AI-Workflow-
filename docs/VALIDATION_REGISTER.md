@@ -137,6 +137,13 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-049 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-015 | 52431b5 |
 | VLD-050 | 2026-07-28 | E2E probe run | python scratch/run_remediation_probe.py | pass, jpeg written | Real Lightroom cache DBs | WO-015 | 52431b5 |
 
+### WO-016 (Read-Only Cache Preview Extractor) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-051 | 2026-07-28 | pytest WO-016 | pytest -q tests/test_cache_extractor.py | 2 passed, 0 failed | src/lr_ai_exposure/cache_extractor.py + tests/ | WO-016 | pending |
+| VLD-052 | 2026-07-28 | Live Batch 10 | python scratch/test_batch_extract.py | 10/10 FOUND, JPEGs saved | Real Lightroom cache DBs | WO-016 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated
