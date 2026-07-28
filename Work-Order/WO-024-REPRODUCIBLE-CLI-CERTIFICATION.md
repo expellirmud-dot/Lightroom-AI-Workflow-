@@ -164,7 +164,7 @@ Known limitations:
   Run URL: https://github.com/expellirmud-dot/Lightroom-AI-Workflow-/actions/runs/30384086375
 - Python versions tested: 3.12, 3.13 (windows-latest runner)
 - Exact conclusions: `test-windows (3.12)`=success, `test-windows (3.13)`=success (both runs)
-- Final closeout commit SHA: <set after this record is committed>
+- Final closeout commit SHA: 3d42b3e (docs closeout after CI verification)
 - Both `WINDOWS_PY312_CI_PASSED` and `WINDOWS_PY313_CI_PASSED` verified by
   inspected GitHub Actions run results, not by workflow-file existence.
 - Reopened as BLOCKED_PENDING_CI on 2026-07-29 for status-truth remediation,
