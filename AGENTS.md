@@ -1,0 +1,162 @@
+# AGENTS.md
+
+## Project Mission
+
+Build a Windows-first Lightroom Classic exposure assistant.
+
+The user opens a Lightroom folder, selects the intended photos, and runs
+AI Exposure Assist. The system renders Lightroom previews, asks a vision
+model to judge exposure consistency, writes approved exposure changes to
+XMP sidecars, and returns a result report.
+
+The MVP adjusts exposure only.
+
+## Required Read Order
+
+Before changing any file, read these files in order:
+
+1. `AGENTS.md`
+2. `docs/ARCHITECTURE.md`
+3. `docs/XMP_SAFETY.md`
+4. `docs/AI_JUDGE_CONTRACT.md`
+5. `work-orders/CURRENT_WORK_ORDER.md`
+6. The active work order referenced by `CURRENT_WORK_ORDER.md`
+
+Do not begin implementation until the active work order is identified.
+
+## Sources of Authority
+
+Authority order:
+
+1. Active Work Order
+2. `AGENTS.md`
+3. `docs/XMP_SAFETY.md`
+4. `docs/ARCHITECTURE.md`
+5. Existing tests
+6. Existing implementation
+7. README
+
+When authorities conflict, stop and report the conflict.
+
+## MVP Workflow
+
+The canonical workflow is:
+
+1. User opens the intended Lightroom Classic folder.
+2. User selects the intended photos.
+3. Lightroom plug-in renders JPEG previews.
+4. Plug-in writes an ordered manifest.
+5. Python CLI validates the job.
+6. Vision AI returns one decision per image.
+7. Python validates and clamps decisions.
+8. Existing XMP files are backed up.
+9. Only `crs:Exposure2012` may be changed.
+10. A result report is written.
+11. User reads metadata back into Lightroom.
+12. User reviews, rejects unwanted photos, and exports manually.
+
+## Non-Negotiable Boundaries
+
+- Do not edit RAW, NEF, JPEG originals, or Lightroom Catalog files.
+- Do not read or write `.lrcat`, `.lrcat-wal`, `.lrcat-shm`, or `.lrdata`
+  directly in the MVP.
+- Do not modify EXIF camera-capture fields.
+- Do not modify White Balance, Contrast, Highlights, Shadows, Crop,
+  Masks, Keywords, Rating, Label, Sharpening, or Noise Reduction.
+- The only editable Lightroom development property is
+  `crs:Exposure2012`.
+- Back up every affected XMP before any real write.
+- Default execution mode is `dry_run`.
+- Never delete or move user photographs.
+- Reject decisions are suggestions only in the MVP.
+- Do not automate final export in the MVP.
+- Never store API keys or secrets in tracked files.
+
+## XMP Rules
+
+- Treat `crs:Exposure2012` as an EV value.
+- New exposure equals existing exposure plus validated AI delta.
+- Preserve all unrelated XML elements, attributes, namespaces,
+  whitespace where practical, and file encoding.
+- Write through a temporary file and replace atomically.
+- A failed write must leave the original XMP intact.
+- Missing, malformed, or ambiguous XMP must stop that image and create
+  a review result. Do not guess.
+
+## AI Decision Rules
+
+- Produce exactly one decision for every manifest image.
+- Never invent filenames or file paths.
+- Preserve manifest order.
+- `delta_ev` must be numeric.
+- Clamp `delta_ev` to the configured maximum.
+- Low-confidence decisions must not be applied automatically.
+- AI output is untrusted input and must be schema validated.
+- The AI never writes files directly.
+
+## Engineering Rules
+
+- Work on one bounded Work Order at a time.
+- Make the smallest safe change satisfying the Work Order.
+- Do not redesign architecture unless explicitly required.
+- Do not add frameworks without a demonstrated need.
+- Prefer the Python standard library when practical.
+- Add or update tests for every behavior change.
+- Do not use broad staging commands such as `git add .`.
+- Do not commit secrets, runtime jobs, previews, logs, or XMP backups.
+- Do not commit unless the active Work Order explicitly authorizes it.
+
+## Required Preflight
+
+Before editing, report internally:
+
+- Active Work Order
+- Allowed files
+- Forbidden files
+- Expected behavior change
+- Required validation
+- Current Git status
+- Dry-run or real-write mode
+
+Unexpected dirty files are a stop condition.
+
+## Stop Conditions
+
+Stop without broad cleanup when:
+
+- No active Work Order exists.
+- Work Order scope is ambiguous.
+- Git contains unexpected changes.
+- Lightroom SDK behavior required by the task is unverified.
+- The implementation would need direct Catalog or Preview-cache access.
+- An XMP file cannot be parsed safely.
+- Backup creation fails.
+- AI output does not match the required schema.
+- Tests fail outside the bounded change.
+- A destructive action would be required.
+- Credentials or real API charges require owner authorization.
+
+## Completion Gate
+
+A task is complete only when:
+
+- Acceptance criteria are satisfied.
+- Relevant tests pass.
+- Dry-run evidence is produced where applicable.
+- No forbidden file was changed.
+- Git diff contains only task files.
+- Remaining risks are reported.
+- The active Work Order is updated truthfully.
+
+## Final Report Format
+
+Report only:
+
+- Work Order
+- Files changed
+- Behavior implemented
+- Validation performed
+- Test result
+- Remaining risks or stop condition
+
+Do not claim success without evidence.
