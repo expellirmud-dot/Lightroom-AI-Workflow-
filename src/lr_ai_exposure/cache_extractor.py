@@ -2,25 +2,16 @@
 import os
 import shutil
 import sqlite3
-import urllib.parse
 from pathlib import Path
 from typing import List, Dict, Any
 
 from lr_ai_exposure.cache_probe import find_preview_uuid, extract_root_pixel_jpeg
-
-
-def _safe_sqlite_uri(path: str) -> str:
-    """Normalize SQLite URI safely for Windows, spaces, #, %."""
-    p = Path(path).resolve()
-    # url2pathname / pathname2url etc.
-    # sqlite3 requires file:///C:/path/to/db.sqlite on Windows
-    url = urllib.parse.quote(p.as_posix(), safe=":/")
-    return f"file:///{url}" if os.name == 'nt' else f"file:{url}"
+from lr_ai_exposure.db_uri import safe_sqlite_uri
 
 
 def _validate_sqlite_db(path: str) -> bool:
     """Run PRAGMA quick_check."""
-    uri = _safe_sqlite_uri(path) + "?mode=ro"
+    uri = safe_sqlite_uri(path) + "?mode=ro"
     try:
         db = sqlite3.connect(uri, uri=True)
         cursor = db.execute("PRAGMA quick_check;")
@@ -52,7 +43,7 @@ def snapshot_cache_dbs(lrdata_dir: str, snapshot_dir: str) -> tuple[str, str]:
     
     try:
         # Safely backup previews.db
-        src_conn = sqlite3.connect(_safe_sqlite_uri(previews_src) + "?mode=ro", uri=True)
+        src_conn = sqlite3.connect(safe_sqlite_uri(previews_src) + "?mode=ro", uri=True)
         dst_conn = sqlite3.connect(previews_temp)
         with dst_conn:
             src_conn.backup(dst_conn)
@@ -60,7 +51,7 @@ def snapshot_cache_dbs(lrdata_dir: str, snapshot_dir: str) -> tuple[str, str]:
         dst_conn.close()
         
         # Safely backup root-pixels.db
-        src_conn = sqlite3.connect(_safe_sqlite_uri(root_src) + "?mode=ro", uri=True)
+        src_conn = sqlite3.connect(safe_sqlite_uri(root_src) + "?mode=ro", uri=True)
         dst_conn = sqlite3.connect(root_temp)
         with dst_conn:
             src_conn.backup(dst_conn)

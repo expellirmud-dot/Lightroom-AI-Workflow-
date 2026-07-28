@@ -1,6 +1,9 @@
 import sqlite3
 import os
 
+from lr_ai_exposure.db_uri import safe_sqlite_uri
+
+
 def find_preview_uuid(previews_db_path: str, id_local: int | float | str) -> dict:
     """
     Find the preview UUID for a given Lightroom id_local using ImageCacheEntry.
@@ -8,7 +11,7 @@ def find_preview_uuid(previews_db_path: str, id_local: int | float | str) -> dic
     Returns: {"status": "FOUND"|"MISSING"|"AMBIGUOUS"|"DB_ERROR", "uuid": str|None}
     """
     try:
-        db = sqlite3.connect(f"file:{previews_db_path}?mode=ro", uri=True)
+        db = sqlite3.connect(safe_sqlite_uri(previews_db_path) + "?mode=ro", uri=True)
     except Exception:
         return {"status": "DB_ERROR", "uuid": None}
         
@@ -17,10 +20,36 @@ def find_preview_uuid(previews_db_path: str, id_local: int | float | str) -> dic
         id_local_str = str(id_local).strip()
         if id_local_str.endswith('.0'):
             id_local_str = id_local_str[:-2]
-            
-        # Enforce exact cardinality with DISTINCT
-        cursor = db.execute("SELECT DISTINCT uuid FROM ImageCacheEntry WHERE imageId = ?;", (id_local_str,))
-        rows = cursor.fetchall()
+
+        # Enforce exact cardinality with DISTINCT.
+        # The cache stores imageId with NUMERIC affinity (a REAL such as
+        # 3084000.0), so a text comparison '3084000.0' = ? misses.
+        # Try BOTH the numeric form and the text form to be robust.
+        numeric_cands: list[Any] = []
+        try:
+            if '.' in id_local_str:
+                numeric_cands.append(float(id_local_str))
+            else:
+                numeric_cands.append(int(id_local_str))
+        except (TypeError, ValueError):
+            pass
+        text_cands = [id_local_str, id_local_str + '.0', str(id_local).strip()]
+
+        rows: list[tuple[Any, ...]] = []
+        for cand in numeric_cands + text_cands:  # type: ignore[operator]
+            cursor = db.execute(
+                "SELECT DISTINCT uuid FROM ImageCacheEntry WHERE imageId = ?;",
+                (cand,),
+            )
+            rows.extend(cursor.fetchall())
+        # De-duplicate while preserving order.
+        seen: set[str] = set()
+        unique_rows = []
+        for r in rows:
+            if r[0] not in seen:
+                seen.add(r[0])
+                unique_rows.append(r)
+        rows = unique_rows
         
         count = len(rows)
         if count == 0:
@@ -38,7 +67,7 @@ def extract_root_pixel_jpeg(root_pixels_db_path: str, preview_uuid: str, output_
     """
     Extract the jpegData for a given preview UUID from RootPixels.
     """
-    db = sqlite3.connect(f"file:{root_pixels_db_path}?mode=ro", uri=True)
+    db = sqlite3.connect(safe_sqlite_uri(root_pixels_db_path) + "?mode=ro", uri=True)
     try:
         cursor = db.execute("SELECT jpegData FROM RootPixels WHERE uuid = ?;", (preview_uuid,))
         row = cursor.fetchone()

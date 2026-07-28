@@ -73,35 +73,52 @@ def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str,
     """
     provider_name = config.get("ai_provider", "google")
     model_name = config.get("ai_model", "gemini-2.5-pro")
-    
+
     if provider_name == "google":
         from lr_ai_exposure.providers.google_vision import analyze_single_image_google
+    elif provider_name == "manual_app":
+        from lr_ai_exposure.providers.manual_app import (
+            analyze_single_image_manual_app,
+        )
     else:
         raise SinglePassError(f"Unknown ai_provider: {provider_name}")
-        
+
+    # Manual provider requires a response-file path (canonical JSON).
+    response_file = config.get("manual_response_file")
+
     decisions = []
-    
+
     for entry in manifest.entries:
         if entry.extraction_status != "FOUND":
             continue
-            
+
         preview_full_path = job_dir / entry.preview_path
-        
+
         # Verify job-root containment
         try:
             preview_full_path.resolve().relative_to(job_dir.resolve())
         except ValueError:
             raise SinglePassError(f"Preview path escapes job directory: {preview_full_path}")
-            
+
         try:
             if provider_name == "google":
                 decision, metadata = analyze_single_image_google(
-                    entry=entry, 
-                    preview_full_path=preview_full_path, 
-                    model_name=model_name
+                    entry=entry,
+                    preview_full_path=preview_full_path,
+                    model_name=model_name,
+                )
+            else:  # manual_app
+                if not response_file:
+                    raise SinglePassError(
+                        "manual_app provider requires 'manual_response_file' in config"
+                    )
+                decision, metadata = analyze_single_image_manual_app(
+                    entry=entry,
+                    preview_full_path=preview_full_path,
+                    response_file=Path(response_file),
                 )
             decisions.append(decision)
         except Exception as e:
             raise SinglePassError(f"Failed to analyze {entry.image_id}: {e}") from e
-            
+
     return decisions

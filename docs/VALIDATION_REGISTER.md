@@ -177,10 +177,16 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 
 | Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
 |---|---|---|---|---|---|---|---|
-| VLD-061 | 2026-07-28 | pytest WO-021 | `pytest -q tests/` | 138 passed, 2 skipped | src/lr_ai_exposure/providers/ + tests | WO-021 | 87fd11d |
-| VLD-062 | 2026-07-28 | Live Google API | `python scratch/run_live_cert.py` | LIVE_VISION_REQUEST_ATTEMPTED, QUOTA_EXHAUSTED | Google Vision Provider | WO-021 | 87fd11d |
-| VLD-063 | 2026-07-28 | Manual Provider | `python scratch/run_manual_cert.py` | JPEG_IDENTITY_VERIFIED, CANONICAL_LIGHTROOM_IDENTITY_RECONCILED, MANUAL_DECISION_SCHEMA_VALID, NO_XMP_MUTATION | NON_REPRODUCIBLE_LOCAL_EVIDENCE | WO-021 | 87fd11d |
+| VLD-061 | 2026-07-28 | pytest WO-021 | `pytest -q tests/` | 138 passed, 2 skipped | src/lr_ai_exposure/providers/ + tests | WO-021 | 70529ca |
+| VLD-062 | 2026-07-28 | Live Google API | `python scratch/run_live_cert.py` | LIVE_VISION_REQUEST_ATTEMPTED, QUOTA_EXHAUSTED | Google Vision Provider | WO-021 | 70529ca |
+| VLD-063 | 2026-07-28 | Manual Provider | `python scratch/run_manual_cert.py` | JPEG_IDENTITY_VERIFIED, CANONICAL_LIGHTROOM_IDENTITY_RECONCILED, MANUAL_DECISION_SCHEMA_VALID, NO_XMP_MUTATION | NON_REPRODUCIBLE_LOCAL_EVIDENCE | WO-021 | 70529ca |
 
+
+| VLD-064 | 2026-07-28 | WO-020 cache-probe regression | `uv run pytest -q tests/test_cache_probe_bounded.py` | 8 passed | tests/test_cache_probe_bounded.py (tmp_path only) | WO-020 | 70529ca |
+| VLD-065 | 2026-07-28 | WO-020 full suite | `env -u PYTHONPATH -u PYTHONHOME uv run pytest -q tests/` | TESTS_EXIT=0 (clean) | tests/ | WO-020 | 70529ca |
+| VLD-066 | 2026-07-28 | WO-020 canonical extraction | `uv run python scratch/prepare_wo020_canonical.py` | CANONICAL_IMAGES=5; 5 UUIDs, 5 byte counts, 5 SHA-256 | scratch/wo020_canonical_identity.json | WO-020 | 70529ca |
+| VLD-067 | 2026-07-28 | WO-020 pilot run | `uv run python scratch/run_wo020_pilot.py` | MANUAL_RESPONSES=5, VALIDATED_DECISIONS=5, ai-decisions.json written | scratch/wo020_job/ai-decisions.json | WO-020 | 70529ca |
+| VLD-068 | 2026-07-28 | WO-020 ANALYZE_ONLY guard | manual inspection of ai-decisions.json | apply_authorized=False, xmp_mutation=False, no apply_exposure_deltas | scratch/wo020_job/ai-decisions.json | WO-020 | 70529ca |
 
 ## Evidence Scope Definitions
 

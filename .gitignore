@@ -20,6 +20,9 @@ runtime/
 logs/
 temp/
 
+# Disposable scratch artifacts (pilot cert scripts + throwaway outputs)
+scratch/
+
 # OS files
 .DS_Store
 Thumbs.db
