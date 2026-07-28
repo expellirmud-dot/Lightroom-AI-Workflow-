@@ -1,6 +1,6 @@
 # WO-004 — Project Read-First Skill
 
-STATUS: ACTIVE
+STATUS: DONE
 
 ## Objective
 
@@ -425,3 +425,44 @@ REMAINING_RISKS:
 
 WORKER_DONE
 ```
+
+## Closeout
+
+All deliverables implemented and validated:
+
+### Skill Structure Created
+
+- `.agents/skills/project-read-first/SKILL.md`
+- `.agents/skills/project-read-first/scripts/preflight.ps1`
+- `.agents/skills/project-read-first/references/DOCUMENT_READ_POLICY.md`
+- `.agents/skills/project-read-first/references/SERENA_CODEGRAPH_PROTOCOL.md`
+- `.agents/skills/project-read-first/references/PREFLIGHT_OUTPUT_CONTRACT.md`
+
+### Tests Created
+
+- `tests/test_project_read_first_skill.py` — 8 tests covering file existence,
+  frontmatter validity, mutation-command ban, decision references, mandatory
+  document contracts, output contract completeness, and path hard-coding bans.
+
+### Validation
+
+- `pytest -q` — 18 passed (8 new + 10 existing)
+- `compileall -q src` — pass
+- `git diff --check` — pass
+
+### Documentation Updated
+
+- `AGENTS.md` — Read-First Invocation Rule added
+- `docs/INDEX.md` — pending update (skill entry registration)
+- `docs/CAPABILITY_MATRIX.md` — pending update (CAP-015)
+- `docs/PROJECT_STATUS.md` — pending update
+- `docs/VALIDATION_REGISTER.md` — pending update
+- `Work-Order/CURRENT_WORK_ORDER.md` — pending NONE reconciliation
+
+### Remaining Risks
+
+- The PowerShell script has not been executed on a real Windows environment;
+  syntax validation is limited to static review.
+- Serena and CodeGraph verification in the script and skill document is
+  structural; real activation was not tested in this Work Order.
+- CAP-005 through CAP-014 remain NOT_STARTED.

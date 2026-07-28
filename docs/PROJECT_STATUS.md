@@ -3,8 +3,8 @@
 LAST_UPDATED: 2026-07-28
 PROJECT_PHASE: Scaffold and documentation governance complete
 CURRENT_WORK_ORDER: None (all authorized Work Orders completed)
-LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-003-PROJECT-TRACEABILITY-REGISTERS.md`
-LATEST_COMMIT: 78b54ff
+LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-004-PROJECT-READ-FIRST-SKILL.md`
+LATEST_COMMIT: pending
 
 ## Project Objective
 
@@ -18,8 +18,8 @@ manually.
 
 | Status | Count | Capabilities |
 |---|---|---|
-| `TESTED` | 2 | CAP-001 (configuration foundation), CAP-002 (documentation governance) |
-| `NOT_STARTED` | 12 | CAP-003 through CAP-013 |
+| `TESTED` | 3 | CAP-001 (configuration foundation), CAP-002 (documentation governance), CAP-015 (read-first preflight skill) |
+| `NOT_STARTED` | 11 | CAP-003 through CAP-013 |
 | `DEFERRED` | 1 | CAP-014 (automatic export) |
 
 ## Known Risks
@@ -35,6 +35,6 @@ manually.
 
 ## Next Recommended Bounded Seam
 
-WO-004 — Lightroom plugin bridge and job directory runtime
-(scoping preview export, manifest generation, and clipboard/pipe
-handoff between plugin and CLI).
+WO-005 — AI exposure judgment — the first implementation seam
+(Lightroom preview pipeline to Vision API decision and schema
+validation).

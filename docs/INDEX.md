@@ -45,6 +45,7 @@ Every coding task must read:
 | `docs/AI_JUDGE_CONTRACT.md` | Vision AI input, output, validation, and exposure objective | AI analysis tasks | Prompt contract, schema, batching, confidence, or decision rules change |
 | `docs/DECISIONS.md` | Accepted architecture decisions and rationale | Design decisions or disputed approaches | A material decision is accepted, replaced, or superseded |
 | `docs/INDEX.md` | This file — canonical documentation index | Every task | Any document added or removed from this index |
+| `.agents/skills/project-read-first/SKILL.md` | Repository preflight skill: resolve Git root, verify Serena/CodeGraph, read authority docs, produce bounded decision | Every implementation or debugging task | Preflight protocol, document read policy, or decision values change |
 | `Work-Order/CURRENT_WORK_ORDER.md` | Pointer to the only authorized current Work Order | Every task | Work starts, completes, blocks, or transitions |
 | `Work-Order/WO-*.md` | Bounded implementation authority and completion evidence | Its own task | Scope, acceptance criteria, status, evidence, or closeout changes |
 

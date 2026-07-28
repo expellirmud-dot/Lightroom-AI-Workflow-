@@ -41,6 +41,15 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-013 | 2026-07-28 | Git scope | `git diff --check` | Pending | Only allowed files changed | WO-003 | pending |
 | VLD-014 | 2026-07-28 | CURRENT_WORK_ORDER.py terminal | Read CURRENT_WORK_ORDER.md | Pending | STATUS: NONE after closeout | WO-003 | pending |
 
+### WO-004 (Project Read-First Skill) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-015 | 2026-07-28 | pytest suite | `pytest -q` | 18 passed, 0 failed | .agents/skills/ and tests/ | WO-004 | pending |
+| VLD-016 | 2026-07-28 | Syntax check | `compileall -q src` | pass | src/lr_ai_exposure/ | WO-004 | pending |
+| VLD-017 | 2026-07-28 | Diff check | `git diff --check` | pass | All staged files | WO-004 | pending |
+| VLD-018 | 2026-07-28 | Git scope | `git status --short` | clean after commit | Only allowed files changed | WO-004 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

@@ -386,3 +386,23 @@ Stop closeout and report when:
 - The register contains invented validation evidence.
 - `CURRENT_WORK_ORDER.md` points to a completed Work Order after
   closeout.
+
+## Read-First Invocation Rule
+
+Every coding task must invoke the `project-read-first` skill before
+implementation begins. This skill:
+
+1. Resolves the canonical Git repository root.
+2. Verifies Serena and CodeGraph project context.
+3. Reads four mandatory authority documents completely.
+4. Reads additional documents selectively based on the active Work
+   Order's scope.
+5. Produces a deterministic preflight report with exactly one terminal
+   decision: `READY` or a `BLOCKED_*` reason.
+
+The active Work Order's Required Read Order section defines the
+mandatory read set; the Read-First skill defines the verification that
+those reads completed correctly.
+
+Do not skip the preflight even for small or obvious changes. The
+preflight decision `READY` is required before any file modification.
