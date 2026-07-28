@@ -58,7 +58,7 @@ function RunExposureAssist.run()
         local photoMap = {}
         for _, photo in ipairs(photos) do
             local path = photo:getRawMetadata("path")
-            local id_local = tostring(photo:localIdentifier())
+            local id_local = tostring(photo.localIdentifier)
             local uuid = photo:getRawMetadata("uuid")
             
             table.insert(selectionData, {
