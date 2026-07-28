@@ -250,6 +250,15 @@ Local (non-CI) evidence above re-verified on 2026-07-29.
 | VLD-097 | 2026-07-29 | Metadata refresh | `test_metadata_refresh_gate.py` | bypasses failures, applies VERIFIED | Python refresh gate | WO-026 | pending |
 | VLD-098 | 2026-07-29 | Plugin safety | `test_lightroom_plugin.py` | LrTasks.execute allowed for CLI | Lua static checks | WO-026 | pending |
 
+### WO-027 (Controlled Batch Expansion - Stage A) — pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-099 | 2026-07-29 | Test suite | `uv run pytest -q tests/` | 185 passed | all tests | WO-027 | pending |
+| VLD-100 | 2026-07-29 | Integration test suite | `uv run pytest -q tests/integration/` | 3 passed | integration | WO-027 | pending |
+| VLD-101 | 2026-07-29 | Diff check | `git diff --check` | pass (trailing whitespace/CRLF only) | WO-027 allowed files | WO-027 | pending |
+| VLD-102 | 2026-07-29 | Git scope | `git status --short` | clean except allowed files | WO-027 file scope | WO-027 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

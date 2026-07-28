@@ -1,7 +1,7 @@
 # WO-027: Controlled Batch Expansion
 
 ## Status
-QUEUED
+ACTIVE (STAGE A)
 
 ## Objective
 Expand the verified one-image workflow to bounded batches while preserving identity, safety, rollback, failure isolation, and auditability.

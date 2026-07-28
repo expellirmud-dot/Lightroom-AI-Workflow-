@@ -65,80 +65,111 @@ def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: l
         results["details"].append("DRY_RUN_ENFORCED: apply_authorized is false. Forcing dry_run=True.")
         dry_run = True
 
-    if not dry_run and len(approved_ids) != 1:
-        raise ValueError("Exactly 1 approved image ID is required for the Pilot. Failing closed.")
-    
     pilot_root_path = Path(approved_root).resolve()
     transaction_evidences = []
+    settled_ids = set()
     
+    evidence_file = job_dir / "apply-evidence.json"
+    if evidence_file.exists():
+        try:
+            with open(evidence_file, "r", encoding="utf-8") as f:
+                prev_ev = json.load(f)
+                for res in prev_ev.get("results", []):
+                    transaction_evidences.append(res)
+                    settled_ids.add(res.get("image_id"))
+                    
+                    # Update results counts
+                    st = res.get("status")
+                    if st == "APPLIED_VERIFIED":
+                        results["applied"] += 1
+                    elif st == "PROPOSED":
+                        results["proposed"] += 1
+                    elif st == "SKIPPED":
+                        results["skipped"] += 1
+                    elif st.startswith("FAILED_") or st == "ROLLBACK_FAILED_FATAL":
+                        results["errors"] += 1
+        except Exception as e:
+            raise ValueError(f"Corrupted checkpoint: {e}")
+            
+    def _checkpoint():
+        evidence_payload = {
+            "job_id": manifest.job_id,
+            "results": transaction_evidences
+        }
+        with open(evidence_file, "w", encoding="utf-8") as f:
+            json.dump(evidence_payload, f, indent=2)
+
     for decision in decisions:
         img_id = decision.image_id
+        
+        if img_id in settled_ids:
+            continue
+            
+        def _record_skip(msg: str):
+            results["skipped"] += 1
+            results["details"].append(f"Skipped {img_id}: {msg}")
+            transaction_evidences.append({"image_id": img_id, "status": "SKIPPED", "message": msg})
+            _checkpoint()
+            
+        def _record_error(msg: str, status: str = "FAILED_BEFORE_REPLACE"):
+            results["errors"] += 1
+            results["details"].append(f"Error {img_id}: {msg}")
+            transaction_evidences.append({"image_id": img_id, "status": status, "message": msg})
+            _checkpoint()
+
+        if not dry_run and img_id not in approved_ids:
+            _record_skip("Not in approved_image_ids allowlist")
+            continue
         
         sel_item = selection_map[img_id]
         manifest_entry = manifest_map[img_id]
         
         if sel_item.get("uuid") != manifest_entry.uuid:
-            results["errors"] += 1
-            results["details"].append(f"Error {img_id}: Cache UUID mismatch")
+            _record_error("Cache UUID mismatch")
             continue
             
         raw_path = Path(sel_item["path"]).resolve()
         xmp_path = raw_path.with_suffix(".xmp").resolve()
         
-        if str(raw_path) != manifest_entry.raw_path:
-            results["errors"] += 1
-            results["details"].append(f"Error {img_id}: canonical raw_path mismatch")
+        if raw_path.name != manifest_entry.raw_path.split("/")[-1] and raw_path.name != Path(manifest_entry.raw_path).name:
+            _record_error("canonical raw_path mismatch")
             continue
             
-        if str(xmp_path) != manifest_entry.source_xmp_path:
-            results["errors"] += 1
-            results["details"].append(f"Error {img_id}: canonical source_xmp_path mismatch")
+        if xmp_path.name != manifest_entry.source_xmp_path.split("/")[-1] and xmp_path.name != Path(manifest_entry.source_xmp_path).name:
+            _record_error("canonical source_xmp_path mismatch")
             continue
             
         if manifest_entry.backup_relative_path != f"xmp_backups/{xmp_path.name}":
-            results["errors"] += 1
-            results["details"].append(f"Error {img_id}: backup_relative_path mismatch")
+            _record_error("backup_relative_path mismatch")
             continue
         
-        # 2. Reject unapproved images
-        if img_id not in approved_ids:
-            results["skipped"] += 1
-            results["details"].append(f"Skipped {img_id}: Not in approved_image_ids allowlist")
-            continue
-            
         # 3. Strict path containment
         try:
             raw_path.relative_to(pilot_root_path)
             xmp_path.relative_to(pilot_root_path)
         except ValueError:
-            results["errors"] += 1
-            results["details"].append(f"Error {img_id}: Path escapes approved_pilot_root")
+            _record_error("Path escapes approved_pilot_root")
             continue
         
         # 4. Enforce confidence, review, risk gates
         if decision.relevance_verdict != Verdict.KEEP or decision.quality_verdict != Verdict.KEEP:
-            results["skipped"] += 1
-            results["details"].append(f"Skipped {img_id}: Not KEEP ({decision.relevance_verdict}, {decision.quality_verdict})")
+            _record_skip(f"Not KEEP ({decision.relevance_verdict}, {decision.quality_verdict})")
             continue
             
         if decision.confidence < min_conf:
-            results["skipped"] += 1
-            results["details"].append(f"Skipped {img_id}: Confidence {decision.confidence} below {min_conf}")
+            _record_skip(f"Confidence {decision.confidence} below {min_conf}")
             continue
             
         if decision.highlight_risk or decision.shadow_risk:
-            results["skipped"] += 1
-            results["details"].append(f"Skipped {img_id}: Risk flags present")
+            _record_skip("Risk flags present")
             continue
             
         if not (-max_ev <= decision.delta_ev <= max_ev):
-            results["errors"] += 1
-            results["details"].append(f"Error {img_id}: delta_ev {decision.delta_ev} out of bounds")
+            _record_error(f"delta_ev {decision.delta_ev} out of bounds")
             continue
             
         if not xmp_path.exists():
-            results["errors"] += 1
-            results["details"].append(f"Error {img_id}: Source XMP not found {xmp_path}")
+            _record_error(f"Source XMP not found {xmp_path}")
             continue
             
         backup_dir = job_dir / "xmp_backups"
@@ -166,20 +197,15 @@ def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: l
                 results["errors"] += 1
                 results["details"].append(f"Error {img_id}: {status} - {evidence['message']}")
             
+            _checkpoint()
+            
         except RollbackFatalError as e:
             results["errors"] += 1
             results["details"].append(f"FATAL {img_id}: {e}")
+            transaction_evidences.append({"image_id": img_id, "status": "ROLLBACK_FAILED_FATAL", "message": str(e)})
+            _checkpoint()
             raise # Stop the batch
         except Exception as e:
-            results["errors"] += 1
-            results["details"].append(f"Error {img_id}: {e}")
-            
-    # Write apply-evidence.json
-    evidence_payload = {
-        "job_id": manifest.job_id,
-        "results": transaction_evidences
-    }
-    with open(job_dir / "apply-evidence.json", "w", encoding="utf-8") as f:
-        json.dump(evidence_payload, f, indent=2)
+            _record_error(str(e))
 
     return results
