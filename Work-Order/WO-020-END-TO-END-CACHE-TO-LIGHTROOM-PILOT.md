@@ -63,6 +63,6 @@ git status --short
 ```
 
 ## Status
-BLOCKED_BY_WO_021
+READY_FOR_ANALYZE_ONLY_PILOT
 
 

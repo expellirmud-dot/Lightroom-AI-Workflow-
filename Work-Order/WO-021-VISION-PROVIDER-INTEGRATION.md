@@ -22,4 +22,4 @@ Implement and wire the actual Vision API capable of reading Lightroom cached pre
 - apply_authorized=false enforced.
 
 ## Status
-ACTIVE
+COMPLETED_WITH_GOOGLE_API_QUOTA_BLOCKED

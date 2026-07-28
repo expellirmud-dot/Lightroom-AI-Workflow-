@@ -116,11 +116,10 @@ def analyze_single_image_manual_app(
         "apply_authorized": False,
         "xmp_mutation": False,
         "markers": [
-            "MODEL_MULTIMODAL_IMAGE_VIEW_PROVEN",
+            "JPEG_IDENTITY_VERIFIED",
             "CANONICAL_LIGHTROOM_IDENTITY_RECONCILED",
             "MANUAL_DECISION_SCHEMA_VALID",
             "NO_XMP_MUTATION",
-            "GOOGLE_API_PROVIDER_REMAINS_QUOTA_BLOCKED",
         ],
     }
 
