@@ -1,7 +1,7 @@
 # WO-026: Lightroom Bridge and Metadata Refresh
 
 ## Status
-QUEUED
+COMPLETED (2026-07-29)
 
 ## Objective
 Connect the proven Python workflow to a thin Lightroom bridge that performs selection handoff, launches the canonical CLI, reports results, and refreshes Lightroom metadata after an authorized apply.
@@ -25,6 +25,7 @@ Connect the proven Python workflow to a thin Lightroom bridge that performs sele
 - bridge protocol models and tests.
 - `tests/test_lightroom_bridge_contract.py`
 - `tests/test_metadata_refresh_gate.py`
+- `tests/test_lightroom_plugin.py` (amended: requires adaptation for authorized CLI launch)
 - `docs/ARCHITECTURE.md`
 - `README.md`
 - `docs/VALIDATION_REGISTER.md`

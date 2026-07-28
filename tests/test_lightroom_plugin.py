@@ -44,7 +44,6 @@ def test_no_ai_or_xmp_write_or_http() -> None:
     """Plugin must not implement AI, XMP writes, HTTP, watchers, or catalog mutation."""
     forbidden = [
         "LrHttp",
-        "LrTasks.execute",
         "io.open",
         "os.execute",
         "crs:Exposure2012",

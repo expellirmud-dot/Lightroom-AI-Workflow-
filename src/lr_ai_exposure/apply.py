@@ -152,6 +152,7 @@ def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: l
                 raise ValueError(f"Absolute exposure {new_exposure} is outside [-5, 5]")
             
             evidence = execute_apply_transaction(xmp_path, new_exposure, backup_dir, dry_run=dry_run)
+            evidence["image_id"] = img_id
             transaction_evidences.append(evidence)
             
             status = evidence["status"]

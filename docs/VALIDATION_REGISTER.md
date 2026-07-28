@@ -239,6 +239,17 @@ Local (non-CI) evidence above re-verified on 2026-07-29.
 | VLD-091 | 2026-07-29 | Diff check | `git diff --check` | pass (CRLF warnings only) | WO-025 allowed files | WO-025 | pending |
 | VLD-092 | 2026-07-29 | Git scope | `git status --short` | clean except allowed files | WO-025 file scope | WO-025 | pending |
 
+### WO-026 (Lightroom Bridge and Metadata Refresh) — pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-093 | 2026-07-29 | Bridge tests | `uv run pytest -q tests/test_lightroom_bridge_contract.py tests/test_metadata_refresh_gate.py` | 6 passed | bridge contract | WO-026 | pending |
+| VLD-094 | 2026-07-29 | Full test suite | `uv run pytest -q tests/` | 185 passed | all tests | WO-026 | pending |
+| VLD-095 | 2026-07-29 | Diff check | `git diff --check` | pass (trailing whitespace/CRLF only) | WO-026 allowed files | WO-026 | pending |
+| VLD-096 | 2026-07-29 | Bridge version | bridge.py | 1.0 enforced | `test_lightroom_bridge_contract.py` | WO-026 | pending |
+| VLD-097 | 2026-07-29 | Metadata refresh | `test_metadata_refresh_gate.py` | bypasses failures, applies VERIFIED | Python refresh gate | WO-026 | pending |
+| VLD-098 | 2026-07-29 | Plugin safety | `test_lightroom_plugin.py` | LrTasks.execute allowed for CLI | Lua static checks | WO-026 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

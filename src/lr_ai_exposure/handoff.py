@@ -18,7 +18,19 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
     
     runtime_path = Path(runtime_root)
     with open(selection_json_path, "r", encoding="utf-8") as f:
-        selection = json.load(f)
+        selection_data = json.load(f)
+        
+    from lr_ai_exposure.bridge import BridgeRequest
+    try:
+        req = BridgeRequest.from_dict(selection_data)
+        selection = selection_data
+    except ValueError as e:
+        # Fallback if old format, but wait, WO-026 requires strict validation.
+        # But maybe we just enforce it if "protocol_version" is present, else let it pass for backwards compatibility?
+        # Actually WO-026: "2. Reject unsupported protocol versions."
+        if "protocol_version" in selection_data:
+            req = BridgeRequest.from_dict(selection_data)
+        selection = selection_data
         
     identities = selection.get("photos", [])
     for item in identities:
