@@ -2,7 +2,7 @@
 
 STATUS: ACTIVE
 
-WORK_ORDER: `Work-Order/WO-002-DOCUMENTATION-GOVERNANCE.md`
+WORK_ORDER: `Work-Order/WO-003-PROJECT-TRACEABILITY-REGISTERS.md`
 
 REPOSITORY_ROOT: `D:\ai-tools\lightroom-ai-exposure`
 
@@ -10,4 +10,6 @@ REMOTE: `https://github.com/expellirmud-dot/Lightroom-AI-Workflow-.git`
 
 Only the referenced Work Order is authorized.
 
-The coding worker must stop after completing or blocking WO-002. It must not commit, push, or continue to another Work Order.
+The coding worker may create exactly one validated commit for WO-003.
+
+It must not push or continue to another Work Order.
