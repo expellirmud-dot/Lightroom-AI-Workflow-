@@ -1,5 +1,5 @@
 -- Json.lua
-local Json = { _version = "0.1.2" }
+local Json = { _version = "0.1.2", null = {} }
 
 -------------------------------------------------------------------------------
 -- Encode
@@ -86,6 +86,9 @@ local type_func_map = {
 }
 
 encode = function(val, stack)
+  if val == Json.null then
+    return "null"
+  end
   local t = type(val)
   local f = type_func_map[t]
   if f then
@@ -120,7 +123,7 @@ local literals      = create_set("true", "false", "null")
 local literal_map = {
   [ "true"  ] = true,
   [ "false" ] = false,
-  [ "null"  ] = nil,
+  [ "null"  ] = Json.null,
 }
 
 local function next_char(str, idx, set, negate)
@@ -170,6 +173,17 @@ local function parse_unicode_escape(s)
   end
 end
 
+local decode_escape_map = {
+  ["\\"] = "\\",
+  ["/"] = "/",
+  ["\""] = "\"",
+  ["b"] = "\b",
+  ["f"] = "\f",
+  ["n"] = "\n",
+  ["r"] = "\r",
+  ["t"] = "\t"
+}
+
 local function parse_string(str, i)
   local res = ""
   local j = i + 1
@@ -191,10 +205,14 @@ local function parse_string(str, i)
         res = res .. parse_unicode_escape(hex)
         j = j + #hex
       else
-        if not escape_chars[c] then
+        if c == "" then
+          decode_error(str, j - 1, "truncated escape at end of string")
+        end
+        local replacement = decode_escape_map[c]
+        if replacement == nil then
           decode_error(str, j - 1, "invalid escape char '" .. c .. "' in string")
         end
-        res = res .. escape_char_map_inv[c]
+        res = res .. replacement
       end
       k = j + 1
     elseif x == 34 then -- `"`: End of string
