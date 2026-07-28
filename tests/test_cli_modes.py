@@ -118,6 +118,7 @@ def test_apply_mode_invokes_apply_with_settings(
     from lr_ai_exposure.job import Manifest
 
     settings = _settings(tmp_path)
+    settings["apply_authorized"] = True
     mock_config.return_value = settings
     (tmp_path / "runtime/jobs/jobB").mkdir(parents=True)
 
@@ -132,7 +133,7 @@ def test_apply_mode_invokes_apply_with_settings(
     mock_apply.return_value = {"applied": 0, "skipped": 0, "errors": 0}
 
     rc = main(
-        ["--apply", "--selection", str(selection_path), "--lrdata", str(lrdata_path)]
+        ["--apply", "--authorize-apply", "jobB", "--selection", str(selection_path), "--lrdata", str(lrdata_path)]
     )
     assert rc == 0
     mock_apply.assert_called_once()

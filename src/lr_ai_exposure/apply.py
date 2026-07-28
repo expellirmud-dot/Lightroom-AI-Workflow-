@@ -3,12 +3,14 @@ from pathlib import Path
 from lr_ai_exposure.job import read_manifest
 from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
 from lr_ai_exposure.xmp import read_exposure_2012, write_exposure_2012
+from lr_ai_exposure.apply_transaction import execute_apply_transaction, RollbackFatalError
 
 import json
 from pathlib import Path
 from lr_ai_exposure.job import read_manifest
 from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
 from lr_ai_exposure.xmp import read_exposure_2012, write_exposure_2012
+from lr_ai_exposure.apply_transaction import execute_apply_transaction, RollbackFatalError
 
 def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: list[SinglePassDecision], config: dict) -> dict:
     """
@@ -62,8 +64,12 @@ def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: l
     if not dry_run and not apply_authorized:
         results["details"].append("DRY_RUN_ENFORCED: apply_authorized is false. Forcing dry_run=True.")
         dry_run = True
+
+    if not dry_run and len(approved_ids) != 1:
+        raise ValueError("Exactly 1 approved image ID is required for the Pilot. Failing closed.")
     
     pilot_root_path = Path(approved_root).resolve()
+    transaction_evidences = []
     
     for decision in decisions:
         img_id = decision.image_id
@@ -145,23 +151,34 @@ def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: l
             if not (-5.0 <= new_exposure <= 5.0):
                 raise ValueError(f"Absolute exposure {new_exposure} is outside [-5, 5]")
             
-            msg = write_exposure_2012(xmp_path, new_exposure, backup_dir, dry_run=dry_run)
+            evidence = execute_apply_transaction(xmp_path, new_exposure, backup_dir, dry_run=dry_run)
+            transaction_evidences.append(evidence)
             
-            # Assert post-replace value
-            if not dry_run:
-                post_replace_exposure = read_exposure_2012(xmp_path)
-                if abs(post_replace_exposure - new_exposure) > 0.001:
-                    raise ValueError(f"Post-replace mismatch: expected {new_exposure}, got {post_replace_exposure}")
-            
-            if dry_run:
+            status = evidence["status"]
+            if status == "PROPOSED":
                 results["proposed"] += 1
-                results["details"].append(f"Proposed {img_id}: {msg}")
-            else:
+                results["details"].append(f"Proposed {img_id}: {evidence['message']}")
+            elif status == "APPLIED_VERIFIED":
                 results["applied"] += 1
-                results["details"].append(f"Applied {img_id}: {msg} (written for Lightroom manual import)")
+                results["details"].append(f"Applied {img_id}: {evidence['message']} (written for Lightroom manual import)")
+            else:
+                results["errors"] += 1
+                results["details"].append(f"Error {img_id}: {status} - {evidence['message']}")
             
+        except RollbackFatalError as e:
+            results["errors"] += 1
+            results["details"].append(f"FATAL {img_id}: {e}")
+            raise # Stop the batch
         except Exception as e:
             results["errors"] += 1
             results["details"].append(f"Error {img_id}: {e}")
             
+    # Write apply-evidence.json
+    evidence_payload = {
+        "job_id": manifest.job_id,
+        "results": transaction_evidences
+    }
+    with open(job_dir / "apply-evidence.json", "w", encoding="utf-8") as f:
+        json.dump(evidence_payload, f, indent=2)
+
     return results

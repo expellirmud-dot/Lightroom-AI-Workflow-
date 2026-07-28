@@ -229,6 +229,16 @@ verified by inspected GitHub Actions run results (not workflow-file existence).
 Both matrix jobs reported conclusion=success on Python 3.12 and 3.13.
 Local (non-CI) evidence above re-verified on 2026-07-29.
 
+### WO-025 (Transactional XMP Apply Pilot)
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-088 | 2026-07-29 | Transaction tests | `pytest -q tests/test_apply_transaction.py` | 3 passed | apply_transaction.py | WO-025 | pending |
+| VLD-089 | 2026-07-29 | CLI auth tests | `pytest -q tests/test_authorized_apply_cli.py` | 2 passed | main.py 2-key auth | WO-025 | pending |
+| VLD-090 | 2026-07-29 | Full pytest suite | `uv run pytest -q tests/` | 185 passed | all tests | WO-025 | pending |
+| VLD-091 | 2026-07-29 | Diff check | `git diff --check` | pass (CRLF warnings only) | WO-025 allowed files | WO-025 | pending |
+| VLD-092 | 2026-07-29 | Git scope | `git status --short` | clean except allowed files | WO-025 file scope | WO-025 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

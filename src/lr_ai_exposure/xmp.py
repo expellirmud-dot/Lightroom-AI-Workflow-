@@ -133,7 +133,7 @@ def rollback_xmp(xmp_path: Path, backup_path: Path, expected_sha256: str) -> Non
 import re
 import os
 
-def write_exposure_2012(xmp_path: Path, new_exposure: float, backup_dir: Path, dry_run: bool = False) -> str:
+def write_exposure_2012(xmp_path: Path, new_exposure: float, backup_dir: Path, dry_run: bool = False, skip_backup: bool = False) -> str:
     """Surgically write a new Exposure2012 value to XMP, preserving all other bytes.
     
     Returns a proposal message if dry_run, otherwise returns success message.
@@ -150,11 +150,13 @@ def write_exposure_2012(xmp_path: Path, new_exposure: float, backup_dir: Path, d
         new_exposure_str = "0.00"
         
     if dry_run:
-        backup_xmp(xmp_path, backup_dir, dry_run=True)
+        if not skip_backup:
+            backup_xmp(xmp_path, backup_dir, dry_run=True)
         return f"DRY RUN: Proposed change crs:Exposure2012 from {old_exposure} to {new_exposure_str}"
         
     # Real mode
-    backup_path, backup_sha = backup_xmp(xmp_path, backup_dir, dry_run=False)
+    if not skip_backup:
+        backup_path, backup_sha = backup_xmp(xmp_path, backup_dir, dry_run=False)
     
     raw_content = xmp_path.read_bytes()
     

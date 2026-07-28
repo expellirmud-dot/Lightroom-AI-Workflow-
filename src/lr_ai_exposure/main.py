@@ -59,6 +59,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Apply approved exposure deltas after analysis. Requires explicit opt-in.",
     )
     parser.add_argument(
+        "--authorize-apply",
+        type=str,
+        help="Explicitly authorize real XMP mutation for the given job_id. Requires --apply mode.",
+    )
+    parser.add_argument(
         "--selection",
         type=Path,
         help="Path to selection.json from Lightroom",
@@ -226,6 +231,16 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         print(f"ERROR: Handoff failed: {exc}", file=sys.stderr)
         return 1
+
+    # Check two-key authorization contract
+    apply_authorized = settings.get("apply_authorized", False)
+    cli_authorized = args.authorize_apply == manifest.job_id
+
+    if mode == "APPLY":
+        if not apply_authorized or not cli_authorized:
+            print("WARNING: Missing two-key authorization. Forcing ANALYZE_ONLY mode.", file=sys.stderr)
+            mode = "ANALYZE_ONLY"
+            settings["apply_authorized"] = False
 
     # 2. AI Judgment (Single-Pass) — validated settings flow through.
     try:

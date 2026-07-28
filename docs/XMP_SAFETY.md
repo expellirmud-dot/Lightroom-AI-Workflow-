@@ -55,11 +55,12 @@ Where:
 
 Every real XMP write must follow these steps strictly:
 
-1. **Backup** — copy the existing XMP file to `xmp-backup/` with a `.bak` suffix before any modification.
+1. **Backup** — copy the existing XMP file to `xmp-backup/` with a `.bak` suffix before any modification and compute its SHA-256.
 2. **Temp write** — write the modified XMP to a temporary file in the same directory.
-3. **Validate** — confirm the temp file is well-formed XML and contains a valid `crs:Exposure2012` value.
-4. **Atomic replace** — rename the temp file over the original XMP.
-5. **If any step fails** — leave the original XMP intact, never a partial write.
+3. **Atomic replace** — rename the temp file over the original XMP.
+4. **Validate** — confirm the target file has the expected `crs:Exposure2012` value.
+5. **Rollback** — if validation fails after replace, restore the backup automatically and verify its SHA-256.
+6. **If any step fails** — fail closed and record immutable evidence of the failure or rollback state.
 
 ## Dry Run
 

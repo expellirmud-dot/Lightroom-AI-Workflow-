@@ -74,7 +74,7 @@ def test_apply_exposure_deltas(tmp_path: Path):
     config = {
         "dry_run": False,
         "apply_authorized": True,
-        "approved_image_ids": ["1", "2"],
+        "approved_image_ids": ["1"],
         "approved_pilot_root": str(photos_dir.absolute()),
         "maximum_delta_ev": 3.0,
         "minimum_apply_confidence": 0.8

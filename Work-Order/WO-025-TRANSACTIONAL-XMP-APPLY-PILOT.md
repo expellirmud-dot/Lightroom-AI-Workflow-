@@ -1,7 +1,7 @@
 # WO-025: Transactional XMP Apply Pilot
 
 ## Status
-QUEUED
+COMPLETED (2026-07-29)
 
 ## Objective
 Authorize and prove one-image XMP apply as a guarded transaction with two-key authorization, automatic rollback, and post-write verification.
@@ -30,6 +30,8 @@ Authorize and prove one-image XMP apply as a guarded transaction with two-key au
 - `src/lr_ai_exposure/apply_transaction.py`
 - `tests/test_apply_transaction.py`
 - `tests/test_authorized_apply_cli.py`
+- `tests/test_apply.py` (Rationale: Existing canonical test required adaptation for pilot one-image limit)
+- `tests/test_cli_modes.py` (Rationale: Existing canonical test required adaptation for two-key CLI authorization)
 - `docs/XMP_SAFETY.md`
 - `docs/VALIDATION_REGISTER.md`
 - `Work-Order/WO-025-TRANSACTIONAL-XMP-APPLY-PILOT.md`
