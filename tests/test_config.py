@@ -57,6 +57,7 @@ def test_maximum_delta_ev_zero_rejected(tmp_path: Path) -> None:
         "maximum_delta_ev": 0,
         "minimum_apply_confidence": 0.8,
         "dry_run": True,
+        "apply_authorized": False,
         "ai_model": "",
         "ai_endpoint": "",
     }
@@ -79,6 +80,7 @@ def test_minimum_apply_confidence_out_of_range(tmp_path: Path) -> None:
         "maximum_delta_ev": 1.0,
         "minimum_apply_confidence": 1.5,
         "dry_run": True,
+        "apply_authorized": False,
         "ai_model": "",
         "ai_endpoint": "",
     }
@@ -101,6 +103,7 @@ def test_invalid_preview_size(tmp_path: Path) -> None:
         "maximum_delta_ev": 1.0,
         "minimum_apply_confidence": 0.8,
         "dry_run": True,
+        "apply_authorized": False,
         "ai_model": "",
         "ai_endpoint": "",
     }

@@ -8,12 +8,10 @@ import sys
 from pathlib import Path
 
 from lr_ai_exposure.config import load_config, ConfigError
-from lr_ai_exposure.job import read_manifest
-from lr_ai_exposure.preview import validate_previews
-from lr_ai_exposure.judge import process_mock_decisions
-from lr_ai_exposure.quality_safety import apply_quality_safety_rules
-from lr_ai_exposure.image_triage import validate_triage_decision, TriageDecision
-from lr_ai_exposure.xmp import write_exposure_2012, XmpError
+from lr_ai_exposure.job import read_manifest, write_manifest
+from lr_ai_exposure.handoff import handoff_job
+from lr_ai_exposure.ai_judge import analyze_job_single_pass
+from lr_ai_exposure.apply import apply_exposure_deltas
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -28,9 +26,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Validate configuration and print a summary",
     )
     parser.add_argument(
-        "--job",
+        "--selection",
         type=Path,
-        help="Path to the job directory",
+        help="Path to selection.json from Lightroom",
+    )
+    parser.add_argument(
+        "--lrdata",
+        type=Path,
+        help="Path to Lightroom Previews.lrdata directory",
     )
     args = parser.parse_args(argv)
 
@@ -53,119 +56,77 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(summary, indent=2))
         return 0
 
-    if not args.job:
+    if not args.selection or not args.lrdata:
         parser.print_help()
         return 0
         
-    job_dir = args.job.resolve()
-    manifest_path = job_dir / "manifest.json"
+    selection_path = args.selection.resolve()
+    lrdata_path = args.lrdata.resolve()
     
-    if not manifest_path.exists():
-        print(f"ERROR: Job manifest not found at {manifest_path}", file=sys.stderr)
+    if not selection_path.exists():
+        print(f"ERROR: Selection file not found at {selection_path}", file=sys.stderr)
         return 1
+        
+    if not lrdata_path.exists():
+        print(f"ERROR: lrdata dir not found at {lrdata_path}", file=sys.stderr)
+        return 1
+        
+    # 1. Handoff
+    runtime_dir = Path(settings["runtime_directory"])
+    if not runtime_dir.is_absolute():
+        runtime_dir = root / runtime_dir
         
     try:
+        job_id = handoff_job(str(runtime_dir), str(lrdata_path), str(selection_path))
+        job_dir = runtime_dir / "jobs" / job_id
         manifest = read_manifest(job_dir)
     except Exception as exc:
-        print(f"ERROR: Failed to load manifest: {exc}", file=sys.stderr)
+        print(f"ERROR: Handoff failed: {exc}", file=sys.stderr)
+        return 1
+
+        
+    # 2. AI Judgment (Single-Pass)
+    try:
+        decisions = analyze_job_single_pass(manifest)
+        
+        # Write ai-decisions.json
+        decisions_dict = {
+            d.image_id: {
+                "relevance_verdict": d.relevance_verdict,
+                "quality_verdict": d.quality_verdict,
+                "delta_ev": d.delta_ev,
+                "confidence": d.confidence,
+                "reason": d.reason
+            } for d in decisions
+        }
+        (job_dir / "ai-decisions.json").write_text(json.dumps(decisions_dict, indent=2))
+    except Exception as exc:
+        print(f"ERROR: AI Judgment failed: {exc}", file=sys.stderr)
         return 1
         
-    val_results = validate_previews(manifest, job_dir)
-    valid_ids = {r.entry.image_id for r in val_results if r.valid}
-    invalid_results = [r for r in val_results if not r.valid]
-    
-    # Run mock judge on whole manifest
-    raw_decisions_list = process_mock_decisions(manifest)
-    raw_decisions = {d.image_id: d for d in raw_decisions_list}
-    
-    results = {
-        "applied": [],
-        "skipped": [],
-        "reviewed": [],
-        "errors": []
-    }
-    
-    # Track decisions for output
-    final_decisions = {}
-    
-    # Process decisions
-    for entry in manifest.entries:
-        image_id = entry.image_id
-        xmp_path = job_dir / entry.xmp_path
-        backup_dir = job_dir / "xmp-backup"
+    # 3. Apply Exposure Deltas
+    try:
+        results = apply_exposure_deltas(
+            job_dir, 
+            selection_path, 
+            decisions, 
+            dry_run=settings.get("dry_run", True),
+            apply_authorized=settings.get("apply_authorized", False)
+        )
+    except Exception as exc:
+        print(f"ERROR: Apply failed: {exc}", file=sys.stderr)
+        return 1
         
-        if image_id not in valid_ids:
-            # handled later in errors
-            continue
-            
-        if image_id not in raw_decisions:
-            results["errors"].append({"id": image_id, "reason": "No decision returned"})
-            continue
-            
-        exp_decision = raw_decisions[image_id]
-        
-        # mock triage
-        triage_dict = {
-            "image_id": image_id,
-            "relevance_class": "KEEP_PRIMARY",
-            "quality_action": "APPLY",
-            "event_relation": "same_event",
-            "test_shot_likelihood": "none",
-            "accidental_likelihood": "none",
-            "quality_flags": [],
-            "duplicate_of": "",
-            "confidence": exp_decision.confidence,
-            "reason": "Mock triage for dry run"
-        }
-        
-        try:
-            triage_decision = validate_triage_decision(triage_dict)
-            safe_triage = apply_quality_safety_rules(triage_decision)
-        except Exception as exc:
-            results["errors"].append({"id": image_id, "reason": f"Validation failed: {exc}"})
-            continue
-            
-        final_decisions[image_id] = {
-            "delta_ev": exp_decision.delta_ev,
-            "confidence": exp_decision.confidence,
-            "reason": exp_decision.reason
-        }
-        
-        if safe_triage.quality_action.value == "SKIP":
-            results["skipped"].append({"id": image_id, "reason": "Triage skip"})
-            continue
-            
-        if safe_triage.quality_action.value == "REVIEW" or exp_decision.confidence < settings["minimum_apply_confidence"]:
-            results["reviewed"].append({"id": image_id, "reason": "Low confidence or review required"})
-            continue
-            
-        # Write XMP
-        try:
-            if xmp_path.exists():
-                msg = write_exposure_2012(xmp_path, exp_decision.delta_ev, backup_dir, dry_run=settings["dry_run"])
-                results["applied"].append({"id": image_id, "msg": msg})
-            else:
-                results["errors"].append({"id": image_id, "reason": f"XMP not found at {xmp_path}"})
-        except XmpError as exc:
-            results["errors"].append({"id": image_id, "reason": str(exc)})
-            
-    for item in invalid_results:
-        results["errors"].append({"id": item.entry.image_id, "reason": f"Invalid preview: {item.error}"})
-        
-    # Write ai-decisions.json
-    (job_dir / "ai-decisions.json").write_text(json.dumps(final_decisions, indent=2))
-    
-    # Write result.json
+    # 4. Result Recording
     (job_dir / "result.json").write_text(json.dumps(results, indent=2))
     
-    # Write run.log
     log_content = f"Job processed: {job_dir.name}\n"
-    log_content += f"Applied: {len(results['applied'])}\n"
-    log_content += f"Skipped: {len(results['skipped'])}\n"
-    log_content += f"Reviewed: {len(results['reviewed'])}\n"
-    log_content += f"Errors: {len(results['errors'])}\n"
+    log_content += f"Applied: {results['applied']}\n"
+    log_content += f"Skipped: {results['skipped']}\n"
+    log_content += f"Errors: {results['errors']}\n"
     (job_dir / "run.log").write_text(log_content)
     
+    print(log_content)
     return 0
 
 if __name__ == "__main__":

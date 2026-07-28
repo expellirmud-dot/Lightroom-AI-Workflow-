@@ -4,7 +4,7 @@ from lr_ai_exposure.job import read_manifest
 from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
 from lr_ai_exposure.xmp import read_exposure_2012, write_exposure_2012
 
-def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: list[SinglePassDecision], dry_run: bool = True) -> dict:
+def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: list[SinglePassDecision], dry_run: bool = True, apply_authorized: bool = False) -> dict:
     """
     Applies approved AI exposure deltas to original XMP files based on decisions.
     Requires selection.json to locate original XMP files.
@@ -23,6 +23,10 @@ def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: l
         "errors": 0,
         "details": []
     }
+    
+    if not dry_run and not apply_authorized:
+        results["details"].append("DRY_RUN_ENFORCED: apply_authorized is false. Forcing dry_run=True.")
+        dry_run = True
     
     for decision in decisions:
         if decision.relevance_verdict != Verdict.KEEP or decision.quality_verdict != Verdict.KEEP:
@@ -52,7 +56,11 @@ def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: l
             
             msg = write_exposure_2012(xmp_path, new_exposure, backup_dir, dry_run=dry_run)
             results["applied"] += 1
-            results["details"].append(f"Applied {decision.image_id}: {msg}")
+            # Do not claim Lightroom verification
+            if dry_run:
+                results["details"].append(f"Applied {decision.image_id}: {msg}")
+            else:
+                results["details"].append(f"Applied {decision.image_id}: {msg} (written for Lightroom manual import)")
             
         except Exception as e:
             results["errors"] += 1

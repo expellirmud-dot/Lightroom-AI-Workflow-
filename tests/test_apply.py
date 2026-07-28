@@ -72,7 +72,7 @@ def test_apply_exposure_deltas(tmp_path: Path):
     )
     
     # Run real apply
-    results = apply_exposure_deltas(job_dir, selection_path, [d1, d2], dry_run=False)
+    results = apply_exposure_deltas(job_dir, selection_path, [d1, d2], dry_run=False, apply_authorized=True)
     
     print(results)
     

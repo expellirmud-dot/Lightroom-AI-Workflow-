@@ -33,6 +33,7 @@ def _validate_settings(settings: dict[str, Any], root: Path) -> dict[str, Any]:
         "maximum_delta_ev": (int, float),
         "minimum_apply_confidence": (int, float),
         "dry_run": bool,
+        "apply_authorized": bool,
     }
 
     for key, expected_type in required.items():
