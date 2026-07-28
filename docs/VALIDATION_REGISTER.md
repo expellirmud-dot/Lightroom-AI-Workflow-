@@ -129,6 +129,14 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 |---|---|---|---|---|---|---|---|
 | VLD-047 | 2026-07-28 | pytest WO-012 | pytest -q tests/test_main.py | 1 passed, 0 failed | src/lr_ai_exposure/main.py + tests/ | WO-012 | pending |
 
+### WO-015 (Lightroom Preview Cache Identity Mapping) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-048 | 2026-07-28 | pytest WO-015 | pytest -q tests/test_cache_probe.py | 3 passed, 0 failed | src/lr_ai_exposure/cache_probe.py + tests/ | WO-015 | pending |
+| VLD-049 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-015 | pending |
+| VLD-050 | 2026-07-28 | E2E probe run | python scratch/run_probe.py | pass, jpeg written | Real Lightroom cache DBs | WO-015 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated
