@@ -1,105 +1,135 @@
 --[[
-AI Exposure Assist — Run Exposure Assist command.
+AI Exposure Assist — cached-thumbnail pilot command.
 
-WO-007: exports Lightroom-rendered JPEG previews for the current
-selection and prepares an ordered manifest handoff.
+This bounded live-pilot implementation requests JPEG thumbnails through the
+supported Lightroom SDK preview API. It does not read .lrdata directly and it
+does not run an export session.
 
 Safety:
-- Never accesses .lrcat, .lrdata, RAW contents, or preview caches directly.
-- Lightroom SDK is the only source of selection and rendered previews.
-- No AI, XMP mutation, HTTP server, watcher, or catalog mutation.
+- Lightroom SDK is the only source of selected photos and preview bytes.
+- No RAW, catalog, .lrdata, XMP, AI, network, or delivery export mutation.
+- Output is an AI-analysis artifact only.
 ]]
 
 local LrApplication = import "LrApplication"
 local LrDialogs = import "LrDialogs"
-local LrExportSession = import "LrExportSession"
 local LrPathUtils = import "LrPathUtils"
 local LrFileUtils = import "LrFileUtils"
 local LrTasks = import "LrTasks"
 
 local RunExposureAssist = {}
 
+local THUMBNAIL_WIDTH = 600
+local THUMBNAIL_HEIGHT = 600
+local REQUEST_TIMEOUT_SECONDS = 120
+
 function RunExposureAssist.previewName(seq, rawPath)
     local stem = LrPathUtils.removeExtension(LrPathUtils.leafName(rawPath))
     return string.format("%06d__%s.jpg", seq, stem)
 end
 
-function RunExposureAssist.buildExportSettings(previewDir)
-    return {
-        LR_export_destinationType = "specificFolder",
-        LR_export_destinationPathPrefix = previewDir,
-        LR_export_useSubfolder = false,
-        LR_format = "JPEG",
-        LR_jpeg_quality = 0.9,
-        LR_export_colorSpace = "sRGB",
-        LR_size_doConstrain = false,
-        LR_outputSharpeningOn = false,
-        LR_collisionHandling = "rename",
-    }
-end
-
-function RunExposureAssist.run()
+local function selectedPhotos()
     local catalog = LrApplication.activeCatalog()
     local targets = catalog:getTargetPhotos() or {}
-
     local photos = {}
     for _, photo in ipairs(targets) do
         photos[#photos + 1] = photo
     end
+    return catalog, photos
+end
+
+function RunExposureAssist.run()
+    local catalog, photos = selectedPhotos()
 
     if #photos == 0 then
         LrDialogs.message(
             "AI Exposure Assist",
-            "No photos are selected. Select one copied test photo and try again.",
+            "No photos are selected. Select copied test photos and try again.",
             "info"
         )
         return nil
     end
 
     local catalogPath = catalog:getPath()
-    local jobPreviewDir = LrPathUtils.child(
+    local previewDir = LrPathUtils.child(
         LrPathUtils.parent(catalogPath),
-        "runtime/jobs/active/previews"
+        "runtime/jobs/active/cached-thumbnails"
     )
-    LrFileUtils.createAllDirectories(jobPreviewDir)
+    LrFileUtils.createAllDirectories(previewDir)
 
-    local session = LrExportSession {
-        photosToExport = photos,
-        exportSettings = RunExposureAssist.buildExportSettings(jobPreviewDir),
-    }
+    local completed = 0
+    local succeeded = 0
+    local failures = {}
+    local previewPaths = {}
 
-    session:doExportOnCurrentTask()
-
-    local manifestEntries = {}
-    for i, photo in ipairs(photos) do
+    for index, photo in ipairs(photos) do
         local rawPath = photo:getRawMetadata("path")
-        local xmpPath = LrPathUtils.replaceExtension(rawPath, "xmp")
         local previewPath = LrPathUtils.child(
-            jobPreviewDir,
-            RunExposureAssist.previewName(i, rawPath)
+            previewDir,
+            RunExposureAssist.previewName(index, rawPath)
         )
-        manifestEntries[#manifestEntries + 1] = {
-            image_id = LrPathUtils.removeExtension(LrPathUtils.leafName(rawPath)),
-            raw_path = rawPath,
-            xmp_path = xmpPath,
-            preview_path = previewPath,
-            seq = i,
-        }
+
+        photo:requestJpegThumbnail(
+            THUMBNAIL_WIDTH,
+            THUMBNAIL_HEIGHT,
+            function(jpegData, errorMessage)
+                if jpegData then
+                    local ok, writeError = LrFileUtils.writeFile(previewPath, jpegData)
+                    if ok then
+                        succeeded = succeeded + 1
+                        previewPaths[#previewPaths + 1] = previewPath
+                    else
+                        failures[#failures + 1] =
+                            RunExposureAssist.previewName(index, rawPath)
+                            .. ": write failed: " .. tostring(writeError)
+                    end
+                else
+                    failures[#failures + 1] =
+                        RunExposureAssist.previewName(index, rawPath)
+                        .. ": thumbnail unavailable: " .. tostring(errorMessage)
+                end
+                completed = completed + 1
+            end
+        )
+    end
+
+    local waited = 0
+    while completed < #photos and waited < REQUEST_TIMEOUT_SECONDS do
+        LrTasks.sleep(0.1)
+        waited = waited + 0.1
+    end
+
+    if completed < #photos then
+        failures[#failures + 1] =
+            "Timed out waiting for " .. (#photos - completed) .. " thumbnail(s)."
+    end
+
+    local message =
+        "Cached-thumbnail request completed.\n\n"
+        .. "Selected: " .. #photos .. "\n"
+        .. "Saved: " .. succeeded .. "\n"
+        .. "Failed: " .. #failures .. "\n\n"
+        .. "Folder:\n" .. previewDir
+
+    if #failures > 0 then
+        message = message .. "\n\nFirst error:\n" .. failures[1]
     end
 
     LrDialogs.message(
         "AI Exposure Assist",
-        "Export completed for " .. #photos .. " selected photo(s).\n\n"
-            .. "Preview folder:\n" .. jobPreviewDir,
-        "info"
+        message,
+        (#failures == 0 and succeeded == #photos) and "info" or "warning"
     )
 
-    return manifestEntries
+    return {
+        selected = #photos,
+        saved = succeeded,
+        failed = #failures,
+        preview_paths = previewPaths,
+        preview_directory = previewDir,
+    }
 end
 
--- Lightroom's sandbox does not expose xpcall on all supported versions.
--- Run directly inside an SDK asynchronous task; Lightroom will surface any
--- remaining runtime exception instead of the command failing silently.
 LrTasks.startAsyncTask(function()
     RunExposureAssist.run()
 end)
