@@ -3,7 +3,7 @@
 LAST_UPDATED: 2026-07-28
 PROJECT_PHASE: Scaffold and documentation governance complete
 CURRENT_WORK_ORDER: None (all authorized Work Orders completed)
-LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-004-PROJECT-READ-FIRST-SKILL.md`
+LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-005-JOB-AND-MANIFEST-FOUNDATION.md`
 LATEST_COMMIT: pending
 
 ## Project Objective
@@ -18,8 +18,8 @@ manually.
 
 | Status | Count | Capabilities |
 |---|---|---|
-| `TESTED` | 3 | CAP-001 (configuration foundation), CAP-002 (documentation governance), CAP-015 (read-first preflight skill) |
-| `NOT_STARTED` | 11 | CAP-003 through CAP-013 |
+| `TESTED` | 4 | CAP-001 (configuration foundation), CAP-002 (documentation governance), CAP-003 (job directory creation), CAP-004 (ordered image manifest) |
+| `NOT_STARTED` | 11 | CAP-005 through CAP-013 (except CAP-014) |
 | `DEFERRED` | 1 | CAP-014 (automatic export) |
 
 ## Known Risks
@@ -35,6 +35,5 @@ manually.
 
 ## Next Recommended Bounded Seam
 
-WO-005 — AI exposure judgment — the first implementation seam
-(Lightroom preview pipeline to Vision API decision and schema
-validation).
+WO-005 — Job directory and manifest foundation
+(create_job_directory, write_manifest, read_manifest, validate_manifest_entries; TESTED via pytest)

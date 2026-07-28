@@ -1,6 +1,6 @@
 # WO-005 — Job and Manifest Foundation
 
-STATUS: PLANNED
+STATUS: DONE
 
 ## Objective
 
@@ -54,3 +54,12 @@ git status --short
 ## Closeout
 
 Update traceability documents with actual evidence. Commit exactly once when all gates pass. Do not push and do not begin WO-006.
+
+## Closeout Evidence
+
+- **Implementation**: `src/lr_ai_exposure/job.py` implements `create_job_directory`, `ManifestEntry`, `Manifest`, `write_manifest`, `read_manifest`, `validate_manifest_entries`. `src/lr_ai_exposure/models.py` re-exports the job API and retains `ImageDecision`/`JobResult`.
+- **Tests**: `tests/test_job.py` — 16 tests covering job creation, deterministic UTF-8 manifest round-trip, duplicate `seq`/`image_id` rejection, contiguous `seq` enforcement, empty-field rejection, path-escape guard (relative and absolute), and malformed/missing manifest handling.
+- **Validation**: `pytest -q` → 34 passed, 0 failed. `compileall -q src` → pass. `git diff --check` → pass (CRLF warning only).
+- **Capability impact**: CAP-003 (job directory creation) → TESTED. CAP-004 (ordered image manifest) → TESTED.
+- **Scope**: Only allowed files changed (`job.py`, `models.py`, `test_job.py`, traceability docs, CURRENT_WORK_ORDER.md, this work order).
+- **Stop conditions respected**: no Lightroom SDK, AI, preview export, or XMP mutation implemented; no real photographs or XMP touched; not pushed; WO-006 not started.
