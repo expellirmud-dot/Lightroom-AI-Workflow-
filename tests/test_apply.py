@@ -44,8 +44,32 @@ def test_apply_exposure_deltas(tmp_path: Path):
     write_manifest(job_dir, manifest)
     
     # Create decisions
-    d1 = SinglePassDecision("1", Verdict.KEEP, Verdict.KEEP, 1.5, 0.9, False, False, "", "", "", "")
-    d2 = SinglePassDecision("2", Verdict.REVIEW, Verdict.KEEP, 1.0, 0.7, False, False, "", "", "", "")
+    d1 = SinglePassDecision(
+        image_id="1", 
+        relevance_verdict=Verdict.KEEP, 
+        quality_verdict=Verdict.KEEP, 
+        delta_ev=1.5, 
+        confidence=0.9, 
+        highlight_risk=False, 
+        shadow_risk=False, 
+        subject_rationale="", 
+        scene_rationale="", 
+        batch_consistency_group="", 
+        reason=""
+    )
+    d2 = SinglePassDecision(
+        image_id="2", 
+        relevance_verdict=Verdict.REVIEW, 
+        quality_verdict=Verdict.KEEP, 
+        delta_ev=1.0, 
+        confidence=0.7, 
+        highlight_risk=False, 
+        shadow_risk=False, 
+        subject_rationale="", 
+        scene_rationale="", 
+        batch_consistency_group="", 
+        reason=""
+    )
     
     # Run real apply
     results = apply_exposure_deltas(job_dir, selection_path, [d1, d2], dry_run=False)
