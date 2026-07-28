@@ -38,8 +38,8 @@ Rules:
 | CAP-006 | Lightroom rendered-preview export | INTEGRATED | WO-007 | pending | LrExportSession JPEG render; WO-007 contract test | WO-008 judge integration |
 | CAP-007 | Vision AI batch submission | NOT_STARTED | WO-008+ | — | — | AI judge reads previews |
 | CAP-017 | Menu command registration | TESTED | WO-006 | pending | PluginInit.lua binds `AI Exposure Assist` under Plug-in Extras | WO-007 integration |
-| CAP-008 | AI decision schema validation | NOT_STARTED | WO-008+ | — | — | Validate delta_ev confidence |
-| CAP-009 | Exposure delta limiting | NOT_STARTED | WO-006+ | — | — | Clamp to maximum_delta_ev |
+| CAP-008 | AI decision schema validation | TESTED | WO-009 | pending | pytest 15 passed compileall check | WO-010 integration |
+| CAP-009 | Exposure delta limiting | TESTED | WO-009 | pending | pytest clamp_ev compileall check | WO-010 integration |
 | CAP-010 | XMP backup and restore safety | NOT_STARTED | WO-006+ | — | — | Backup before any write |
 | CAP-011 | crs:Exposure2012 update | NOT_STARTED | WO-006+ | — | — | Controlled XMP apply |
 | CAP-012 | Lightroom metadata read-back | NOT_STARTED | WO-007+ | — | — | User reads metadata into LR |
@@ -47,3 +47,4 @@ Rules:
 | CAP-014 | Automatic export | DEFERRED | — | — | Explicitly postponed past MVP | WO-007+ |
 | CAP-015 | Repository read-first preflight skill | TESTED | WO-004 | pending | pytest 18 passed (8 new + 10 existing) compileall check git diff --check pass | WO-005 integration |
 | CAP-018 | Preview validation | TESTED | WO-008 | pending | pytest 8 passed compileall check | WO-009 mock judge |
+| CAP-019 | Deterministic mock judge | TESTED | WO-009 | pending | pytest 15 passed compileall check | WO-010 integration |

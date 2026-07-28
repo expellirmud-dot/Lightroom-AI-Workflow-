@@ -1,6 +1,6 @@
 # WO-009 — AI Decision Contract and Mock Judge
 
-STATUS: PLANNED
+STATUS: DONE
 
 ## Objective
 
@@ -14,9 +14,9 @@ Implement the validated exposure-decision contract and a deterministic offline m
 
 | Capability | Before | Target After |
 |---|---|---|
-| AI decision schema | NOT_STARTED | TESTED |
-| Deterministic mock judge | NOT_STARTED | TESTED |
-| Exposure delta limiting | NOT_STARTED | TESTED |
+| AI decision schema | NOT_STARTED | TESTED | (Done) |
+| Deterministic mock judge | NOT_STARTED | TESTED | (Done) |
+| Exposure delta limiting | NOT_STARTED | TESTED | (Done) |
 
 ## Scope
 

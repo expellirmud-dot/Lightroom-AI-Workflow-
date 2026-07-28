@@ -2,8 +2,8 @@
 
 LAST_UPDATED: 2026-07-28
 PROJECT_PHASE: Scaffold and documentation governance complete
-CURRENT_WORK_ORDER: Work-Order/WO-009-AI-DECISION-CONTRACT-AND-MOCK-JUDGE.md
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-008-PREVIEW-VALIDATION.md
+CURRENT_WORK_ORDER: NONE
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-009-AI-DECISION-CONTRACT-AND-MOCK-JUDGE.md
 LATEST_COMMIT: pending
 
 ## Project Objective
@@ -37,4 +37,5 @@ manually.
 ## Next Recommended Bounded Seam
 
 WO-007 — Preview export and manifest handoff (extends RunExposureAssist.lua; INTEGRATED via contract test)
-WO-008 — AI judge batch submission + decision schema (next bounded seam)
+WO-009 — AI Decision Contract and Mock Judge (Done)
+WO-010 — XMP Read and Backup (next bounded seam)

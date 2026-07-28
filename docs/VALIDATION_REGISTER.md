@@ -88,6 +88,14 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-035 | 2026-07-28 | pytest full suite | pytest -q | 53 passed (1 skip), 0 failed | src/ and tests/ | WO-008 | pending |
 | VLD-036 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-008 | pending |
 
+### WO-009 (AI Decision Contract and Mock Judge) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-037 | 2026-07-28 | pytest WO-009 | pytest -q tests/test_judge.py | 15 passed, 0 failed | src/lr_ai_exposure/judge.py + tests/ | WO-009 | pending |
+| VLD-038 | 2026-07-28 | pytest full suite | pytest -q | 68 passed (1 skip), 0 failed | src/ and tests/ | WO-009 | pending |
+| VLD-039 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-009 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated
