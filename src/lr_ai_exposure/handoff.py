@@ -20,6 +20,17 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
     with open(selection_json_path, "r", encoding="utf-8") as f:
         selection = json.load(f)
         
+    identities = selection.get("photos", [])
+    for item in identities:
+        p = item.get("path", "")
+        if not p:
+            raise ValueError("Selection item missing path")
+        pp = Path(p)
+        if not pp.is_absolute():
+            raise ValueError(f"Selection path must be absolute: {p}")
+        if not pp.exists():
+            raise FileNotFoundError(f"Selection path does not exist: {p}")
+            
     job_id = selection.get("job_id", f"job-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}")
     job_dir = create_job_directory(runtime_path, job_id)
     

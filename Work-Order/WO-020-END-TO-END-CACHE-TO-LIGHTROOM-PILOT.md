@@ -63,6 +63,6 @@ git status --short
 ```
 
 ## Status
-HALTED_FOR_REMEDIATION
+BLOCKED_BY_WO_021
 
 

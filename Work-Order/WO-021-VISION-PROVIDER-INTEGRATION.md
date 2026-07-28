@@ -15,4 +15,4 @@ Implement and wire the actual Vision API capable of reading Lightroom cached pre
 - End-to-end integration proving `analyze_job_single_pass` returns structured decisions correctly via API call without raising `NotImplementedError`.
 
 ## Status
-NOT_STARTED
+ACTIVE

@@ -7,13 +7,21 @@ from tests.test_cache_extractor import dummy_lrdata # Use the fixture from earli
 
 def test_handoff_job(dummy_lrdata, tmp_path):
     runtime_root = tmp_path / "runtime"
+    photos_dir = tmp_path / "photos"
+    photos_dir.mkdir()
+    p1 = photos_dir / "IMG_01.CR2"
+    p2 = photos_dir / "IMG_02.CR2"
+    p3 = photos_dir / "IMG_03.CR2"
+    p1.write_text("")
+    p2.write_text("")
+    p3.write_text("")
     
     selection = {
         "job_id": "test_job_123",
         "photos": [
-            {"id_local": 101.0, "path": "C:/photos/IMG_01.CR2"},
-            {"id_local": 102.0, "path": "C:/photos/IMG_02.CR2"}, # missing root-pixel
-            {"id_local": 103.0, "path": "C:/photos/IMG_03.CR2"},
+            {"id_local": 101.0, "path": str(p1.resolve())},
+            {"id_local": 102.0, "path": str(p2.resolve())}, # missing root-pixel
+            {"id_local": 103.0, "path": str(p3.resolve())},
         ]
     }
     selection_path = tmp_path / "selection.json"
