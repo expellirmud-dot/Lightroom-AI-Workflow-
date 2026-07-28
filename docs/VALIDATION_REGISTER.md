@@ -188,6 +188,18 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-067 | 2026-07-28 | WO-020 pilot run | `uv run python scratch/run_wo020_pilot.py` | MANUAL_RESPONSES=5, VALIDATED_DECISIONS=5, ai-decisions.json written | scratch/wo020_job/ai-decisions.json | WO-020 | 9cd6a4c |
 | VLD-068 | 2026-07-28 | WO-020 ANALYZE_ONLY guard | manual inspection of ai-decisions.json | apply_authorized=False, xmp_mutation=False, no apply_exposure_deltas | scratch/wo020_job/ai-decisions.json | WO-020 | 9cd6a4c |
 
+
+### WO-022 (Canonical Runtime Integration Repair)
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-069 | 2026-07-28 | Full pytest suite | `env -u PYTHONPATH -u PYTHONHOME uv run pytest -q tests/` | TESTS_EXIT=0 (2 pre-existing skips) | src/lr_ai_exposure/ + tests/ | WO-022 | pending |
+| VLD-070 | 2026-07-28 | Canonical CLI check-config | `env -u PYTHONPATH -u PYTHONHOME uv run lr-ai-exposure --check-config` | exit 0, summary printed | Config + main.py entry point | WO-022 | pending |
+| VLD-071 | 2026-07-28 | Focused WO-022 tests | `env -u PYTHONPATH -u PYTHONHOME uv run pytest -q tests/test_main_integration.py tests/test_cli_modes.py` | 10 passed, 0 failed | main.py + analysis_result.py + tests | WO-022 | pending |
+| VLD-072 | 2026-07-28 | Diff check | `git diff --check` | pass (CRLF warnings only) | All WO-022 allowed files | WO-022 | pending |
+| VLD-073 | 2026-07-28 | Git scope | `git status --short` | only WO-022 allowed files | WO-022 file scope | WO-022 | pending |
+| VLD-074 | 2026-07-28 | 5-image ANALYZE_ONLY integration | `pytest -q tests/test_main_integration.py` | CANONICAL_CLI_EXIT_0, VALIDATED_DECISIONS_5, FULL_DECISION_SCHEMA_WRITTEN, ANALYSIS_EVIDENCE_WRITTEN, APPLY_FUNCTION_NOT_CALLED, NO_XMP_MUTATION | Canonical CLI runtime flow | WO-022 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

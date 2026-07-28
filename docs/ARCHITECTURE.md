@@ -6,15 +6,29 @@
 Lightroom selection
 → Lightroom-rendered temporary JPEG previews (already include preset/develop appearance)
 → ordered manifest.json
-→ one-shot Python CLI
+→ one-shot Python CLI (default mode = ANALYZE_ONLY)
 → Vision AI
-→ validated ai-decisions.json
-→ XMP backup
-→ controlled Exposure2012 apply
-→ result.json
+→ validated ai-decisions.json + analysis-evidence.json (full SinglePassDecision schema)
+→ [APPLY mode only] XMP backup
+→ [APPLY mode only] controlled Exposure2012 apply
+→ result.json / run.log
 → user reads metadata into Lightroom
 → user reviews and exports manually
 ```
+
+### CLI Modes
+
+The canonical `lr-ai-exposure` CLI exposes two mutually-exclusive modes:
+
+- `--analyze-only` (default): runs handoff → single-pass AI judgment →
+  writes `ai-decisions.json` and `analysis-evidence.json`. The apply
+  layer is never imported or called. No XMP mutation occurs.
+- `--apply`: additionally invokes `apply_exposure_deltas` with the
+  validated settings object.
+
+When neither flag is supplied, ANALYZE_ONLY is selected. The apply
+module is imported lazily so the default execution path cannot reach
+`apply_exposure_deltas`.
 
 ## Key Boundaries
 
@@ -37,7 +51,8 @@ src/lr_ai_exposure/   — Python package (src layout)
     __init__.py
     config.py         — settings loader + validator
     models.py        — data models only
-    main.py          — CLI entry point
+    main.py          — CLI entry point (modes, artifact orchestration)
+    analysis_result.py — canonical ai-decisions/analysis-evidence writers
 config/settings.json — default configuration
 docs/               — architecture, safety, and contract documents
 runtime/            — jobs, logs, temp (gitignored)
