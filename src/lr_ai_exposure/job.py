@@ -33,11 +33,11 @@ _REQUIRED_ENTRY_FIELDS = {
     "xmp_path": str,
     "preview_path": str,
     "seq": int,
+    "extraction_status": str,
 }
 
 # Subdirectories created inside every job directory.
-_JOB_SUBDIRS = ("previews", "xmp_backups", "results")
-
+_JOB_SUBDIRS = ("previews", "xmp_backups", "results", "logs")
 
 @dataclass(frozen=True)
 class ManifestEntry:
@@ -53,6 +53,9 @@ class ManifestEntry:
     xmp_path: str
     preview_path: str
     seq: int
+    extraction_status: str = "PENDING"
+    uuid: Optional[str] = None
+    preview_bytes: int = 0
 
 
 @dataclass(frozen=True)
@@ -203,6 +206,9 @@ def write_manifest(job_dir: Path, manifest: Manifest) -> Path:
                 "xmp_path": e.xmp_path,
                 "preview_path": e.preview_path,
                 "seq": e.seq,
+                "extraction_status": e.extraction_status,
+                "uuid": e.uuid,
+                "preview_bytes": e.preview_bytes,
             }
             for e in manifest.entries
         ],
@@ -256,6 +262,9 @@ def read_manifest(job_dir: Path) -> Manifest:
                     xmp_path=item["xmp_path"],
                     preview_path=item["preview_path"],
                     seq=int(item["seq"]),
+                    extraction_status=item.get("extraction_status", "PENDING"),
+                    uuid=item.get("uuid"),
+                    preview_bytes=int(item.get("preview_bytes", 0)),
                 )
             )
         except (TypeError, ValueError) as exc:

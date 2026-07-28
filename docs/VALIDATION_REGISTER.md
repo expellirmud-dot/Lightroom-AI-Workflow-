@@ -141,8 +141,15 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 
 | Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
 |---|---|---|---|---|---|---|---|
-| VLD-051 | 2026-07-28 | pytest WO-016 | pytest -q tests/test_cache_extractor.py | 2 passed, 0 failed | src/lr_ai_exposure/cache_extractor.py + tests/ | WO-016 | pending |
-| VLD-052 | 2026-07-28 | Live Batch 10 | python scratch/test_batch_extract.py | 10/10 FOUND, JPEGs saved | Real Lightroom cache DBs | WO-016 | pending |
+| VLD-051 | 2026-07-28 | pytest WO-016 | pytest -q tests/test_cache_extractor.py | 2 passed, 0 failed | src/lr_ai_exposure/cache_extractor.py + tests/ | WO-016 | 9eb9ff1 |
+| VLD-052 | 2026-07-28 | Live Batch 10 | python scratch/test_batch_extract.py | 10/10 FOUND, JPEGs saved | Real Lightroom cache DBs | WO-016 | 9eb9ff1 |
+
+### WO-017 (Cache Preview Job Manifest Handoff) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-053 | 2026-07-28 | pytest WO-017 | pytest -q tests/test_job.py tests/test_handoff.py | 17 passed, 0 failed | src/lr_ai_exposure/ + tests/ | WO-017 | pending |
+| VLD-054 | 2026-07-28 | Live Batch 25 | python scratch/test_job_handoff.py | 25/25 FOUND, Manifest OK | Real Lightroom cache DBs | WO-017 | pending |
 
 ## Evidence Scope Definitions
 

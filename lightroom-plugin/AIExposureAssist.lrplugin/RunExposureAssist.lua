@@ -1,14 +1,7 @@
 --[[
-AI Exposure Assist — cached-thumbnail pilot command.
-
-This bounded live-pilot implementation requests JPEG thumbnails through the
-supported Lightroom SDK preview API. It does not read .lrdata directly and it
-does not run an export session.
-
-Safety:
-- Lightroom SDK is the only source of selected photos and preview bytes.
-- No RAW, catalog, .lrdata, XMP, AI, network, or delivery export mutation.
-- Output is an AI-analysis artifact only.
+AI Exposure Assist — Manifest Handoff
+Extracts selected-photo identities and writes them to selection.json.
+Does NOT request jpeg thumbnails through Lightroom SDK.
 ]]
 
 local LrApplication = import "LrApplication"
@@ -19,27 +12,14 @@ local LrTasks = import "LrTasks"
 
 local RunExposureAssist = {}
 
-local THUMBNAIL_WIDTH = 600
-local THUMBNAIL_HEIGHT = 600
-local REQUEST_TIMEOUT_SECONDS = 120
-
-function RunExposureAssist.previewName(seq, rawPath)
-    local stem = LrPathUtils.removeExtension(LrPathUtils.leafName(rawPath))
-    return string.format("%06d__%s.jpg", seq, stem)
-end
-
-local function selectedPhotos()
+function RunExposureAssist.run()
     local catalog = LrApplication.activeCatalog()
     local targets = catalog:getTargetPhotos() or {}
+    
     local photos = {}
     for _, photo in ipairs(targets) do
         photos[#photos + 1] = photo
     end
-    return catalog, photos
-end
-
-function RunExposureAssist.run()
-    local catalog, photos = selectedPhotos()
 
     if #photos == 0 then
         LrDialogs.message(
@@ -51,83 +31,40 @@ function RunExposureAssist.run()
     end
 
     local catalogPath = catalog:getPath()
-    local previewDir = LrPathUtils.child(
+    -- We write to a staging directory; Python will create the unique job folder
+    local stagingDir = LrPathUtils.child(
         LrPathUtils.parent(catalogPath),
-        "runtime/jobs/active/cached-thumbnails"
+        "runtime/staging"
     )
-    LrFileUtils.createAllDirectories(previewDir)
+    LrFileUtils.createAllDirectories(stagingDir)
 
-    local completed = 0
-    local succeeded = 0
-    local failures = {}
-    local previewPaths = {}
+    local selectionData = {}
+    for _, photo in ipairs(photos) do
+        local path = photo:getRawMetadata("path")
+        local id_local = photo:getRawMetadata("id_local")
+        local uuid = photo:getRawMetadata("uuid")
+        
+        selectionData[#selectionData + 1] = '    {\n      "id_local": ' .. tostring(id_local) .. ',\n      "path": "' .. tostring(path):gsub('\\', '\\\\') .. '",\n      "uuid": "' .. tostring(uuid) .. '"\n    }'
+    end
 
-    for index, photo in ipairs(photos) do
-        local rawPath = photo:getRawMetadata("path")
-        local previewPath = LrPathUtils.child(
-            previewDir,
-            RunExposureAssist.previewName(index, rawPath)
+    local json = '{\n  "job_id": "job-staging",\n  "photos": [\n' .. table.concat(selectionData, ",\n") .. '\n  ]\n}'
+    
+    local selectionPath = LrPathUtils.child(stagingDir, "selection.json")
+    local ok, err = LrFileUtils.writeFile(selectionPath, json)
+    
+    if ok then
+        LrDialogs.message(
+            "AI Exposure Assist",
+            "Selected " .. #photos .. " photos.\nWritten to:\n" .. selectionPath,
+            "info"
         )
-
-        photo:requestJpegThumbnail(
-            THUMBNAIL_WIDTH,
-            THUMBNAIL_HEIGHT,
-            function(jpegData, errorMessage)
-                if jpegData then
-                    local ok, writeError = LrFileUtils.writeFile(previewPath, jpegData)
-                    if ok then
-                        succeeded = succeeded + 1
-                        previewPaths[#previewPaths + 1] = previewPath
-                    else
-                        failures[#failures + 1] =
-                            RunExposureAssist.previewName(index, rawPath)
-                            .. ": write failed: " .. tostring(writeError)
-                    end
-                else
-                    failures[#failures + 1] =
-                        RunExposureAssist.previewName(index, rawPath)
-                        .. ": thumbnail unavailable: " .. tostring(errorMessage)
-                end
-                completed = completed + 1
-            end
+    else
+        LrDialogs.message(
+            "AI Exposure Assist",
+            "Failed to write selection.json: " .. tostring(err),
+            "critical"
         )
     end
-
-    local waited = 0
-    while completed < #photos and waited < REQUEST_TIMEOUT_SECONDS do
-        LrTasks.sleep(0.1)
-        waited = waited + 0.1
-    end
-
-    if completed < #photos then
-        failures[#failures + 1] =
-            "Timed out waiting for " .. (#photos - completed) .. " thumbnail(s)."
-    end
-
-    local message =
-        "Cached-thumbnail request completed.\n\n"
-        .. "Selected: " .. #photos .. "\n"
-        .. "Saved: " .. succeeded .. "\n"
-        .. "Failed: " .. #failures .. "\n\n"
-        .. "Folder:\n" .. previewDir
-
-    if #failures > 0 then
-        message = message .. "\n\nFirst error:\n" .. failures[1]
-    end
-
-    LrDialogs.message(
-        "AI Exposure Assist",
-        message,
-        (#failures == 0 and succeeded == #photos) and "info" or "warning"
-    )
-
-    return {
-        selected = #photos,
-        saved = succeeded,
-        failed = #failures,
-        preview_paths = previewPaths,
-        preview_directory = previewDir,
-    }
 end
 
 LrTasks.startAsyncTask(function()
