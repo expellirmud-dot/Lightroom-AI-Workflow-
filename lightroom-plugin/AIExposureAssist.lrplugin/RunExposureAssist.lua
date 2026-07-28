@@ -135,8 +135,9 @@ function RunExposureAssist.run()
         })
         
         -- Build the CLI command
+        local bridgeResultPath = LrPathUtils.child(stagingDir, "bridge-result-" .. jobId .. ".json")
         local pythonCmd = "uv run lr-ai-exposure"
-        local args = " --selection \"" .. selectionPath .. "\""
+        local args = " --selection \"" .. selectionPath .. "\" --lrdata \"" .. LrPathUtils.parent(catalogPath) .. "\" --bridge-result \"" .. bridgeResultPath .. "\""
         if jobData.requested_mode == "APPLY" then
             args = args .. " --apply --authorize-apply " .. jobId
         else
@@ -155,22 +156,60 @@ function RunExposureAssist.run()
         end
         
         -- Read the result artifact
-        -- The CLI writes apply-evidence.json or analysis-evidence.json in the job directory
-        local jobDir = LrPathUtils.child(LrPathUtils.child(stagingDir, "jobs"), jobId)
-        local evidenceFile = "analysis-evidence.json"
-        if jobData.requested_mode == "APPLY" then
-            evidenceFile = "apply-evidence.json"
+        local file = io.open(bridgeResultPath, "rb")
+        if not file then
+            error("Bridge result file absent: " .. tostring(bridgeResultPath))
+        end
+        local bridgeContent = file:read("*a")
+        file:close()
+        
+        local bridgeResult = Json.decode(bridgeContent)
+        if not bridgeResult then
+            error("Malformed bridge result JSON")
         end
         
-        local evidencePath = LrPathUtils.child(jobDir, evidenceFile)
-        
-        if not LrFileUtils.exists(evidencePath) then
-            -- Fallback to bridge output if not written there
-            LrDialogs.message("AI Exposure Assist", "Job finished but no evidence artifact found at " .. evidencePath .. " (Exit status: " .. tostring(exitStatus) .. ")", "critical")
-            return
+        if bridgeResult.protocol_version ~= "1.0" then
+            error("Protocol version mismatch")
         end
         
-        local evidenceContent = LrFileUtils.readFile(evidencePath)
+        if bridgeResult.job_id ~= jobId then
+            error("Job ID mismatch")
+        end
+        
+        if bridgeResult.status == "error" and exitStatus == 0 then
+            error("Process exit 0 contradicts error status")
+        end
+        if bridgeResult.status == "ok" and exitStatus ~= 0 then
+            error("Process exit non-zero contradicts ok status")
+        end
+        
+        if bridgeResult.status == "error" then
+            error(tostring(bridgeResult.error))
+        end
+        
+        local evidencePath = bridgeResult.analysis_evidence
+        if jobData.requested_mode == "APPLY" and bridgeResult.apply_evidence and bridgeResult.apply_evidence ~= "" then
+            evidencePath = bridgeResult.apply_evidence
+        end
+        
+        if not evidencePath or evidencePath == "" or not LrFileUtils.exists(evidencePath) then
+            error("Reported artifact does not exist: " .. tostring(evidencePath))
+        end
+        
+        -- Capture diagnostics
+        local logPath = LrPathUtils.child(stagingDir, "plugin-diagnostics.log")
+        local logLines = {
+            "Command: " .. fullCmd,
+            "Exit code: " .. tostring(exitStatus),
+            "Bridge result path: " .. bridgeResultPath,
+            "Analysis evidence path: " .. tostring(bridgeResult.analysis_evidence),
+            "Apply evidence path: " .. tostring(bridgeResult.apply_evidence)
+        }
+        writeUtf8File(logPath, table.concat(logLines, "\n"))
+        
+        local eFile = io.open(evidencePath, "rb")
+        local evidenceContent = eFile:read("*a")
+        eFile:close()
         local evidencePayload = Json.decode(evidenceContent)
         
         if not evidencePayload then

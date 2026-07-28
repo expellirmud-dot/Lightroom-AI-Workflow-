@@ -35,6 +35,17 @@ from lr_ai_exposure.analysis_result import (
     write_analysis_evidence,
 )
 
+def _write_bridge_result(out_path: Path | None, payload: dict) -> None:
+    if not out_path:
+        return
+    try:
+        tmp = out_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.replace(out_path)
+    except Exception as exc:
+        print(f"ERROR writing bridge result: {exc}", file=sys.stderr)
+
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -62,6 +73,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--authorize-apply",
         type=str,
         help="Explicitly authorize real XMP mutation for the given job_id. Requires --apply mode.",
+    )
+    parser.add_argument(
+        "--bridge-result",
+        type=Path,
+        help="Path to write the authoritative bridge result JSON.",
     )
     parser.add_argument(
         "--selection",
@@ -182,12 +198,35 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    job_id = "unknown"
+    mode = "ANALYZE_ONLY"
+    decisions_path = ""
+    evidence_path = ""
+    apply_evidence = None
+    decision_count = 0
+    applied_count = 0
+
+    def _fail(msg: str) -> int:
+        print(f"ERROR: {msg}", file=sys.stderr)
+        _write_bridge_result(args.bridge_result, {
+            "protocol_version": "1.0",
+            "status": "error",
+            "job_id": job_id,
+            "mode": mode,
+            "decision_count": decision_count,
+            "applied": applied_count,
+            "ai_decisions": str(decisions_path) if decisions_path else "",
+            "analysis_evidence": str(evidence_path) if evidence_path else "",
+            "apply_evidence": str(apply_evidence) if apply_evidence else None,
+            "error": msg,
+        })
+        return 1
+
     root = Path.cwd()
     try:
         settings = load_config(root)
     except ConfigError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
+        return _fail(str(exc))
 
     if args.check_config:
         summary = {
@@ -204,8 +243,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         mode = _select_mode(args)
     except ConfigError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
+        return _fail(str(exc))
 
     if not args.selection or not args.lrdata:
         parser.print_help()
@@ -215,22 +253,17 @@ def main(argv: list[str] | None = None) -> int:
     lrdata_path = args.lrdata.resolve()
 
     if not selection_path.exists():
-        print(
-            f"ERROR: Selection file not found at {selection_path}",
-            file=sys.stderr,
-        )
-        return 1
+        return _fail(f"Selection file not found at {selection_path}")
 
     if not lrdata_path.exists():
-        print(f"ERROR: lrdata dir not found at {lrdata_path}", file=sys.stderr)
-        return 1
+        return _fail(f"lrdata dir not found at {lrdata_path}")
 
     # 1. Handoff
     try:
         job_dir, manifest = _run_handoff(settings, root, selection_path, lrdata_path)
+        job_id = manifest.job_id
     except Exception as exc:
-        print(f"ERROR: Handoff failed: {exc}", file=sys.stderr)
-        return 1
+        return _fail(f"Handoff failed: {exc}")
 
     # Check two-key authorization contract
     apply_authorized = settings.get("apply_authorized", False)
@@ -245,18 +278,19 @@ def main(argv: list[str] | None = None) -> int:
     # 2. AI Judgment (Single-Pass) — validated settings flow through.
     try:
         decisions = _run_analysis(manifest, job_dir, settings)
+        decision_count = len(decisions)
     except Exception as exc:
-        print(f"ERROR: AI Judgment failed: {exc}", file=sys.stderr)
-        return 1
+        return _fail(f"AI Judgment failed: {exc}")
 
     # 3. Canonical analysis artifacts (always written).
     try:
-        decisions_path, evidence_path = _write_artifacts(
+        dp, ep = _write_artifacts(
             job_dir, manifest, decisions, settings, mode
         )
+        decisions_path = str(dp)
+        evidence_path = str(ep)
     except Exception as exc:
-        print(f"ERROR: Artifact write failed: {exc}", file=sys.stderr)
-        return 1
+        return _fail(f"Artifact write failed: {exc}")
 
     # 4. Apply — only reachable in --apply mode. The apply layer is
     #    imported lazily; ANALYZE_ONLY cannot reach this code path.
@@ -264,35 +298,37 @@ def main(argv: list[str] | None = None) -> int:
     if mode == "APPLY":
         try:
             results = _run_apply(job_dir, selection_path, decisions, settings)
+            applied_count = results.get("applied", 0)
+            apply_evidence = str(job_dir / "apply-evidence.json")
         except Exception as exc:
-            print(f"ERROR: Apply failed: {exc}", file=sys.stderr)
-            return 1
+            return _fail(f"Apply failed: {exc}")
 
     # 5. Result recording.
     log_content = (
         f"Job processed: {job_dir.name}\n"
         f"Mode: {mode}\n"
-        f"Decisions: {len(decisions)}\n"
-        f"Applied: {results['applied'] if results else 0}\n"
+        f"Decisions: {decision_count}\n"
+        f"Applied: {applied_count}\n"
         f"Skipped: {results['skipped'] if results else 0}\n"
         f"Errors: {results['errors'] if results else 0}\n"
     )
     (job_dir / "run.log").write_text(log_content, encoding="utf-8")
 
-    print(
-        json.dumps(
-            {
-                "status": "ok",
-                "job_id": manifest.job_id,
-                "mode": mode,
-                "decision_count": len(decisions),
-                "ai_decisions": str(decisions_path),
-                "analysis_evidence": str(evidence_path),
-                "applied": results["applied"] if results else 0,
-            },
-            indent=2,
-        )
-    )
+    res = {
+        "protocol_version": "1.0",
+        "status": "ok",
+        "job_id": job_id,
+        "mode": mode,
+        "decision_count": decision_count,
+        "applied": applied_count,
+        "ai_decisions": str(decisions_path),
+        "analysis_evidence": str(evidence_path),
+        "apply_evidence": str(apply_evidence) if apply_evidence else None,
+        "error": None,
+    }
+    _write_bridge_result(args.bridge_result, res)
+
+    print(json.dumps(res, indent=2))
     return 0
 
 
