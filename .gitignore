@@ -1,0 +1,29 @@
+# Serena MCP per-project data (machine-specific, not repo source)
+.serena/
+
+# CodeGraph knowledge graph (machine-specific index)
+.codegraph/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Environment secrets
+.env
+.env.local
+
+# Runtime artifacts
+runtime/
+logs/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
