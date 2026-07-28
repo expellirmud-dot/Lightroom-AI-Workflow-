@@ -21,7 +21,8 @@ def _manifest(entries: int = 2) -> Manifest:
             ManifestEntry(
                 image_id=f"IMG_{i}",
                 raw_path=f"previews/IMG_{i}.NEF",
-                xmp_path=f"xmp/IMG_{i}.xmp",
+                source_xmp_path=f"previews/IMG_{i}.xmp",
+                backup_relative_path=f"xmp_backups/IMG_{i}.xmp",
                 preview_path=f"previews/IMG_{i}.jpg",
                 seq=i,
             )

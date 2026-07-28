@@ -30,7 +30,8 @@ class ManifestError(ValueError):
 _REQUIRED_ENTRY_FIELDS = {
     "image_id": str,
     "raw_path": str,
-    "xmp_path": str,
+    "source_xmp_path": str,
+    "backup_relative_path": str,
     "preview_path": str,
     "seq": int,
     "extraction_status": str,
@@ -50,7 +51,8 @@ class ManifestEntry:
 
     image_id: str
     raw_path: str
-    xmp_path: str
+    source_xmp_path: str
+    backup_relative_path: str
     preview_path: str
     seq: int
     extraction_status: str = "PENDING"
@@ -187,9 +189,8 @@ def validate_manifest_entries(
             )
         expected_seq += 1
 
-        # Path-escape guard for every path field
-        _assert_path_inside(job_dir, entry.raw_path, f"entry {idx} raw_path")
-        _assert_path_inside(job_dir, entry.xmp_path, f"entry {idx} xmp_path")
+        # Path-escape guard for every path field that lives in job_dir
+        _assert_path_inside(job_dir, entry.backup_relative_path, f"entry {idx} backup_relative_path")
         _assert_path_inside(job_dir, entry.preview_path, f"entry {idx} preview_path")
 
 
@@ -226,7 +227,8 @@ def write_manifest(job_dir: Path, manifest: Manifest) -> Path:
             {
                 "image_id": e.image_id,
                 "raw_path": e.raw_path,
-                "xmp_path": e.xmp_path,
+                "source_xmp_path": e.source_xmp_path,
+                "backup_relative_path": e.backup_relative_path,
                 "preview_path": e.preview_path,
                 "seq": e.seq,
                 "extraction_status": e.extraction_status,
@@ -285,7 +287,8 @@ def read_manifest(job_dir: Path) -> Manifest:
                 ManifestEntry(
                     image_id=item["image_id"],
                     raw_path=item["raw_path"],
-                    xmp_path=item["xmp_path"],
+                    source_xmp_path=item["source_xmp_path"],
+                    backup_relative_path=item["backup_relative_path"],
                     preview_path=item["preview_path"],
                     seq=int(item["seq"]),
                     extraction_status=item.get("extraction_status", "PENDING"),

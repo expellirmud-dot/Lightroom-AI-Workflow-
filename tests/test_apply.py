@@ -38,8 +38,8 @@ def test_apply_exposure_deltas(tmp_path: Path):
         
     # Create manifest
     manifest = Manifest("job_test", [
-        ManifestEntry("1", "IMG_01.CR2", "xmp_backups/IMG_01.xmp", "previews/1.jpg", 1, "FOUND", preview_bytes=10, preview_sha256="hash1", uuid="uuid1"),
-        ManifestEntry("2", "IMG_02.CR2", "xmp_backups/IMG_02.xmp", "previews/2.jpg", 2, "FOUND", preview_bytes=10, preview_sha256="hash2", uuid="uuid2"),
+        ManifestEntry("1", str((photos_dir / "IMG_01.CR2").resolve()), str((photos_dir / "IMG_01.xmp").resolve()), "xmp_backups/IMG_01.xmp", "previews/1.jpg", 1, "FOUND", preview_bytes=10, preview_sha256="hash1", uuid="uuid1"),
+        ManifestEntry("2", str((photos_dir / "IMG_02.CR2").resolve()), str((photos_dir / "IMG_02.xmp").resolve()), "xmp_backups/IMG_02.xmp", "previews/2.jpg", 2, "FOUND", preview_bytes=10, preview_sha256="hash2", uuid="uuid2"),
     ])
     write_manifest(job_dir, manifest)
     

@@ -21,7 +21,8 @@ def _make_entry(
     return ManifestEntry(
         image_id=image_id,
         raw_path=raw_path,
-        xmp_path=f"xmp_backups/{image_id}.xmp",
+        source_xmp_path=f"previews/{image_id}.xmp",
+        backup_relative_path=f"xmp_backups/{image_id}.xmp",
         preview_path=preview_path,
         seq=seq,
     )

@@ -21,7 +21,8 @@ def _make_entry(seq: int, image_id: str = "PTO_3392") -> ManifestEntry:
     return ManifestEntry(
         image_id=image_id,
         raw_path=f"previews/{image_id}.NEF",
-        xmp_path=f"xmp_backups/{image_id}.xmp",
+        source_xmp_path=f"previews/{image_id}.xmp",
+        backup_relative_path=f"xmp_backups/{image_id}.xmp",
         preview_path=f"previews/{image_id}.jpg",
         seq=seq,
     )
@@ -90,7 +91,8 @@ def test_write_and_read_manifest_roundtrip(tmp_path: Path) -> None:
         '    {\n'
         '      "image_id": "PTO_3392",\n'
         '      "raw_path": "previews/PTO_3392.NEF",\n'
-        '      "xmp_path": "xmp_backups/PTO_3392.xmp",\n'
+        '      "source_xmp_path": "previews/PTO_3392.xmp",\n'
+        '      "backup_relative_path": "xmp_backups/PTO_3392.xmp",\n'
         '      "preview_path": "previews/PTO_3392.jpg",\n'
         '      "seq": 1,\n'
         '      "extraction_status": "PENDING",\n'
@@ -101,7 +103,8 @@ def test_write_and_read_manifest_roundtrip(tmp_path: Path) -> None:
         '    {\n'
         '      "image_id": "PTO_3393",\n'
         '      "raw_path": "previews/PTO_3393.NEF",\n'
-        '      "xmp_path": "xmp_backups/PTO_3393.xmp",\n'
+        '      "source_xmp_path": "previews/PTO_3393.xmp",\n'
+        '      "backup_relative_path": "xmp_backups/PTO_3393.xmp",\n'
         '      "preview_path": "previews/PTO_3393.jpg",\n'
         '      "seq": 2,\n'
         '      "extraction_status": "PENDING",\n'
@@ -112,7 +115,8 @@ def test_write_and_read_manifest_roundtrip(tmp_path: Path) -> None:
         '    {\n'
         '      "image_id": "PTO_3394",\n'
         '      "raw_path": "previews/PTO_3394.NEF",\n'
-        '      "xmp_path": "xmp_backups/PTO_3394.xmp",\n'
+        '      "source_xmp_path": "previews/PTO_3394.xmp",\n'
+        '      "backup_relative_path": "xmp_backups/PTO_3394.xmp",\n'
         '      "preview_path": "previews/PTO_3394.jpg",\n'
         '      "seq": 3,\n'
         '      "extraction_status": "PENDING",\n'
@@ -169,7 +173,8 @@ def test_validate_manifest_rejects_empty_field(tmp_path: Path) -> None:
     bad = ManifestEntry(
         image_id="",
         raw_path="previews/x.NEF",
-        xmp_path="xmp_backups/x.xmp",
+        source_xmp_path="previews/x.xmp",
+        backup_relative_path="xmp_backups/x.xmp",
         preview_path="previews/x.jpg",
         seq=1,
     )
@@ -182,8 +187,9 @@ def test_validate_manifest_rejects_path_escape(tmp_path: Path) -> None:
     job_dir = create_job_directory(tmp_path, job_id="escape")
     bad = ManifestEntry(
         image_id="PTO_3392",
-        raw_path="../outside/PTO_3392.NEF",
-        xmp_path="xmp_backups/PTO_3392.xmp",
+        raw_path="previews/PTO_3392.NEF",
+        source_xmp_path="previews/PTO_3392.xmp",
+        backup_relative_path="../outside/PTO_3392.xmp",
         preview_path="previews/PTO_3392.jpg",
         seq=1,
     )
@@ -196,8 +202,9 @@ def test_validate_manifest_rejects_absolute_escape(tmp_path: Path) -> None:
     job_dir = create_job_directory(tmp_path, job_id="absesc")
     bad = ManifestEntry(
         image_id="PTO_3392",
-        raw_path="C:\\Windows\\system32\\calc.exe",
-        xmp_path="xmp_backups/PTO_3392.xmp",
+        raw_path="previews/PTO_3392.NEF",
+        source_xmp_path="previews/PTO_3392.xmp",
+        backup_relative_path="C:\\Windows\\system32\\calc.exe",
         preview_path="previews/PTO_3392.jpg",
         seq=1,
     )

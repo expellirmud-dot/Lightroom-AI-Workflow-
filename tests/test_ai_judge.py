@@ -83,8 +83,8 @@ def test_validate_single_pass_force_review_on_risk():
 
 def test_analyze_job_single_pass():
     entries = [
-        ManifestEntry("img1", "raw1", "xmp1", "prev1", 1, extraction_status="FOUND"),
-        ManifestEntry("img2", "raw2", "xmp2", "prev2", 2, extraction_status="MISSING"),
+        ManifestEntry("img1", "raw1", "src1", "bk1", "prev1", 1, extraction_status="FOUND"),
+        ManifestEntry("img2", "raw2", "src2", "bk2", "prev2", 2, extraction_status="MISSING"),
     ]
     manifest = Manifest(job_id="job1", entries=entries)
     

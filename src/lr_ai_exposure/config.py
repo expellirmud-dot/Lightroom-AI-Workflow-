@@ -34,6 +34,8 @@ def _validate_settings(settings: dict[str, Any], root: Path) -> dict[str, Any]:
         "minimum_apply_confidence": (int, float),
         "dry_run": bool,
         "apply_authorized": bool,
+        "approved_image_ids": list,
+        "approved_pilot_root": str,
     }
 
     for key, expected_type in required.items():
@@ -77,6 +79,12 @@ def _validate_settings(settings: dict[str, Any], root: Path) -> dict[str, Any]:
 
     export_root = root / settings["export_root"]
     resolved["export_root"] = str(export_root)
+
+    if settings["approved_pilot_root"]:
+        pilot_root = root / settings["approved_pilot_root"]
+        resolved["approved_pilot_root"] = str(pilot_root)
+    else:
+        resolved["approved_pilot_root"] = ""
 
     return resolved
 

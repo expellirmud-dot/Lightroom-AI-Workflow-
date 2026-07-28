@@ -51,11 +51,10 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
     for i, res in enumerate(results):
         src_path = identities[i].get("path", "")
         stem = os.path.splitext(os.path.basename(src_path))[0]
-        ext = os.path.splitext(src_path)[1]
         
-        # Manifest paths must be relative to job_dir to pass job.py validation
-        raw_path_rel = f"{stem}{ext}"
-        xmp_path_rel = f"xmp_backups/{stem}.xmp"
+        raw_path_canon = str(Path(src_path).resolve())
+        source_xmp_path = str(Path(src_path).with_suffix(".xmp").resolve())
+        backup_relative_path = f"xmp_backups/{stem}.xmp"
         preview_path_rel = f"previews/{i+1:06d}__{stem}.jpg"
         
         status = res["status"]
@@ -84,8 +83,9 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
             
         entry = ManifestEntry(
             image_id=str(identities[i].get("id_local", "")),
-            raw_path=raw_path_rel,
-            xmp_path=xmp_path_rel,
+            raw_path=raw_path_canon,
+            source_xmp_path=source_xmp_path,
+            backup_relative_path=backup_relative_path,
             preview_path=preview_path_rel,
             seq=i + 1,
             extraction_status=status,

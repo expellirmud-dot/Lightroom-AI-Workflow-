@@ -79,14 +79,19 @@ def apply_exposure_deltas(job_dir: Path, selection_json_path: Path, decisions: l
         raw_path = Path(sel_item["path"]).resolve()
         xmp_path = raw_path.with_suffix(".xmp").resolve()
         
-        if raw_path.name != manifest_entry.raw_path:
+        if str(raw_path) != manifest_entry.raw_path:
             results["errors"] += 1
-            results["details"].append(f"Error {img_id}: raw_path mismatch")
+            results["details"].append(f"Error {img_id}: canonical raw_path mismatch")
             continue
             
-        if manifest_entry.xmp_path != f"xmp_backups/{xmp_path.name}":
+        if str(xmp_path) != manifest_entry.source_xmp_path:
             results["errors"] += 1
-            results["details"].append(f"Error {img_id}: xmp_path mismatch")
+            results["details"].append(f"Error {img_id}: canonical source_xmp_path mismatch")
+            continue
+            
+        if manifest_entry.backup_relative_path != f"xmp_backups/{xmp_path.name}":
+            results["errors"] += 1
+            results["details"].append(f"Error {img_id}: backup_relative_path mismatch")
             continue
         
         # 2. Reject unapproved images
