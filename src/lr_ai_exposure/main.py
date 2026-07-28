@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         
     # 2. AI Judgment (Single-Pass)
     try:
-        decisions = analyze_job_single_pass(manifest)
+        decisions = analyze_job_single_pass(manifest, job_dir)
         
         # Write ai-decisions.json
         decisions_dict = {
