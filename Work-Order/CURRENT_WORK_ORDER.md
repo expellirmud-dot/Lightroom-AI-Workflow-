@@ -2,13 +2,11 @@
 
 STATUS: ACTIVE
 
-WORK_ORDER: `Work-Order/WO-004-PROJECT-READ-FIRST-SKILL.md`
+WORK_ORDER: `Work-Order/WO-004-LIGHTROOM-PLUGIN-BRIDGE.md`
 
 REPOSITORY_ROOT: `D:\ai-tools\lightroom-ai-exposure`
 
 REMOTE: `https://github.com/expellirmud-dot/Lightroom-AI-Workflow-.git`
-
-LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-003-PROJECT-TRACEABILITY-REGISTERS.md`
 
 Only the referenced Work Order is authorized.
 
