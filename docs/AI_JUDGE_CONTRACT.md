@@ -97,3 +97,49 @@ Before applying any decision, the CLI must:
 8. Check for large exposure jumps within groups and flag for review.
 9. Reject duplicate or unknown `image_id` values.
 10. Log all reviewed or rejected decisions in `result.json` with reasons.
+
+## Manual Batch Provider Contract (WO-023)
+
+When `ai_provider` is `manual_app`, decisions are supplied as JSON files in
+an authorized response directory instead of a network call.
+
+### Configuration
+
+| Field | Meaning |
+|---|---|
+| `manual_response_directory` | Authorized directory containing one `*.json` response per FOUND manifest entry. Replaces the retired single-file `manual_response_file`. |
+
+### Batch Preflight (before any analysis)
+
+`resolve_manual_response_map(manifest, response_dir)` must succeed before
+the first image is analyzed. It enforces exact identity reconciliation:
+
+1. Every response file must parse as JSON and declare `image_id`.
+   A missing `image_id` is **rejected — never system-bound** for manual
+   responses.
+2. Manifest FOUND IDs and response IDs must be **exactly equal as sets**:
+   - missing responses → reject the whole batch;
+   - unknown responses → reject the whole batch;
+   - duplicate `image_id` across response files → reject;
+   - duplicate `image_id` among FOUND manifest entries → reject.
+3. Every response path must resolve inside the authorized response
+   directory (symlink escapes are rejected).
+4. Failure occurs before partial processing: no decisions are returned and
+   no artifacts are written for a rejected batch.
+
+### Evidence Contract — `AnalysisRecord`
+
+Each validated decision is preserved beside its provider evidence in one
+canonical `AnalysisRecord` (`analysis-records.json`, manifest order,
+atomic write):
+
+| Field | Content |
+|---|---|
+| `decision` | Complete `SinglePassDecision` (`model_dump(mode="json")`) — no risk or rationale field is dropped. |
+| `provider` | Provider name (e.g. `manual_app`, `google`). |
+| `model` | Model identifier. |
+| `mode` | Execution mode (`ANALYZE_ONLY`). |
+| `preview_bytes` | Verified preview byte count. |
+| `preview_sha256` | Verified preview SHA-256. |
+| `response_reference` | Path of the response file that supplied the decision (or provider name for network providers). |
+| `token_usage` | Token usage dictionary when the provider reports it; otherwise `null`. |

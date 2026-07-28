@@ -1,7 +1,7 @@
 # WO-023: Manual Batch Provider and Evidence Contract
 
 ## Status
-QUEUED
+COMPLETED (2026-07-28) — deterministic batch provider with exact identity reconciliation and canonical AnalysisRecord evidence contract.
 
 ## Objective
 Upgrade `manual_app` from a single-response-file seam into a deterministic batch provider with exact identity reconciliation and preserved provider evidence.
@@ -97,5 +97,65 @@ NO_XMP_MUTATION
 - Partial batch success is silently accepted.
 - Provider metadata cannot be serialized deterministically.
 
-## Closeout
+## Closeout Evidence (2026-07-28)
+
+Implementation:
+- `src/lr_ai_exposure/analysis_artifacts.py` — new canonical owner of
+  `AnalysisRecord` (complete `SinglePassDecision` + provider evidence:
+  provider, model, mode, preview bytes, preview SHA-256, response
+  reference, token usage). Atomic writes via temp-file + replace.
+- `src/lr_ai_exposure/providers/manual_app.py` — replaced single-file
+  `manual_response_file` seam with `manual_response_directory` batch
+  contract. Added `resolve_manual_response_map()` which performs exact
+  set equality between manifest FOUND IDs and response IDs before any
+  analysis begins. Missing, unknown, duplicate, malformed, and
+  missing-`image_id` responses are rejected (no system-binding).
+  Response path containment enforced against the authorized directory.
+- `src/lr_ai_exposure/ai_judge.py` — `analyze_job_single_pass()` now
+  calls `resolve_manual_response_map()` for `manual_app` provider,
+  collects one `AnalysisRecord` per decision in manifest order, and
+  writes `analysis-records.json` atomically into the job directory.
+  The `manual_response_file` config key is retired for `manual_app`.
+- `tests/test_manual_batch_provider.py` — 12 new tests covering the
+  batch preflight rejection matrix (missing/unknown/duplicate/malformed/
+  missing-id/duplicate-manifest-id/non-directory/symlink-escape) and
+  the 5-entry end-to-end acceptance (MANIFEST_RESPONSE_ID_SET_RECONCILED,
+  MANUAL_RESPONSES_5, VALIDATED_DECISIONS_5, ANALYSIS_RECORDS_5,
+  ORDER_PRESERVED, PROVIDER_METADATA_PRESERVED).
+- `tests/test_analysis_artifacts.py` — 9 new tests covering the
+  `AnalysisRecord` contract (full schema preserved, provider metadata
+  preserved, token_usage optional, extra-field rejection, negative
+  preview_bytes rejection, deterministic serialization, atomic write).
+
+Validation performed (all rc=0):
+- `env -u PYTHONPATH -u PYTHONHOME uv run pytest -q
+  tests/test_manual_batch_provider.py tests/test_analysis_artifacts.py`
+  — **21 passed, 0 failed** (focused WO-023 suite).
+- `env -u PYTHONPATH -u PYTHONHOME uv run pytest -q tests/`
+  — **178 passed, 2 skipped** (pre-existing skips, unchanged).
+- `git diff --check` — clean (CRLF warnings only; pre-existing repo policy).
+- `git status --short` — only WO-023 allowed files changed.
+
+Success markers:
+- MANIFEST_RESPONSE_ID_SET_RECONCILED — confirmed (set equality
+  enforced in `resolve_manual_response_map`; 5-entry manifest = 5
+  responses).
+- MANUAL_RESPONSES_5 — confirmed (5 decisions returned for 5-entry
+  manifest).
+- VALIDATED_DECISIONS_5 — confirmed (full `SinglePassDecision` schema
+  preserved in `analysis-records.json`).
+- ANALYSIS_RECORDS_5 — confirmed (`analysis-records.json` written with
+  `record_count=5`, manifest order).
+- ORDER_PRESERVED — confirmed (record index matches manifest entry
+  order; `delta_ev` tracks `seq`).
+- PROVIDER_METADATA_PRESERVED — confirmed (provider, model, mode,
+  preview_bytes, preview_sha256, response_reference all present;
+  `token_usage` carried when available).
+- UNKNOWN_RESPONSES_0 — confirmed (unknown response IDs rejected
+  before processing).
+- MISSING_RESPONSES_0 — confirmed (missing FOUND manifest IDs rejected
+  before processing).
+- NO_XMP_MUTATION — confirmed (no XMP writer touched; `apply.py` not
+  imported; ANALYZE_ONLY path proven unable to reach apply layer;
+  `analysis-records.json` contains no XMP data).
 Commit once after all gates pass. Do not push unless explicitly authorized.

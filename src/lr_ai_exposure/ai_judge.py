@@ -70,6 +70,17 @@ from typing import Any
 def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str, Any]) -> list[SinglePassDecision]:
     """Analyze a batch of extracted previews using a configurable vision API.
     Ensures exactly one analysis pass per preview. MAX_IN_FLIGHT=1.
+
+    For the ``manual_app`` provider (WO-023 batch contract):
+
+    - ``manual_response_directory`` names the authorized response
+      directory; exactly one JSON response per FOUND manifest entry is
+      resolved by ``resolve_manual_response_map`` BEFORE analysis, so an
+      incomplete/duplicate/unknown batch fails closed with no partial
+      processing.
+    - One canonical ``AnalysisRecord`` (complete decision + provider
+      evidence) is preserved per decision and written atomically to
+      ``analysis-records.json`` in the job directory, in manifest order.
     """
     provider_name = config.get("ai_provider", "google")
     model_name = config.get("ai_model", "gemini-2.5-pro")
@@ -79,14 +90,26 @@ def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str,
     elif provider_name == "manual_app":
         from lr_ai_exposure.providers.manual_app import (
             analyze_single_image_manual_app,
+            resolve_manual_response_map,
         )
     else:
         raise SinglePassError(f"Unknown ai_provider: {provider_name}")
 
-    # Manual provider requires a response-file path (canonical JSON).
-    response_file = config.get("manual_response_file")
+    # WO-023: manual provider requires an authorized response directory and
+    # exact identity reconciliation before any analysis begins.
+    response_map: dict[str, Path] = {}
+    if provider_name == "manual_app":
+        response_directory = config.get("manual_response_directory")
+        if not response_directory:
+            raise SinglePassError(
+                "manual_app provider requires 'manual_response_directory' in config"
+            )
+        response_map = resolve_manual_response_map(
+            manifest, Path(response_directory)
+        )
 
     decisions = []
+    records = []
 
     for entry in manifest.entries:
         if entry.extraction_status != "FOUND":
@@ -108,17 +131,42 @@ def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str,
                     model_name=model_name,
                 )
             else:  # manual_app
-                if not response_file:
-                    raise SinglePassError(
-                        "manual_app provider requires 'manual_response_file' in config"
-                    )
                 decision, metadata = analyze_single_image_manual_app(
                     entry=entry,
                     preview_full_path=preview_full_path,
-                    response_file=Path(response_file),
+                    response_file=response_map[str(entry.image_id)],
                 )
             decisions.append(decision)
         except Exception as e:
             raise SinglePassError(f"Failed to analyze {entry.image_id}: {e}") from e
+
+        # Preserve provider evidence beside the decision (manifest order).
+        from lr_ai_exposure.analysis_artifacts import AnalysisRecord
+
+        token_usage = metadata.get("usage") or None
+        records.append(
+            AnalysisRecord(
+                decision=decision,
+                provider=metadata.get("provider", provider_name),
+                model=metadata.get("model", model_name),
+                mode=metadata.get("mode", "ANALYZE_ONLY"),
+                preview_bytes=int(
+                    metadata.get("preview_bytes", entry.preview_bytes or 0)
+                ),
+                preview_sha256=str(
+                    metadata.get("preview_sha256", entry.preview_sha256 or "")
+                ),
+                response_reference=str(
+                    metadata.get("response_file", provider_name)
+                ),
+                token_usage=token_usage,
+            )
+        )
+
+    # Write canonical evidence records atomically beside the decisions.
+    if records:
+        from lr_ai_exposure.analysis_artifacts import write_analysis_records
+
+        write_analysis_records(job_dir, manifest.job_id, records)
 
     return decisions

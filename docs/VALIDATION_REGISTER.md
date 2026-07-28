@@ -200,6 +200,18 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-073 | 2026-07-28 | Git scope | `git status --short` | only WO-022 allowed files | WO-022 file scope | WO-022 | pending |
 | VLD-074 | 2026-07-28 | 5-image ANALYZE_ONLY integration | `pytest -q tests/test_main_integration.py` | CANONICAL_CLI_EXIT_0, VALIDATED_DECISIONS_5, FULL_DECISION_SCHEMA_WRITTEN, ANALYSIS_EVIDENCE_WRITTEN, APPLY_FUNCTION_NOT_CALLED, NO_XMP_MUTATION | Canonical CLI runtime flow | WO-022 | pending |
 
+
+### WO-023 (Manual Batch Provider and Evidence Contract)
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-075 | 2026-07-28 | Focused WO-023 tests | `env -u PYTHONPATH -u PYTHONHOME uv run pytest -q tests/test_manual_batch_provider.py tests/test_analysis_artifacts.py` | 21 passed, 0 failed | manual_app batch contract + AnalysisRecord | WO-023 | pending |
+| VLD-076 | 2026-07-28 | Full pytest suite | `env -u PYTHONPATH -u PYTHONHOME uv run pytest -q tests/` | 178 passed, 2 skipped (pre-existing) | src/lr_ai_exposure/ + tests/ | WO-023 | pending |
+| VLD-077 | 2026-07-28 | 5-entry batch acceptance | `pytest tests/test_manual_batch_provider.py::test_batch_five_decisions_in_manifest_order` | MANIFEST_RESPONSE_ID_SET_RECONCILED, MANUAL_RESPONSES_5, VALIDATED_DECISIONS_5, ANALYSIS_RECORDS_5, ORDER_PRESERVED, PROVIDER_METADATA_PRESERVED | manual_app batch flow | WO-023 | pending |
+| VLD-078 | 2026-07-28 | Fail-closed rejection matrix | `pytest tests/test_manual_batch_provider.py` (missing/unknown/duplicate/malformed/missing-id/escape cases) | UNKNOWN_RESPONSES_0, MISSING_RESPONSES_0 enforced by preflight rejection; no partial artifacts | resolve_manual_response_map | WO-023 | pending |
+| VLD-079 | 2026-07-28 | Diff check | `git diff --check` | pass (CRLF warnings only) | All WO-023 allowed files | WO-023 | COMMIT: THIS_COMMIT |
+| VLD-080 | 2026-07-28 | Git scope | `git status --short` | only WO-023 allowed files | WO-023 file scope | WO-023 | COMMIT: THIS_COMMIT |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated
