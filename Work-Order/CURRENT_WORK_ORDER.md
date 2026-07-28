@@ -1,6 +1,6 @@
 # Current Work Order
 
-STATUS: DONE
+STATUS: BLOCKED (Awaiting manual pilot)
 
 REPOSITORY_ROOT: `D:\ai-tools\lightroom-ai-exposure`
 
