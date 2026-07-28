@@ -173,6 +173,15 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-060 | 2026-07-28 | Copied-XMP Pilot | `python scratch/pilot_phase_e.py` | pass, verified rollback SHA256 | XMP rollback integration | REMEDIATION | pending |
 
 
+### WO-021 (Vision Provider Integration) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-061 | 2026-07-28 | pytest WO-021 | `pytest -q tests/` | passed | src/lr_ai_exposure/providers/ + tests | WO-021 | 961a06f |
+| VLD-062 | 2026-07-28 | Live Google API | `python scratch/run_live_cert.py` | LIVE_VISION_REQUEST_ATTEMPTED, QUOTA_EXHAUSTED, LIVE_VISION_PROVIDER_RESPONSE_NOT_RECEIVED | Google Vision Provider | WO-021 | 961a06f |
+| VLD-063 | 2026-07-28 | Manual Provider | `python scratch/run_manual_cert.py` | MODEL_MULTIMODAL_IMAGE_VIEW_PROVEN, CANONICAL_LIGHTROOM_IDENTITY_RECONCILED, MANUAL_DECISION_SCHEMA_VALID, AI_DECISIONS_JSON_WRITTEN, NO_XMP_MUTATION, GOOGLE_API_PROVIDER_REMAINS_QUOTA_BLOCKED | Manual App Provider | WO-021 | pending |
+
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated
@@ -182,6 +191,7 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 ## Limitations
 
 - No Lightroom runtime integration has been validated.
-- No Vision API integration has been validated.
+- Google Vision API is correctly wired but blocked by quota limit.
 - No live XMP write has been validated against real Lightroom catalogs.
 - All git-scope validation applies to tracked files only.
+

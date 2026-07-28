@@ -96,11 +96,14 @@ def analyze_single_image_google(
         ]
     }
     
-    attempts = 0
-    max_attempts = 2 # One bounded retry
+    _QUOTA_KEYWORDS = ("quota", "exhausted", "per day", "daily", "billing")
+    _RATE_LIMIT_KEYWORDS = ("rate", "per minute", "retry")
     
-    while attempts < max_attempts:
-        attempts += 1
+    def _is_quota_exhausted(exc: Exception) -> bool:
+        msg = str(exc).lower()
+        return any(k in msg for k in _QUOTA_KEYWORDS)
+    
+    for attempt in range(1, 3):  # Maximum two attempts (one bounded retry for RATE_LIMITED only)
         try:
             response = client.models.generate_content(
                 model=model_name,
@@ -118,15 +121,23 @@ def analyze_single_image_google(
                     max_output_tokens=max_output_tokens,
                 ),
             )
-            break
+            break  # Success
         except APIError as e:
             if e.code == 429:
-                if attempts >= max_attempts:
-                    if "quota" in str(e).lower() or "exhausted" in str(e).lower():
-                        raise ProviderQuotaError(f"QUOTA_EXHAUSTED: {e}") from e
+                if _is_quota_exhausted(e):
+                    # QUOTA_EXHAUSTED — never retry; stop immediately
+                    raise ProviderQuotaError(f"QUOTA_EXHAUSTED: {e}") from e
+                # RATE_LIMITED — one bounded retry with Retry-After or fixed delay
+                if attempt >= 2:
                     raise ProviderQuotaError(f"RATE_LIMITED: {e}") from e
-                continue # Retry once
-            raise SinglePassError(f"Provider API error: {e}") from e
+                import time, re
+                retry_delay = 32  # safe default
+                m = re.search(r"retryDelay.*?(\d+)s", str(e))
+                if m:
+                    retry_delay = min(int(m.group(1)) + 2, 60)  # cap at 60s
+                time.sleep(retry_delay)
+                continue
+            raise SinglePassError(f"Provider API error ({e.code}): {e}") from e
         except Exception as e:
             raise SinglePassError(f"Provider request failed: {e}") from e
 
