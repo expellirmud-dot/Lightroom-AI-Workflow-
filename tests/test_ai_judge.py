@@ -46,12 +46,12 @@ def test_validate_single_pass_low_confidence_downgrades_to_review():
     assert decision.quality_verdict == Verdict.REVIEW
     assert "Downgraded to REVIEW due to low confidence" in decision.reason
 
-def test_validate_single_pass_clamps_ev():
+def test_validate_single_pass_rejects_out_of_bounds_ev():
     raw = {
         "image_id": "img1",
         "relevance_verdict": "KEEP",
         "quality_verdict": "KEEP",
-        "delta_ev": 5.0, # Will be clamped to 3.0
+        "delta_ev": 5.0, # Will be rejected
         "confidence": 0.9,
         "highlight_risk": False,
         "shadow_risk": False,
@@ -60,8 +60,26 @@ def test_validate_single_pass_clamps_ev():
         "batch_consistency_group": "g1",
         "reason": "looks good"
     }
-    decision = validate_single_pass_decision(raw, max_delta_ev=3.0)
-    assert decision.delta_ev == 3.0
+    with pytest.raises(SinglePassError, match="out of bounds"):
+        validate_single_pass_decision(raw, max_delta_ev=3.0)
+
+def test_validate_single_pass_force_review_on_risk():
+    raw = {
+        "image_id": "img1",
+        "relevance_verdict": "KEEP",
+        "quality_verdict": "KEEP",
+        "delta_ev": 1.5,
+        "confidence": 0.9,
+        "highlight_risk": True,
+        "shadow_risk": False,
+        "subject_rationale": "person",
+        "scene_rationale": "daylight",
+        "batch_consistency_group": "g1",
+        "reason": "risk"
+    }
+    decision = validate_single_pass_decision(raw)
+    assert decision.quality_verdict == Verdict.REVIEW
+    assert "Downgraded to REVIEW due to risk flags" in decision.reason
 
 def test_analyze_job_single_pass():
     entries = [
@@ -70,15 +88,5 @@ def test_analyze_job_single_pass():
     ]
     manifest = Manifest(job_id="job1", entries=entries)
     
-    decisions = analyze_job_single_pass(manifest)
-    assert len(decisions) == 2
-    
-    d1 = decisions[0]
-    assert d1.image_id == "img1"
-    assert d1.relevance_verdict == Verdict.KEEP
-    assert d1.delta_ev == 0.5
-    
-    d2 = decisions[1]
-    assert d2.image_id == "img2"
-    assert d2.relevance_verdict == Verdict.SKIP
-    assert d2.quality_verdict == Verdict.SKIP
+    with pytest.raises(NotImplementedError, match="Vision provider integration explicitly NOT_IMPLEMENTED"):
+        analyze_job_single_pass(manifest)

@@ -123,7 +123,10 @@ def rollback_xmp(xmp_path: Path, backup_path: Path, expected_sha256: str) -> Non
         raise XmpError(f"Rollback aborted: backup SHA-256 mismatch. Expected {expected_sha256}, got {actual_sha256}")
         
     try:
-        os.replace(backup_path, xmp_path)
+        shutil.copy2(backup_path, xmp_path)
+        restored_sha256 = hashlib.sha256(xmp_path.read_bytes()).hexdigest()
+        if restored_sha256 != expected_sha256:
+            raise XmpError("Rollback completed but restored target SHA-256 does not match!")
     except OSError as e:
         raise XmpError(f"Failed to rollback XMP: {e}") from e
 
