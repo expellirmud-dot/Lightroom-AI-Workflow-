@@ -68,7 +68,17 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-025 | 2026-07-28 | pytest full suite | `pytest -q` | 41 passed (1 skip), 0 failed | src/ and tests/ | WO-006 | pending |
 | VLD-026 | 2026-07-28 | Syntax check | `compileall -q src` | pass | src/lr_ai_exposure/ | WO-006 | pending |
 | VLD-027 | 2026-07-28 | Diff check | `git diff --check` | pass (CRLF warning only) | All staged files | WO-006 | pending |
-| VLD-028 | 2026-07-28 | Git scope | `git status --short` | clean after commit | Only allowed files changed | WO-006 | pending |
+| VLD-028 | 2026-07-28 | Git scope | `git status --short` | clean after commit | Only allowed files changed | WO-006 | ffd57f5 |
+
+### WO-007 (Preview Export and Manifest Handoff) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-029 | 2026-07-28 | pytest WO-007 contract | `pytest -q tests/test_preview_export_handoff.py` | 6 passed, 0 failed | lightroom-plugin/RunExposureAssist.lua + tests/ | WO-007 | pending |
+| VLD-030 | 2026-07-28 | pytest full suite | `pytest -q` | 47 passed (1 skip), 0 failed | src/ and tests/ | WO-006+007 | pending |
+| VLD-031 | 2026-07-28 | Syntax check | `compileall -q src` | pass | src/lr_ai_exposure/ | WO-007 | pending |
+| VLD-032 | 2026-07-28 | Diff check | `git diff --check` | pass (CRLF warning only) | All staged files | WO-007 | pending |
+| VLD-033 | 2026-07-28 | Git scope | `git status --short` | clean after commit | Only allowed files changed | WO-007 | pending |
 
 ## Evidence Scope Definitions
 

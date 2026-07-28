@@ -1,6 +1,6 @@
 # WO-007 — Preview Export and Manifest Handoff
 
-STATUS: PLANNED
+STATUS: DONE
 
 ## Objective
 
@@ -38,3 +38,12 @@ Run focused contract tests, full pytest, compileall, diff check, and Git status 
 ## Closeout
 
 Commit exactly once. Do not push and do not begin WO-008.
+
+## Closeout Evidence
+
+- **Implementation**: `lightroom-plugin/AIExposureAssist.lrplugin/RunExposureAssist.lua` extended with `LrExportSession` JPEG preview export into the active job preview directory and an ordered manifest handoff using the WO-005 schema. Preview naming is deterministic: `{seq:06d}__{raw_stem}.jpg`. No AI, XMP write, HTTP server, watcher, or catalog mutation.
+- **Tests**: `tests/test_preview_export_handoff.py` — 6 tests. Validates `run`/`previewName`/`buildExportSettings` entries, naming schema, JPEG + specific-folder export settings, WO-005 manifest fields, and the no-AI/no-XMP/no-HTTP boundary. WO-006 contract test (`test_lightroom_plugin_contract.py`) also re-validated for skeleton regression.
+- **Validation**: `pytest -q` → 47 passed (1 skip), 0 failed. `compileall -q src` → pass. `git diff --check` → pass (CRLF warning only).
+- **Capability impact**: CAP-005 (selected-photo retrieval) → INTEGRATED. CAP-006 (rendered-preview export) → INTEGRATED. CAP-016/CAP-017 remain TESTED from WO-006.
+- **Scope**: Only allowed files changed (RunExposureAssist.lua, test, traceability docs, CURRENT_WORK_ORDER.md, this work order).
+- **Stop conditions respected**: contract tests require no Lightroom runtime; not yet pushed; WO-008 not started.

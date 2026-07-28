@@ -34,12 +34,11 @@ Rules:
 | CAP-002 | Documentation governance | TESTED | WO-002 | 192a5e6 | AGENTS.md sections added INDEX.md created documentation closeout gate enforced | WO-003 traceability complete |
 | CAP-003 | Job directory creation | TESTED | WO-005 | pending | pytest 16 passed (test_job.py) compileall check git diff --check pass | WO-006 integration |
 | CAP-004 | Ordered image manifest | TESTED | WO-005 | pending | pytest 16 passed (test_job.py) manifest seq contiguous + path-escape guard | WO-006 integration |
-| CAP-005 | Lightroom selected-photo retrieval | NOT_STARTED | WO-007+ | — | — | Plugin reads LrSelection |
-| CAP-006 | Lightroom rendered-preview export | NOT_STARTED | WO-007+ | — | — | Plugin exports previews |
-| CAP-016 | Lightroom plug-in loading | TESTED | WO-006 | pending | tests/test_lightroom_plugin_contract.py (static, no Lightroom runtime) | WO-007 integration |
+| CAP-005 | Lightroom selected-photo retrieval | INTEGRATED | WO-007 | pending | LrSelection via catalog:getTargetPhotos; WO-007 contract test | WO-008 judge integration |
+| CAP-006 | Lightroom rendered-preview export | INTEGRATED | WO-007 | pending | LrExportSession JPEG render; WO-007 contract test | WO-008 judge integration |
+| CAP-007 | Vision AI batch submission | NOT_STARTED | WO-008+ | — | — | AI judge reads previews |
 | CAP-017 | Menu command registration | TESTED | WO-006 | pending | PluginInit.lua binds `AI Exposure Assist` under Plug-in Extras | WO-007 integration |
-| CAP-007 | Vision AI batch submission | NOT_STARTED | WO-006+ | — | — | AI judge reads previews |
-| CAP-008 | AI decision schema validation | NOT_STARTED | WO-006+ | — | — | Validate delta_ev confidence |
+| CAP-008 | AI decision schema validation | NOT_STARTED | WO-008+ | — | — | Validate delta_ev confidence |
 | CAP-009 | Exposure delta limiting | NOT_STARTED | WO-006+ | — | — | Clamp to maximum_delta_ev |
 | CAP-010 | XMP backup and restore safety | NOT_STARTED | WO-006+ | — | — | Backup before any write |
 | CAP-011 | crs:Exposure2012 update | NOT_STARTED | WO-006+ | — | — | Controlled XMP apply |

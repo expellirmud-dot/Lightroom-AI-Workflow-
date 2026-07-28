@@ -1,14 +1,17 @@
 # Current Work Order
 
-STATUS: ACTIVE
-
-WORK_ORDER: `Work-Order/WO-007-PREVIEW-EXPORT-AND-MANIFEST-HANDOFF.md`
+STATUS: NONE
 
 REPOSITORY_ROOT: `D:\ai-tools\lightroom-ai-exposure`
 
 REMOTE: `https://github.com/expellirmud-dot/Lightroom-AI-Workflow-.git`
 
-LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-006-LIGHTROOM-PLUGIN-SKELETON.md`
+LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-007-PREVIEW-EXPORT-AND-MANIFEST-HANDOFF.md`
 
-Only WO-007 is authorized for implementation in this loop.
-WO-006 is closed. Do not push and do not begin WO-008.
+All authorized Work Orders (WO-001 through WO-007) are complete and
+committed locally. Next bounded seam is WO-008 (AI judge batch
+submission + decision schema), not yet authorized.
+
+Pending push authorization: WO-005 (`4072ff1`), WO-006 (`ffd57f5`),
+and WO-007 are staged locally and await a single `git push` once the
+owner approves.
