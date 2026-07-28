@@ -1,1 +1,15 @@
-{"dry_run": true, "apply_authorized": false, "runtime_directory": "scratch/runtime", "maximum_delta_ev": 2.0, "minimum_apply_confidence": 0.8, "preview_size": 2048, "catalog_path": "catalog.lrcat", "preview_cache_path": "Previews.lrdata", "export_root": "exports"}
+{
+  "catalog_path": "C:\\Users\\Expellirmud\\Pictures\\LR\\ToTo\\ToTo.lrcat",
+  "preview_cache_path": "C:\\Users\\Expellirmud\\Pictures\\LR\\ToTo\\ToDo Previews.lrdata",
+  "runtime_directory": "runtime",
+  "export_root": "C:\\Users\\Expellirmud\\G_Drive",
+  "preview_size": 2560,
+  "maximum_delta_ev": 3.0,
+  "minimum_apply_confidence": 0.85,
+  "dry_run": true,
+  "apply_authorized": false,
+  "approved_image_ids": [],
+  "approved_pilot_root": "scratch/pilot",
+  "ai_provider": "google",
+  "ai_model": "gemini-2.5-pro"
+}

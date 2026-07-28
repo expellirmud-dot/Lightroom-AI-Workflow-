@@ -96,45 +96,20 @@ def test_analyze_job_single_pass_mocked(tmp_path: Path):
     previews_dir.mkdir()
     (previews_dir / "img1.jpg").write_bytes(b"dummy_jpeg_bytes")
     
-    mock_response = mock.Mock()
-    mock_response.text = '{"image_id": "img1", "relevance_verdict": "KEEP", "quality_verdict": "KEEP", "delta_ev": 1.2, "confidence": 0.9, "highlight_risk": false, "shadow_risk": false, "subject_rationale": "r1", "scene_rationale": "r2", "batch_consistency_group": "g1", "reason": "good"}'
+    from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+    decision = SinglePassDecision(
+        image_id="img1", relevance_verdict=Verdict.KEEP, quality_verdict=Verdict.KEEP,
+        delta_ev=1.2, confidence=0.9, highlight_risk=False, shadow_risk=False,
+        subject_rationale="r1", scene_rationale="r2", batch_consistency_group="g1", reason="good"
+    )
     
-    mock_client = mock.Mock()
-    mock_client.models.generate_content.return_value = mock_response
-    
-    with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "dummy_key"}):
-        with mock.patch("google.genai.Client", return_value=mock_client):
-            decisions = analyze_job_single_pass(manifest, tmp_path)
+    with mock.patch("lr_ai_exposure.providers.google_vision.analyze_single_image_google", return_value=(decision, {"provider": "google"})):
+        decisions = analyze_job_single_pass(manifest, tmp_path, {"ai_provider": "google", "ai_model": "gemini-2.5-pro"})
             
     assert len(decisions) == 1
     assert decisions[0].image_id == "img1"
     assert decisions[0].delta_ev == 1.2
 
-@pytest.mark.skipif(not os.environ.get("GEMINI_API_KEY"), reason="Requires GEMINI_API_KEY")
+@pytest.mark.skip(reason="Integration test moved to test_google_vision.py")
 def test_analyze_job_single_pass_integration(tmp_path: Path):
-    import shutil
-    
-    real_jpg = Path("scratch/extracted_preview.jpg")
-    if not real_jpg.exists():
-        pytest.skip("scratch/extracted_preview.jpg not found")
-        
-    entries = [
-        ManifestEntry("img_real", "raw1", "src1", "bk1", "previews/img1.jpg", 1, extraction_status="FOUND"),
-    ]
-    manifest = Manifest(job_id="job_real", entries=entries)
-    
-    previews_dir = tmp_path / "previews"
-    previews_dir.mkdir()
-    shutil.copy2(real_jpg, previews_dir / "img1.jpg")
-    
-    try:
-        decisions = analyze_job_single_pass(manifest, tmp_path)
-    except SinglePassError as e:
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            pytest.skip(f"Skipping due to Gemini API rate limit: {e}")
-        raise
-        
-    assert len(decisions) == 1
-    assert decisions[0].image_id == "img_real"
-    assert hasattr(decisions[0], "delta_ev")
-    assert isinstance(decisions[0].delta_ev, float)
+    pass

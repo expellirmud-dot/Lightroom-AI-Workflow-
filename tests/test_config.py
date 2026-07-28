@@ -60,8 +60,8 @@ def test_maximum_delta_ev_zero_rejected(tmp_path: Path) -> None:
         "apply_authorized": False,
         "approved_image_ids": [],
         "approved_pilot_root": "",
-        "ai_model": "",
-        "ai_endpoint": "",
+        "ai_model": "gemini-2.5-pro",
+        "ai_provider": "google",
     }
     (config_dir / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
 
@@ -85,8 +85,8 @@ def test_minimum_apply_confidence_out_of_range(tmp_path: Path) -> None:
         "apply_authorized": False,
         "approved_image_ids": [],
         "approved_pilot_root": "",
-        "ai_model": "",
-        "ai_endpoint": "",
+        "ai_model": "gemini-2.5-pro",
+        "ai_provider": "google",
     }
     (config_dir / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
 
@@ -110,8 +110,8 @@ def test_invalid_preview_size(tmp_path: Path) -> None:
         "apply_authorized": False,
         "approved_image_ids": [],
         "approved_pilot_root": "",
-        "ai_model": "",
-        "ai_endpoint": "",
+        "ai_model": "gemini-2.5-pro",
+        "ai_provider": "google",
     }
     (config_dir / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
 

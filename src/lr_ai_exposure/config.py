@@ -36,6 +36,8 @@ def _validate_settings(settings: dict[str, Any], root: Path) -> dict[str, Any]:
         "apply_authorized": bool,
         "approved_image_ids": list,
         "approved_pilot_root": str,
+        "ai_provider": str,
+        "ai_model": str,
     }
 
     for key, expected_type in required.items():

@@ -39,8 +39,8 @@ def project_root(tmp_path: Path) -> Path:
         "apply_authorized": False,
         "approved_image_ids": [],
         "approved_pilot_root": "",
-        "ai_model": "",
-        "ai_endpoint": "",
+        "ai_model": "gemini-2.5-pro",
+        "ai_provider": "google",
     }
     (config_dir / "settings.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
 
@@ -64,8 +64,8 @@ def valid_settings_file(tmp_path: Path) -> Path:
         "apply_authorized": False,
         "approved_image_ids": [],
         "approved_pilot_root": "",
-        "ai_model": "",
-        "ai_endpoint": "",
+        "ai_model": "gemini-2.5-pro",
+        "ai_provider": "google",
     }
     (config_dir / "settings.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
     return config_dir / "settings.json"
