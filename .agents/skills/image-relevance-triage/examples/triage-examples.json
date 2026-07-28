@@ -1,0 +1,14 @@
+[
+  {
+    "image_id": "IMG_002",
+    "relevance_class": "SUGGEST_REJECT_ACCIDENTAL",
+    "quality_action": "SKIP",
+    "event_relation": "none",
+    "test_shot_likelihood": "low",
+    "accidental_likelihood": "high",
+    "quality_flags": ["motion_blur"],
+    "duplicate_of": "",
+    "confidence": 0.95,
+    "reason": "Image is severely blurred with no intended subject."
+  }
+]

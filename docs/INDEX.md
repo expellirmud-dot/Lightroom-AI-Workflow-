@@ -98,3 +98,7 @@ Before closing every Work Order:
 - [ ] Reconcile `Work-Order/CURRENT_WORK_ORDER.md`
 - [ ] Confirm this index still lists all canonical documents
 - [ ] Confirm no duplicate or contradictory authority was introduced
+| .agents/skills/exposure-judgment/SKILL.md | AI subject-aware exposure judgment | Exposure tasks | Skill rules change |
+| .agents/skills/batch-consistency-review/SKILL.md | Batch grouping and consistency rules | Exposure tasks | Skill rules change |
+| .agents/skills/image-relevance-triage/SKILL.md | AI image relevance and reject triage | Triage tasks | Skill rules change |
+| .agents/skills/visual-quality-safety/SKILL.md | AI visual quality safety assessment | Triage tasks | Skill rules change |

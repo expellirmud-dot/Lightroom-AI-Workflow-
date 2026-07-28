@@ -2,7 +2,7 @@
 
 STATUS: NONE
 
-WORK_ORDER: `Work-Order/WO-010.1-EXPOSURE-JUDGMENT-AND-BATCH-CONSISTENCY.md`
+
 
 REPOSITORY_ROOT: `D:\ai-tools\lightroom-ai-exposure`
 

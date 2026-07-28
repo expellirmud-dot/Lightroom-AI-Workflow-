@@ -41,6 +41,9 @@ Rules:
 | CAP-021 | Scene-intent classification | TESTED | WO-010.1 | pending | pytest | WO-011 |
 | CAP-022 | Batch grouping and reference-frame selection | TESTED | WO-010.1 | pending | pytest | WO-011 |
 | CAP-023 | Batch exposure consistency | TESTED | WO-010.1 | pending | pytest | WO-011 |
+| CAP-024 | Image relevance classification | TESTED | WO-010.2 | pending | pytest | WO-011 |
+| CAP-025 | Accidental and test-shot detection | TESTED | WO-010.2 | pending | pytest | WO-011 |
+| CAP-026 | Visual quality safety triage | TESTED | WO-010.2 | pending | pytest | WO-011 |
 | CAP-017 | Menu command registration | TESTED | WO-006 | pending | PluginInit.lua binds `AI Exposure Assist` under Plug-in Extras | WO-007 integration |
 | CAP-008 | AI decision schema validation | TESTED | WO-009 | pending | pytest 15 passed compileall check | WO-010 integration |
 | CAP-009 | Exposure delta limiting | TESTED | WO-009 | pending | pytest clamp_ev compileall check | WO-010 integration |

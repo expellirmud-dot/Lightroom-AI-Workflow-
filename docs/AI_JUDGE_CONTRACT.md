@@ -39,7 +39,14 @@ The judge returns a JSON object with an `images` array. Each entry has exactly t
   "recommended_delta_ev": 0.25,
   "action": "APPLY",
   "confidence": 0.91,
-  "reason": "Slight underexposure of the main subject."
+  "reason": "Slight underexposure of the main subject.",
+  "relevance_class": "KEEP_PRIMARY",
+  "quality_action": "APPLY",
+  "event_relation": "same_event",
+  "test_shot_likelihood": "none",
+  "accidental_likelihood": "none",
+  "quality_flags": [],
+  "duplicate_of": ""
 }
 ```
 
@@ -57,6 +64,13 @@ The judge returns a JSON object with an `images` array. Each entry has exactly t
 | `reference_image_id` | `string` | Yes | The reference frame ID for the group. |
 | `recommended_delta_ev` | `number` | Yes | Numeric. Clamped to `[-maximum_delta_ev, +maximum_delta_ev]`. |
 | `action` | `string` | Yes | `Action` enum value (APPLY, REVIEW, SKIP). |
+| `relevance_class` | `string` | Yes | `RelevanceClass` enum value. |
+| `quality_action` | `string` | Yes | `QualityAction` enum value (APPLY, REVIEW, SKIP). |
+| `event_relation` | `string` | Yes | Description of event relation. |
+| `test_shot_likelihood` | `string` | Yes | Likelihood (none, low, medium, high). |
+| `accidental_likelihood` | `string` | Yes | Likelihood (none, low, medium, high). |
+| `quality_flags` | `list` | Yes | List of strings identifying technical issues. |
+| `duplicate_of` | `string` | Yes | ID of the duplicate image, if any. |
 | `confidence` | `number` | Yes | Must be in `[0.0, 1.0]`. |
 | `reason` | `string` | Yes | Human-readable explanation for decisions or notable adjustments. |
 
