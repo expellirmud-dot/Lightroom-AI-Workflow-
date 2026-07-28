@@ -273,6 +273,12 @@ Local (non-CI) evidence above re-verified on 2026-07-29.
 | VLD-105 | 2026-07-29 | Final test suite | `uv run pytest -q tests/` | 186 passed | all tests | WO-027 | pending |
 | VLD-106 | 2026-07-29 | Diff check | `git diff --check` | pass | WO-027 allowed files | WO-027 | pending |
 
+### WO-028 (LrJson Replacement & Real Runtime Certification) — COMPLETED
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-107 | 2026-07-29 | Real Lightroom Certification | `Lightroom Analyze Only run` | REAL_LIGHTROOM_SMOKE_PASS, MANUAL_APP_IMPORT_PASS | Lr plugin, `main.py`, manual provider | WO-028 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

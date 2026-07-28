@@ -88,3 +88,9 @@ with:
 - Commit once.
 - Do not push.
 - Produce required markers in the final report.
+
+## Closeout Record
+
+- **Date**: 2026-07-29
+- **Status**: COMPLETED
+- **Notes**: Real Lightroom smoke pass. Manual app import passed, status OK, mode ANALYZE_ONLY. 1 decision imported and 0 applied.
