@@ -35,9 +35,9 @@ def test_manifest_schema_fields_present() -> None:
 
 
 def test_uses_secure_json() -> None:
-    """Must use LrJson for serialization."""
+    """Must use local Json module for serialization (WO-028)."""
     src = _read("RunExposureAssist.lua")
-    assert "LrJson.encode" in src, "Must use LrJson"
+    assert "Json.encode" in src, "Must use local Json"
 
 
 def test_no_ai_or_xmp_write_or_http() -> None:
