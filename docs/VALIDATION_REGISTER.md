@@ -266,6 +266,13 @@ Local (non-CI) evidence above re-verified on 2026-07-29.
 | VLD-103 | 2026-07-29 | Checkpoint/resume test | `uv run pytest -q tests/test_batch_apply.py` | 1 passed | `test_batch_apply.py` | WO-027 | pending |
 | VLD-104 | 2026-07-29 | Diff check | `git diff --check` | pass | WO-027 allowed files | WO-027 | pending |
 
+### WO-027 (Controlled Batch Expansion - Stage C) — pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-105 | 2026-07-29 | Final test suite | `uv run pytest -q tests/` | 186 passed | all tests | WO-027 | pending |
+| VLD-106 | 2026-07-29 | Diff check | `git diff --check` | pass | WO-027 allowed files | WO-027 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated
