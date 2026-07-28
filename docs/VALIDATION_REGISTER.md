@@ -212,7 +212,7 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-079 | 2026-07-28 | Diff check | `git diff --check` | pass (CRLF warnings only) | All WO-023 allowed files | WO-023 | COMMIT: THIS_COMMIT |
 | VLD-080 | 2026-07-28 | Git scope | `git status --short` | only WO-023 allowed files | WO-023 file scope | WO-023 | COMMIT: THIS_COMMIT |
 
-### WO-024 (Reproducible CLI Certification) — status: BLOCKED_PENDING_CI
+### WO-024 (Reproducible CLI Certification) — status: COMPLETED (2026-07-29)
 
 | Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
 |---|---|---|---|---|---|---|---|
@@ -221,13 +221,13 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-083 | 2026-07-29 | ANALYZE_ONLY integration | `pytest -q tests/integration/` | 3 passed, 0 failed | ANALYZE_ONLY cannot reach apply; no XMP mutation | WO-024 | 17a82dd |
 | VLD-084 | 2026-07-29 | Diff check | `git diff --check` | pass (CRLF warnings only) | All WO-024 allowed files | WO-024 | 17a82dd |
 | VLD-085 | 2026-07-29 | Git scope | `git status --short` | only WO-024 allowed files | WO-024 file scope | WO-024 | 17a82dd |
-| VLD-086 | 2026-07-29 | Windows CI py312 | GitHub Actions matrix `python-version: "3.12"` | NOT_RUN — workflow defined, not yet executed on Actions | .github/workflows/ci.yml | WO-024 | PENDING |
-| VLD-087 | 2026-07-29 | Windows CI py313 | GitHub Actions matrix `python-version: "3.13"` | NOT_RUN — workflow defined, not yet executed on Actions | .github/workflows/ci.yml | WO-024 | PENDING |
+| VLD-086 | 2026-07-29 | Windows CI py312 | GitHub Actions run 30382636338 + 30384086375, job `test-windows (3.12)` | VERIFIED success (both runs) | .github/workflows/ci.yml | WO-024 | 17a82dd, e274c74 |
+| VLD-087 | 2026-07-29 | Windows CI py313 | GitHub Actions run 30382636338 + 30384086375, job `test-windows (3.13)` | VERIFIED success (both runs) | .github/workflows/ci.yml | WO-024 | 17a82dd, e274c74 |
 
 WO-024 closure markers `WINDOWS_PY312_CI_PASSED` and `WINDOWS_PY313_CI_PASSED`
-remain `NOT_RUN`. Do not promote WO-024 to COMPLETED until VLD-086 and VLD-087
-report verified successful GitHub Actions runs. Local (non-CI) evidence above is
-truthful and re-verified on 2026-07-29.
+verified by inspected GitHub Actions run results (not workflow-file existence).
+Both matrix jobs reported conclusion=success on Python 3.12 and 3.13.
+Local (non-CI) evidence above re-verified on 2026-07-29.
 
 ## Evidence Scope Definitions
 

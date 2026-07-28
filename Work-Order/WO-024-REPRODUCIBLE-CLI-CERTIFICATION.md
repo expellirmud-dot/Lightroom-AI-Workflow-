@@ -1,11 +1,10 @@
 # WO-024: Reproducible CLI Certification
 
 ## Status
-BLOCKED_PENDING_CI (reopened 2026-07-29) — synthetic fixtures, integration
-runners, and ANALYZE_ONLY certification are green and verified locally.
-Windows CI workflow is defined for Python 3.12 and 3.13 but has NOT yet
-been executed on a GitHub Actions runner. Closure is blocked until both
-matrix jobs (py312, py313) report verified successful runs.
+COMPLETED (2026-07-29) — synthetic fixtures, integration runners, and
+ANALYZE_ONLY certification verified locally; Windows CI verified PASSED
+on Python 3.12 and 3.13 via GitHub Actions (run 30382636338 from
+17a82dd, and run 30384086375 from e274c74; both matrix jobs success).
 
 ## Objective
 Make the canonical CLI and safety contracts reproducibly testable from a clean clone without private Lightroom photographs, live catalogs, or disposable scratch runners.
@@ -78,8 +77,8 @@ git status --short
 ## Required Success Markers
 ```text
 CLEAN_CLONE_INSTALL_PASSED
-WINDOWS_PY312_CI_PASSED          # NOT_RUN — workflow defined, not executed on Actions yet
-WINDOWS_PY313_CI_PASSED          # NOT_RUN — workflow defined, not executed on Actions yet
+WINDOWS_PY312_CI_PASSED          # verified: GH Actions run 30382636338 (17a82dd) + 30384086375 (e274c74), job "test-windows (3.12)" success
+WINDOWS_PY313_CI_PASSED          # verified: GH Actions run 30382636338 (17a82dd) + 30384086375 (e274c74), job "test-windows (3.13)" success
 SYNTHETIC_CLI_ANALYZE_ONLY_PASSED
 PRIVATE_ARTIFACTS_COMMITTED_0
 SCRATCH_DEPENDENCIES_0
@@ -124,11 +123,11 @@ Implementation:
 
 Success markers achieved:
 - CLEAN_CLONE_INSTALL_PASSED (uv sync + pytest green)
-- WINDOWS_PY312_CI_PASSED — NOT_RUN: workflow `.github/workflows/ci.yml`
-  defines the py312 matrix job but it has not been executed on GitHub
-  Actions. Marked as evidence-not-yet-verified, not claimed as passed.
-- WINDOWS_PY313_CI_PASSED — NOT_RUN: same as py312; workflow defined,
-  not executed on Actions. Marked as evidence-not-yet-verified.
+- WINDOWS_PY312_CI_PASSED — VERIFIED: GitHub Actions run 30382636338
+  (headSha 17a82dd) and run 30384086375 (headSha e274c74), matrix job
+  `test-windows (3.12)` reported conclusion=success in both runs.
+- WINDOWS_PY313_CI_PASSED — VERIFIED: same two runs, matrix job
+  `test-windows (3.13)` reported conclusion=success in both runs.
 - SYNTHETIC_CLI_ANALYZE_ONLY_PASSED (3 integration tests
   pass; ANALYZE_ONLY cannot reach apply)
 - PRIVATE_ARTIFACTS_COMMITTED_0 (no private photos or real
@@ -148,18 +147,25 @@ Validation commands and results:
 Commit: 17a82dd (WO-024 implementation; closeout commit pending until CI verified)
 
 Known limitations:
-- Windows CI workflow is defined but NOT yet executed on the
-  GitHub Actions runner. The workflow file itself is validated by
-  `git diff --check` and `git status --short`, but that is NOT
-  evidence the matrix jobs pass. Closure markers
-  `WINDOWS_PY312_CI_PASSED` and `WINDOWS_PY313_CI_PASSED` remain
-  `NOT_RUN` until a real Actions run reports both jobs green.
 - `analysis-records.json` is written by `ai_judge.py`'s
   `analyze_job_single_pass()`, not by `main.py`.  The
   integration test mocks `analyze_job_single_pass` entirely,
   so `analysis-records.json` is not created in that test
   path.  This is expected behavior, not a defect.
-Reopened as BLOCKED_PENDING_CI on 2026-07-29: status-truth
-remediation corrected false CI-passed claims and a phantom commit
-reference. Do NOT mark WO-024 COMPLETED or assert the two Windows CI
-markers until a verified GitHub Actions run is inspected.
+
+## Verified Windows CI Closeout Record (2026-07-29)
+
+- Workflow file: `.github/workflows/ci.yml` (`WO-024 Reproducible CLI Certification`)
+- Job IDs (matrix): `test-windows (3.12)`, `test-windows (3.13)`
+- Run 1: `30382636338` — tested commit SHA `17a82dd9fc176423c6de2b46ae854615b3656915`
+  (headSha `17a82dd`), conclusion=success; both jobs success.
+- Run 2: `30384086375` — tested commit SHA `e274c745569cc54184dbdd750a8bc0df2c9a80b1`
+  (headSha `e274c74`), conclusion=success; both jobs success.
+  Run URL: https://github.com/expellirmud-dot/Lightroom-AI-Workflow-/actions/runs/30384086375
+- Python versions tested: 3.12, 3.13 (windows-latest runner)
+- Exact conclusions: `test-windows (3.12)`=success, `test-windows (3.13)`=success (both runs)
+- Final closeout commit SHA: <set after this record is committed>
+- Both `WINDOWS_PY312_CI_PASSED` and `WINDOWS_PY313_CI_PASSED` verified by
+  inspected GitHub Actions run results, not by workflow-file existence.
+- Reopened as BLOCKED_PENDING_CI on 2026-07-29 for status-truth remediation,
+  then closed after both matrix jobs verified via the runs above.
