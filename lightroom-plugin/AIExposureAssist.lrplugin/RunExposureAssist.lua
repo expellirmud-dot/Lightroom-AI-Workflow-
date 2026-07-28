@@ -15,6 +15,33 @@ local LrProgressScope = import "LrProgressScope"
 local RunExposureAssist = {}
 RunExposureAssist.isRunning = false
 
+local function writeUtf8File(path, content)
+    local file, openError = io.open(path, "wb")
+    if not file then
+        error("Could not open file for writing: "
+            .. tostring(path)
+            .. " — "
+            .. tostring(openError))
+    end
+
+    local ok, writeError = file:write(content)
+    local closeOk, closeError = file:close()
+
+    if not ok then
+        error("Could not write file: "
+            .. tostring(path)
+            .. " — "
+            .. tostring(writeError))
+    end
+
+    if closeOk == nil then
+        error("Could not close file: "
+            .. tostring(path)
+            .. " — "
+            .. tostring(closeError))
+    end
+end
+
 function RunExposureAssist.run()
     if RunExposureAssist.isRunning then
         LrDialogs.message("AI Exposure Assist", "A job is already running.", "warning")
@@ -98,11 +125,8 @@ function RunExposureAssist.run()
         local json = Json.encode(jobData)
         
         local selectionPath = LrPathUtils.child(stagingDir, "selection.json")
-        local ok, fileErr = LrFileUtils.writeFile(selectionPath, json)
-        
-        if not ok then
-            error("Failed to write selection.json: " .. tostring(fileErr))
-        end
+        writeUtf8File(selectionPath, json)
+
         
         local progressScope = LrProgressScope({
             title = "AI Exposure Assist",
