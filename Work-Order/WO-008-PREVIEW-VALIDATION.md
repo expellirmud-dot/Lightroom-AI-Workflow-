@@ -1,6 +1,6 @@
 # WO-008 — Preview Validation
 
-STATUS: PLANNED
+STATUS: DONE
 
 ## Objective
 
@@ -14,7 +14,7 @@ Validate exported preview files and their one-to-one mapping to ordered manifest
 
 | Capability | Before | Target After |
 |---|---|---|
-| Preview validation | NOT_STARTED | TESTED |
+| Preview validation | NOT_STARTED | TESTED | (Done) |
 
 ## Scope
 

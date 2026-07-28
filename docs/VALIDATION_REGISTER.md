@@ -80,6 +80,14 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-032 | 2026-07-28 | Diff check | `git diff --check` | pass (CRLF warning only) | All staged files | WO-007 | pending |
 | VLD-033 | 2026-07-28 | Git scope | `git status --short` | clean after commit | Only allowed files changed | WO-007 | pending |
 
+### WO-008 (Preview Validation) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-034 | 2026-07-28 | pytest WO-008 | pytest -q tests/test_preview.py | 8 passed, 0 failed | src/lr_ai_exposure/preview.py + tests/ | WO-008 | pending |
+| VLD-035 | 2026-07-28 | pytest full suite | pytest -q | 53 passed (1 skip), 0 failed | src/ and tests/ | WO-008 | pending |
+| VLD-036 | 2026-07-28 | Syntax check | compileall -q src | pass | src/lr_ai_exposure/ | WO-008 | pending |
+
 ## Evidence Scope Definitions
 
 - **Full** — command was run, result is as stated

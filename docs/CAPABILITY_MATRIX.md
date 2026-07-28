@@ -46,3 +46,4 @@ Rules:
 | CAP-013 | Reject suggestions | NOT_STARTED | WO-006+ | — | — | result.json reject list |
 | CAP-014 | Automatic export | DEFERRED | — | — | Explicitly postponed past MVP | WO-007+ |
 | CAP-015 | Repository read-first preflight skill | TESTED | WO-004 | pending | pytest 18 passed (8 new + 10 existing) compileall check git diff --check pass | WO-005 integration |
+| CAP-018 | Preview validation | TESTED | WO-008 | pending | pytest 8 passed compileall check | WO-009 mock judge |
