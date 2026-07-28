@@ -1,15 +1,25 @@
 import sqlite3
 import os
 
-def find_preview_uuid(previews_db_path: str, id_local: int | float) -> dict:
+def find_preview_uuid(previews_db_path: str, id_local: int | float | str) -> dict:
     """
     Find the preview UUID for a given Lightroom id_local using ImageCacheEntry.
     Enforces exact cardinality.
-    Returns: {"status": "FOUND"|"MISSING"|"AMBIGUOUS", "uuid": str|None}
+    Returns: {"status": "FOUND"|"MISSING"|"AMBIGUOUS"|"DB_ERROR", "uuid": str|None}
     """
-    db = sqlite3.connect(f"file:{previews_db_path}?mode=ro", uri=True)
     try:
-        cursor = db.execute("SELECT uuid FROM ImageCacheEntry WHERE imageId = ?;", (id_local,))
+        db = sqlite3.connect(f"file:{previews_db_path}?mode=ro", uri=True)
+    except Exception:
+        return {"status": "DB_ERROR", "uuid": None}
+        
+    try:
+        # Normalize id_local. SDK might pass float, int, or string.
+        id_local_str = str(id_local).strip()
+        if id_local_str.endswith('.0'):
+            id_local_str = id_local_str[:-2]
+            
+        # Enforce exact cardinality with DISTINCT
+        cursor = db.execute("SELECT DISTINCT uuid FROM ImageCacheEntry WHERE imageId = ?;", (id_local_str,))
         rows = cursor.fetchall()
         
         count = len(rows)
@@ -19,6 +29,8 @@ def find_preview_uuid(previews_db_path: str, id_local: int | float) -> dict:
             return {"status": "FOUND", "uuid": rows[0][0]}
         else:
             return {"status": "AMBIGUOUS", "uuid": None}
+    except Exception:
+        return {"status": "DB_ERROR", "uuid": None}
     finally:
         db.close()
 

@@ -9,6 +9,7 @@ local LrDialogs = import "LrDialogs"
 local LrPathUtils = import "LrPathUtils"
 local LrFileUtils = import "LrFileUtils"
 local LrTasks = import "LrTasks"
+local LrJson = import "LrJson"
 
 local RunExposureAssist = {}
 
@@ -31,7 +32,6 @@ function RunExposureAssist.run()
     end
 
     local catalogPath = catalog:getPath()
-    -- We write to a staging directory; Python will create the unique job folder
     local stagingDir = LrPathUtils.child(
         LrPathUtils.parent(catalogPath),
         "runtime/staging"
@@ -44,10 +44,25 @@ function RunExposureAssist.run()
         local id_local = photo:getRawMetadata("id_local")
         local uuid = photo:getRawMetadata("uuid")
         
-        selectionData[#selectionData + 1] = '    {\n      "id_local": ' .. tostring(id_local) .. ',\n      "path": "' .. tostring(path):gsub('\\', '\\\\') .. '",\n      "uuid": "' .. tostring(uuid) .. '"\n    }'
+        table.insert(selectionData, {
+            id_local = id_local,
+            path = path,
+            uuid = uuid
+        })
     end
 
-    local json = '{\n  "job_id": "job-staging",\n  "photos": [\n' .. table.concat(selectionData, ",\n") .. '\n  ]\n}'
+    local jobData = {
+        job_id = "job-staging",
+        photos = selectionData
+    }
+    
+    local json = ""
+    if LrJson and LrJson.encode then
+        json = LrJson.encode(jobData)
+    else
+        -- Fallback if LrJson doesn't exist
+        error("LrJson not found. Cannot encode JSON securely.")
+    end
     
     local selectionPath = LrPathUtils.child(stagingDir, "selection.json")
     local ok, err = LrFileUtils.writeFile(selectionPath, json)
