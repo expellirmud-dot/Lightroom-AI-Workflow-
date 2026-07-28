@@ -3,7 +3,7 @@
 LAST_UPDATED: 2026-07-28
 PROJECT_PHASE: Scaffold and documentation governance complete
 CURRENT_WORK_ORDER: None (all authorized Work Orders completed)
-LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-005-JOB-AND-MANIFEST-FOUNDATION.md`
+LATEST_COMPLETED_WORK_ORDER: `Work-Order/WO-006-LIGHTROOM-PLUGIN-SKELETON.md`
 LATEST_COMMIT: pending
 
 ## Project Objective
@@ -18,8 +18,8 @@ manually.
 
 | Status | Count | Capabilities |
 |---|---|---|
-| `TESTED` | 4 | CAP-001 (configuration foundation), CAP-002 (documentation governance), CAP-003 (job directory creation), CAP-004 (ordered image manifest) |
-| `NOT_STARTED` | 11 | CAP-005 through CAP-013 (except CAP-014) |
+| `TESTED` | 6 | CAP-001 (configuration foundation), CAP-002 (documentation governance), CAP-003 (job directory creation), CAP-004 (ordered image manifest), CAP-016 (Lightroom plug-in loading), CAP-017 (menu command registration) |
+| `NOT_STARTED` | 10 | CAP-005, CAP-006, CAP-007, CAP-008, CAP-009, CAP-010, CAP-011, CAP-012, CAP-013, CAP-018 (CAP-014 deferred) |
 | `DEFERRED` | 1 | CAP-014 (automatic export) |
 
 ## Known Risks
@@ -35,5 +35,5 @@ manually.
 
 ## Next Recommended Bounded Seam
 
-WO-005 — Job directory and manifest foundation
-(create_job_directory, write_manifest, read_manifest, validate_manifest_entries; TESTED via pytest)
+WO-006 — Lightroom plug-in skeleton (Info.lua, PluginInit.lua, RunExposureAssist.lua, static contract tests)
+WO-007 — Preview export and manifest handoff (extends RunExposureAssist.lua; INTEGRATED target)

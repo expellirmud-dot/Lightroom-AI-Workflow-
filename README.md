@@ -34,13 +34,26 @@ python -m pytest -q
 
 ## Project Structure
 
-```
+```text
 src/lr_ai_exposure/   — Python package (src layout)
 config/settings.json  — default configuration (dry_run: true)
 docs/                 — architecture, safety, and contract decisions
 runtime/              — jobs, logs, temp (gitignored)
 tests/                — pytest suite
+lightroom-plugin/AIExposureAssist.lrplugin/ — Lightroom Classic plug-in (WO-006+)
 ```
+
+## Lightroom Plug-in (WO-006)
+
+A minimal Lightroom Classic plug-in shell lives under
+`lightroom-plugin/AIExposureAssist.lrplugin/`. It registers an
+`AI Exposure Assist` command under **Plug-in Extras** that reports the
+current selection count or a clear not-yet-implemented message.
+
+The WO-006 skeleton performs **no** Python execution, preview export,
+AI logic, catalog mutation, or XMP writes. Preview export and manifest
+handoff are implemented in WO-007; AI judgment and XMP writes arrive in
+later Work Orders.
 
 ## Non-Negotiable Boundaries (MVP)
 
