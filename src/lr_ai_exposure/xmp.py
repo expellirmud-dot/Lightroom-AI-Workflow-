@@ -78,9 +78,12 @@ def read_exposure_2012(xmp_path: Path) -> float:
     return val
 
 
-def backup_xmp(xmp_path: Path, backup_dir: Path, dry_run: bool = False) -> Path:
+import hashlib
+
+def backup_xmp(xmp_path: Path, backup_dir: Path, dry_run: bool = False) -> tuple[Path, str]:
     """Create a collision-safe byte-preserving backup of an XMP file.
     
+    Returns (backup_path, sha256_hash).
     Uses .dry_run suffix if dry_run=True, otherwise .bak.
     """
     if not xmp_path.is_file():
@@ -105,7 +108,24 @@ def backup_xmp(xmp_path: Path, backup_dir: Path, dry_run: bool = False) -> Path:
     except OSError as e:
         raise XmpError(f"Failed to copy XMP backup: {e}") from e
         
-    return target_path
+    # Compute SHA-256 of backup
+    sha256 = hashlib.sha256(target_path.read_bytes()).hexdigest()
+    return target_path, sha256
+
+
+def rollback_xmp(xmp_path: Path, backup_path: Path, expected_sha256: str) -> None:
+    """Roll back an XMP file from a backup, proving identity via SHA-256."""
+    if not backup_path.is_file():
+        raise XmpError(f"Backup file not found for rollback: {backup_path}")
+        
+    actual_sha256 = hashlib.sha256(backup_path.read_bytes()).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise XmpError(f"Rollback aborted: backup SHA-256 mismatch. Expected {expected_sha256}, got {actual_sha256}")
+        
+    try:
+        os.replace(backup_path, xmp_path)
+    except OSError as e:
+        raise XmpError(f"Failed to rollback XMP: {e}") from e
 
 import re
 import os
@@ -131,7 +151,7 @@ def write_exposure_2012(xmp_path: Path, new_exposure: float, backup_dir: Path, d
         return f"DRY RUN: Proposed change crs:Exposure2012 from {old_exposure} to {new_exposure_str}"
         
     # Real mode
-    backup_xmp(xmp_path, backup_dir, dry_run=False)
+    backup_path, backup_sha = backup_xmp(xmp_path, backup_dir, dry_run=False)
     
     raw_content = xmp_path.read_bytes()
     

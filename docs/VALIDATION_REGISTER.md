@@ -165,6 +165,13 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 | VLD-057 | 2026-07-28 | pytest WO-019 | pytest -q tests/test_apply.py tests/test_config.py | passed | src/lr_ai_exposure/apply.py + tests | WO-019 | 40607c3 |
 | VLD-058 | 2026-07-28 | Pilot Batch 1 | python -m pytest -q tests/test_main.py | passed | Real Lightroom cache DBs | WO-019 | 40607c3 |
 
+### WO-REMEDIATION (Phase D & E) — commit pending
+
+| Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
+|---|---|---|---|---|---|---|---|
+| VLD-059 | 2026-07-28 | pytest suite | `pytest -q tests/` | 55 passed, 1 skipped | src/ and tests/ | REMEDIATION | pending |
+| VLD-060 | 2026-07-28 | Copied-XMP Pilot | `python scratch/pilot_phase_e.py` | pass, verified rollback SHA256 | XMP rollback integration | REMEDIATION | pending |
+
 
 ## Evidence Scope Definitions
 

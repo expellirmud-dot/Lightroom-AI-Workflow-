@@ -37,6 +37,8 @@ def project_root(tmp_path: Path) -> Path:
         "minimum_apply_confidence": 0.8,
         "dry_run": True,
         "apply_authorized": False,
+        "approved_image_ids": [],
+        "approved_pilot_root": "",
         "ai_model": "",
         "ai_endpoint": "",
     }
@@ -60,6 +62,8 @@ def valid_settings_file(tmp_path: Path) -> Path:
         "minimum_apply_confidence": 0.8,
         "dry_run": True,
         "apply_authorized": False,
+        "approved_image_ids": [],
+        "approved_pilot_root": "",
         "ai_model": "",
         "ai_endpoint": "",
     }

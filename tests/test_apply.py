@@ -71,8 +71,15 @@ def test_apply_exposure_deltas(tmp_path: Path):
         reason=""
     )
     
+    config = {
+        "dry_run": False,
+        "apply_authorized": True,
+        "approved_image_ids": [],
+        "approved_pilot_root": "",
+        "maximum_delta_ev": 3.0
+    }
     # Run real apply
-    results = apply_exposure_deltas(job_dir, selection_path, [d1, d2], dry_run=False, apply_authorized=True)
+    results = apply_exposure_deltas(job_dir, selection_path, [d1, d2], config)
     
     print(results)
     

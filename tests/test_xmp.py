@@ -105,17 +105,42 @@ def test_backup_xmp(tmp_path: Path):
     backup_dir = tmp_path / "backup"
     
     # First backup
-    b1 = backup_xmp(src, backup_dir, dry_run=False)
+    b1, sha1 = backup_xmp(src, backup_dir, dry_run=False)
     assert b1.name == "photo.xmp.bak"
     assert b1.read_text() == "dummy xmp content"
+    assert len(sha1) == 64
     
     # Second backup (collision)
-    b2 = backup_xmp(src, backup_dir, dry_run=False)
+    b2, sha2 = backup_xmp(src, backup_dir, dry_run=False)
     assert b2.name == "photo.xmp.1.bak"
+    assert sha2 == sha1
     
     # Dry run backup
-    b3 = backup_xmp(src, backup_dir, dry_run=True)
+    b3, sha3 = backup_xmp(src, backup_dir, dry_run=True)
     assert b3.name == "photo.xmp.dry_run"
+
+from lr_ai_exposure.xmp import rollback_xmp
+
+def test_rollback_xmp(tmp_path: Path):
+    """Prove rollback requires matching SHA-256."""
+    src = tmp_path / "photo.xmp"
+    src.write_text("modified")
+    
+    backup_dir = tmp_path / "backup"
+    backup_dir.mkdir()
+    backup_file = backup_dir / "photo.xmp.bak"
+    backup_file.write_text("original")
+    
+    import hashlib
+    correct_sha = hashlib.sha256(b"original").hexdigest()
+    
+    # Fails with wrong SHA
+    with pytest.raises(XmpError, match="SHA-256 mismatch"):
+        rollback_xmp(src, backup_file, "wrong_sha")
+        
+    # Succeeds with right SHA
+    rollback_xmp(src, backup_file, correct_sha)
+    assert src.read_text() == "original"
 
 
 from lr_ai_exposure.xmp import write_exposure_2012
