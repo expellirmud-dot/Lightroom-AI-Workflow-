@@ -206,3 +206,134 @@ Report only:
 - Remaining risks or stop condition
 
 Do not claim success without evidence.
+
+## Documentation Authority and Index
+
+`docs/INDEX.md` is the canonical documentation index for this repository.
+
+Before implementation, the coding agent must use `docs/INDEX.md` to identify:
+
+- Documents governing the active Work Order
+- Architecture and safety contracts affected by the task
+- Documents that may require updates before closeout
+- Historical or superseded documents that must not be treated as current authority
+
+A document not listed in `docs/INDEX.md` must not silently become a new
+source of authority. Add it to the index when the active Work Order
+authorizes creation of that document.
+
+Documentation authority does not override the active Work Order.
+The authority order defined in this file remains in effect.
+
+## Documentation Closeout Gate
+
+Every Work Order must leave the repository documentation consistent with
+the implemented repository truth.
+
+Before declaring a Work Order complete, the coding agent must perform a
+documentation impact review.
+
+The review must determine whether the task changed any of the following:
+
+- Architecture or component boundaries
+- Runtime or user workflow
+- Configuration fields or defaults
+- Commands, installation, or operating instructions
+- Data formats, schemas, or API contracts
+- Safety boundaries or forbidden behavior
+- File or directory structure
+- Dependencies or supported environments
+- Known limitations, risks, or unresolved decisions
+- Work Order status and current-work pointer
+
+For every affected item, update the corresponding canonical document in
+the same Work Order when the file is authorized.
+
+At minimum, review:
+
+1. `docs/INDEX.md`
+2. `README.md`
+3. Relevant documents listed in `docs/INDEX.md`
+4. `docs/DECISIONS.md` when an architectural decision changed
+5. The active Work Order closeout record
+6. `Work-Order/CURRENT_WORK_ORDER.md`
+
+## Required Documentation Outcomes
+
+Each completed Work Order must produce exactly one truthful outcome for
+every reviewed document:
+
+- `UPDATED` — the document was changed to match repository truth
+- `REVIEWED_NO_CHANGE` — it was reviewed and remains accurate
+- `NOT_APPLICABLE` — the document is unrelated to the task
+- `BLOCKED` — required documentation could not be updated safely
+
+Do not update documents merely to create activity.
+Do not rewrite unrelated sections.
+Make the smallest documentation change needed to preserve accuracy.
+
+## Required Knowledge Capture
+
+Every Work Order must preserve the information necessary for a future
+agent or maintainer to continue safely without relying on chat history.
+
+Record material information such as:
+
+- What behavior was added or changed
+- Why the selected design was used
+- Important constraints and invariants
+- Configuration or schema changes
+- New files, modules, or ownership boundaries
+- Validation performed and its result
+- Known limitations and remaining risks
+- Decisions that must not be reopened without new evidence
+- Deferred work that is explicitly outside the completed Work Order
+
+Do not record temporary narration, speculative ideas, raw chain-of-thought,
+or information already represented accurately elsewhere.
+
+Prefer updating an existing canonical document over creating another
+summary file.
+
+## Documentation Stop Conditions
+
+Stop closeout and report when:
+
+- Implementation changed behavior but no authorized canonical document
+  can be updated
+- Two canonical documents conflict
+- `docs/INDEX.md` does not identify authority for a material project area
+- The active Work Order status disagrees with repository truth
+- `CURRENT_WORK_ORDER.md` points to a completed, missing, or unauthorized
+  Work Order
+- Documentation would claim behavior not proven by validation
+
+## Extended Completion Gate
+
+A Work Order is complete only when:
+
+- Acceptance criteria are satisfied
+- Required tests and validation pass
+- Git diff contains only authorized task files
+- Documentation impact review is complete
+- Canonical documents match implemented repository truth
+- Important decisions, constraints, and risks are preserved
+- `docs/INDEX.md` is accurate
+- Work Order status is truthful
+- `CURRENT_WORK_ORDER.md` is reconciled
+- Final Git status satisfies the Work Order closeout policy
+
+Code complete without documentation reconciliation is not Work Order
+complete.
+
+## Final Report Documentation Section
+
+Every final report must include:
+
+- `DOCUMENTATION_REVIEWED`
+- `DOCUMENTATION_UPDATED`
+- `DOCUMENTATION_REVIEWED_NO_CHANGE`
+- `KNOWLEDGE_CAPTURED`
+- `CURRENT_WORK_ORDER_STATUS`
+
+Do not claim documentation closeout without inspecting the actual files.
