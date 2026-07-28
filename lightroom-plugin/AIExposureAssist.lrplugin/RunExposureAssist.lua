@@ -19,13 +19,11 @@ local LrTasks = import "LrTasks"
 
 local RunExposureAssist = {}
 
--- Deterministic preview naming expected by the Python boundary.
 function RunExposureAssist.previewName(seq, rawPath)
     local stem = LrPathUtils.removeExtension(LrPathUtils.leafName(rawPath))
     return string.format("%06d__%s.jpg", seq, stem)
 end
 
--- Lightroom accepts an export-settings property table.
 function RunExposureAssist.buildExportSettings(previewDir)
     return {
         LR_export_destinationType = "specificFolder",
@@ -99,18 +97,11 @@ function RunExposureAssist.run()
     return manifestEntries
 end
 
--- Files declared through LrLibraryMenuItems are executed directly by
--- Lightroom. Start the work on an asynchronous Lightroom task and always
--- surface runtime failures to the user instead of failing silently.
+-- Lightroom's sandbox does not expose xpcall on all supported versions.
+-- Run directly inside an SDK asynchronous task; Lightroom will surface any
+-- remaining runtime exception instead of the command failing silently.
 LrTasks.startAsyncTask(function()
-    local ok, err = xpcall(RunExposureAssist.run, debug.traceback)
-    if not ok then
-        LrDialogs.message(
-            "AI Exposure Assist — Error",
-            tostring(err),
-            "critical"
-        )
-    end
+    RunExposureAssist.run()
 end)
 
 return RunExposureAssist
