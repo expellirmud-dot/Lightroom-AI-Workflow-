@@ -94,6 +94,52 @@ The canonical workflow is:
 - AI output is untrusted input and must be schema validated.
 - The AI never writes files directly.
 
+## Seven Execution Rules
+
+1. **Task Classification**  
+   Classify the task, scope, risk level, and required evidence before editing.
+
+2. **Define Done First**  
+   Identify acceptance criteria and completion evidence before implementation.
+
+3. **Parallel Evidence Gathering**  
+   Inspect repository truth, relevant files, tests, Git state, and governing
+   documents before choosing a solution.
+
+4. **Single Recommendation**  
+   Once sufficient evidence exists, choose one best bounded approach.
+   Do not delegate routine technical decisions back to the user.
+
+5. **Surgical Change**  
+   Make the smallest correct change. Touch only files and behavior required
+   by the active Work Order.
+
+6. **Verify by Execution**  
+   Prove behavior by running the required tests, commands, or validation.
+   Reading code or relying on a worker report is not sufficient evidence.
+
+7. **Outcome-First Reporting**  
+   Report the implemented outcome, validation evidence, Git scope, and
+   remaining risks. Avoid unnecessary process narration.
+
+## Four Common AI Failure Modes
+
+1. **Memory Over Repository Truth**  
+   Repository files, Git status, current HEAD, and executed evidence always
+   override memory, prior summaries, and stale reports.
+
+2. **Treating Worker Reports as Final Evidence**  
+   A worker report is a claim. The final reviewer must inspect the actual
+   diff, validation output, and repository state.
+
+3. **Leaving the Proof Chain Open**  
+   Work is not complete until acceptance criteria, tests, diff review,
+   allowed-file scope, and Git status have all been verified.
+
+4. **Unauthorized Scope Expansion**  
+   Do not add refactors, frameworks, features, dependencies, or cleanup
+   outside the active Work Order, even when they appear beneficial.
+
 ## Engineering Rules
 
 - Work on one bounded Work Order at a time.
