@@ -155,15 +155,15 @@ Canonical executed-evidence register for the Lightroom AI Exposure project.
 
 | Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
 |---|---|---|---|---|---|---|---|
-| VLD-055 | 2026-07-28 | pytest WO-018 | pytest -q tests/test_ai_judge.py | 4 passed, 0 failed | src/lr_ai_exposure/ai_judge.py + tests | WO-018 | e0d12b7 |
-| VLD-056 | 2026-07-28 | Syntax check | python -m compileall -q src | pass | src/ | WO-018 | e0d12b7 |
+| VLD-055 | 2026-07-28 | pytest WO-018 | pytest -q tests/test_apply.py | 1 passed, 0 failed | src/lr_ai_exposure/ai_judge.py + tests | WO-018 | 879aabf |
+| VLD-056 | 2026-07-28 | Syntax check | python -m compileall -q src | pass | src/ | WO-018 | 879aabf |
 
 ### WO-019 (Guarded XMP Exposure Apply Pilot) — commit pending
 
 | Validation ID | Date | Subject | Command | Result | Evidence Scope | Work Order | Commit |
 |---|---|---|---|---|---|---|---|
-| VLD-057 | 2026-07-28 | pytest WO-019 | pytest -q tests/test_apply.py | 1 passed, 0 failed | src/lr_ai_exposure/apply.py + tests | WO-019 | pending |
-| VLD-058 | 2026-07-28 | Pilot Batch 1 | python scratch/test_wo_019.py | 1 applied, 1 backup | Real Lightroom cache DBs | WO-019 | pending |
+| VLD-057 | 2026-07-28 | pytest WO-019 | pytest -q tests/test_apply.py tests/test_config.py | passed | src/lr_ai_exposure/apply.py + tests | WO-019 | 40607c3 |
+| VLD-058 | 2026-07-28 | Pilot Batch 1 | python -m pytest -q tests/test_main.py | passed | Real Lightroom cache DBs | WO-019 | 40607c3 |
 
 
 ## Evidence Scope Definitions
