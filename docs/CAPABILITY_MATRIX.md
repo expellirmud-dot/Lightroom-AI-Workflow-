@@ -47,8 +47,8 @@ Rules:
 | CAP-017 | Menu command registration | TESTED | WO-006 | pending | PluginInit.lua binds `AI Exposure Assist` under Plug-in Extras | WO-007 integration |
 | CAP-008 | AI decision schema validation | TESTED | WO-009 | pending | pytest 15 passed compileall check | WO-010 integration |
 | CAP-009 | Exposure delta limiting | TESTED | WO-009 | pending | pytest clamp_ev compileall check | WO-010 integration |
-| CAP-010 | XMP backup and restore safety | NOT_STARTED | WO-006+ | — | — | Backup before any write |
-| CAP-011 | crs:Exposure2012 update | NOT_STARTED | WO-006+ | — | — | Controlled XMP apply |
+| CAP-010 | XMP backup and restore safety | TESTED | WO-010 | pending | pytest test_xmp.py | WO-012 |
+| CAP-011 | crs:Exposure2012 update | TESTED | WO-011 | pending | pytest test_xmp.py | WO-012 |
 | CAP-012 | Lightroom metadata read-back | NOT_STARTED | WO-007+ | — | — | User reads metadata into LR |
 | CAP-013 | Reject suggestions | NOT_STARTED | WO-006+ | — | — | result.json reject list |
 | CAP-014 | Automatic export | DEFERRED | — | — | Explicitly postponed past MVP | WO-007+ |

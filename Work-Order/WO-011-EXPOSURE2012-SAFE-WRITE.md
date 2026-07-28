@@ -1,6 +1,6 @@
 # WO-011 — Exposure2012 Safe Write
 
-STATUS: PLANNED
+STATUS: DONE
 
 ## Objective
 
@@ -14,8 +14,8 @@ Implement a surgical, atomic update of only `crs:Exposure2012` in XMP sidecars.
 
 | Capability | Before | Target After |
 |---|---|---|
-| Exposure2012 safe write | NOT_STARTED | TESTED |
-| Atomic replace and rollback | NOT_STARTED | TESTED |
+| Exposure2012 safe write | NOT_STARTED | TESTED | (Done) |
+| Atomic replace and rollback | NOT_STARTED | TESTED | (Done) |
 
 ## Scope
 

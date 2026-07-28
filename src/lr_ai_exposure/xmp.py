@@ -106,3 +106,64 @@ def backup_xmp(xmp_path: Path, backup_dir: Path, dry_run: bool = False) -> Path:
         raise XmpError(f"Failed to copy XMP backup: {e}") from e
         
     return target_path
+
+import re
+import os
+
+def write_exposure_2012(xmp_path: Path, new_exposure: float, backup_dir: Path, dry_run: bool = False) -> str:
+    """Surgically write a new Exposure2012 value to XMP, preserving all other bytes.
+    
+    Returns a proposal message if dry_run, otherwise returns success message.
+    """
+    if not math.isfinite(new_exposure):
+        raise XmpError(f"New exposure must be finite, got {new_exposure}")
+
+    # Read current to ensure valid and single definition
+    old_exposure = read_exposure_2012(xmp_path)
+    
+    # Format new value as signed decimal (e.g., +0.25, -1.10, 0.00)
+    new_exposure_str = f"{new_exposure:+.2f}"
+    if new_exposure_str == "+0.00" or new_exposure_str == "-0.00":
+        new_exposure_str = "0.00"
+        
+    if dry_run:
+        backup_xmp(xmp_path, backup_dir, dry_run=True)
+        return f"DRY RUN: Proposed change crs:Exposure2012 from {old_exposure} to {new_exposure_str}"
+        
+    # Real mode
+    backup_xmp(xmp_path, backup_dir, dry_run=False)
+    
+    raw_content = xmp_path.read_bytes()
+    
+    # Surgical replacement using regex on bytes to avoid encoding/decoding corruption
+    pat_attr = b'(crs:Exposure2012=")([^"]+)(")'
+    pat_elem = b'(<crs:Exposure2012>)([^<]+)(</crs:Exposure2012>)'
+    
+    def _repl_attr(m):
+        return m.group(1) + new_exposure_str.encode('utf-8') + m.group(3)
+
+    def _repl_elem(m):
+        return m.group(1) + new_exposure_str.encode('utf-8') + m.group(3)
+        
+    modified_content = re.sub(pat_attr, _repl_attr, raw_content)
+    modified_content = re.sub(pat_elem, _repl_elem, modified_content)
+    
+    if modified_content == raw_content:
+        # If the string value hasn't changed because it already equals the formatted value, it's fine.
+        # But if it failed to match, we raise.
+        if f"{old_exposure:+.2f}" != new_exposure_str and str(old_exposure) != new_exposure_str:
+            raise XmpError("Failed to surgically replace Exposure2012")
+            
+    temp_path = xmp_path.with_name(xmp_path.name + ".tmp")
+    try:
+        temp_path.write_bytes(modified_content)
+        # Validate temp file before atomic replace
+        test_val = read_exposure_2012(temp_path)
+        # atomic replace
+        os.replace(temp_path, xmp_path)
+    except Exception as e:
+        if temp_path.exists():
+            temp_path.unlink()
+        raise XmpError(f"Failed to write and validate temp XMP: {e}") from e
+
+    return f"SUCCESS: Changed crs:Exposure2012 from {old_exposure} to {new_exposure_str}"

@@ -116,3 +116,113 @@ def test_backup_xmp(tmp_path: Path):
     # Dry run backup
     b3 = backup_xmp(src, backup_dir, dry_run=True)
     assert b3.name == "photo.xmp.dry_run"
+
+
+from lr_ai_exposure.xmp import write_exposure_2012
+
+def test_write_exposure_dry_run(tmp_path: Path):
+    """In dry-run mode, never modify source XMP; emit a proposal artifact only."""
+    src = tmp_path / "photo.xmp"
+    src.write_bytes(b'<?xml version="1.0"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" crs:Exposure2012="0.00"/></rdf:RDF>')
+    backup_dir = tmp_path / "backup"
+    
+    msg = write_exposure_2012(src, 0.5, backup_dir, dry_run=True)
+    
+    # Assert dry_run backup created
+    assert (backup_dir / "photo.xmp.dry_run").exists()
+    
+    # Assert source unmodified
+    assert src.read_bytes() == b'<?xml version="1.0"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" crs:Exposure2012="0.00"/></rdf:RDF>'
+    
+    assert "DRY RUN" in msg
+    assert "+0.50" in msg
+
+def test_write_exposure_real_mode_attr(tmp_path: Path):
+    """Write through a temporary file, validate, then atomically replace (attribute)."""
+    # This xml is malformed slightly but enough for our regex. But we must make it valid for ElementTree to parse in read_exposure_2012.
+    src = tmp_path / "photo.xmp"
+    xml_content = (
+        '<?xml version="1.0"?>\n'
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+        ' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+        '  <rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" crs:Exposure2012="+0.35"/>\n'
+        ' </rdf:RDF>\n'
+        '</x:xmpmeta>\n'
+    ).encode('utf-8')
+    src.write_bytes(xml_content)
+    backup_dir = tmp_path / "backup"
+    
+    msg = write_exposure_2012(src, -1.2, backup_dir, dry_run=False)
+    
+    assert (backup_dir / "photo.xmp.bak").exists()
+    assert "SUCCESS" in msg
+    assert "-1.20" in msg
+    
+    new_content = src.read_bytes()
+    assert b'crs:Exposure2012="-1.20"' in new_content
+    # Validate other bytes preserved exactly
+    assert len(new_content) == len(xml_content)
+
+def test_write_exposure_real_mode_elem(tmp_path: Path):
+    """Write through a temporary file, validate, then atomically replace (element)."""
+    src = tmp_path / "photo.xmp"
+    xml_content = (
+        '<?xml version="1.0"?>\n'
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+        ' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+        '  <rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">\n'
+        '   <crs:Exposure2012>0.00</crs:Exposure2012>\n'
+        '  </rdf:Description>\n'
+        ' </rdf:RDF>\n'
+        '</x:xmpmeta>\n'
+    ).encode('utf-8')
+    src.write_bytes(xml_content)
+    backup_dir = tmp_path / "backup"
+    
+    msg = write_exposure_2012(src, 2.5, backup_dir, dry_run=False)
+    
+    new_content = src.read_bytes()
+    assert b'<crs:Exposure2012>+2.50</crs:Exposure2012>' in new_content
+    
+def test_write_exposure_preserves_unrelated(tmp_path: Path):
+    """Preserve all unrelated metadata, namespaces, and encoding."""
+    src = tmp_path / "photo.xmp"
+    xml_content = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+        ' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+        '  <rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" crs:Exposure2012="+0.35" crs:Contrast="10" crs:Highlights="-20">\n'
+        '   <crs:Shadows>5</crs:Shadows>\n'
+        '  </rdf:Description>\n'
+        ' </rdf:RDF>\n'
+        '</x:xmpmeta>\n'
+    ).encode('utf-8')
+    src.write_bytes(xml_content)
+    backup_dir = tmp_path / "backup"
+    
+    write_exposure_2012(src, 1.0, backup_dir, dry_run=False)
+    
+    new_content = src.read_bytes()
+    assert b'crs:Contrast="10"' in new_content
+    assert b'crs:Highlights="-20"' in new_content
+    assert b'<crs:Shadows>5</crs:Shadows>' in new_content
+    assert b'crs:Exposure2012="+1.00"' in new_content
+
+def test_write_exposure_fails_validation_leaves_intact(tmp_path: Path):
+    """Prove failure paths leave original bytes intact."""
+    src = tmp_path / "photo.xmp"
+    xml_content = (
+        '<?xml version="1.0"?>\n'
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+        ' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+        '  <rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" crs:Exposure2012="+0.35"/>\n'
+        ' </rdf:RDF>\n'
+        '</x:xmpmeta>\n'
+    ).encode('utf-8')
+    src.write_bytes(xml_content)
+    backup_dir = tmp_path / "backup"
+    
+    with pytest.raises(XmpError, match="New exposure must be finite"):
+        write_exposure_2012(src, float("inf"), backup_dir, dry_run=False)
+        
+    assert src.read_bytes() == xml_content
