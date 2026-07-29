@@ -1,9 +1,9 @@
 --[[
 AI Exposure Assist — Prepare Current Lightroom Folder
 
-Reads every master photo in exactly one active Lightroom folder, asks Python to
-snapshot the preview cache and extract the complete folder once, then stops. It
-does not call an AI and does not write XMP.
+Reads every eligible proprietary-RAW master photo in exactly one active
+Lightroom folder, asks Python to snapshot the preview cache and extract the
+complete folder once, then stops. It does not call an AI and does not write XMP.
 ]]
 
 local LrApplication = import "LrApplication"
@@ -85,18 +85,24 @@ local function getActiveFolderPhotos(catalog)
     local seenPaths = {}
     local skippedVirtualCopies = 0
     local skippedVideos = 0
+    local skippedUnsupportedFormats = 0
     local skippedMissingPaths = 0
     local skippedDuplicatePaths = 0
 
     for _, photo in ipairs(folderPhotos) do
         local isVirtualCopy = photo:getRawMetadata("isVirtualCopy")
         local isVideo = photo:getRawMetadata("isVideo")
+        local fileFormat = photo:getRawMetadata("fileFormat")
         local path = photo:getRawMetadata("path")
 
         if isVirtualCopy then
             skippedVirtualCopies = skippedVirtualCopies + 1
         elseif isVideo then
             skippedVideos = skippedVideos + 1
+        elseif fileFormat ~= "RAW" then
+            -- DNG/JPG/TIFF/PSD normally store metadata in the source file.
+            -- This project is sidecar-only and must never modify originals.
+            skippedUnsupportedFormats = skippedUnsupportedFormats + 1
         elseif type(path) ~= "string" or path == "" then
             skippedMissingPaths = skippedMissingPaths + 1
         else
@@ -111,13 +117,14 @@ local function getActiveFolderPhotos(catalog)
     end
 
     if #photos == 0 then
-        error("The active Lightroom folder contains no eligible master photos.")
+        error("The active Lightroom folder contains no eligible proprietary-RAW master photos.")
     end
 
     return photos, activeFolder:getPath(), {
         folderPhotoCount = #folderPhotos,
         skippedVirtualCopies = skippedVirtualCopies,
         skippedVideos = skippedVideos,
+        skippedUnsupportedFormats = skippedUnsupportedFormats,
         skippedMissingPaths = skippedMissingPaths,
         skippedDuplicatePaths = skippedDuplicatePaths
     }
@@ -183,6 +190,7 @@ function RunExposureAssist.run()
             folder_photo_count = exclusions.folderPhotoCount,
             skipped_virtual_copies = exclusions.skippedVirtualCopies,
             skipped_videos = exclusions.skippedVideos,
+            skipped_unsupported_formats = exclusions.skippedUnsupportedFormats,
             skipped_missing_paths = exclusions.skippedMissingPaths,
             skipped_duplicate_paths = exclusions.skippedDuplicatePaths,
             photos = selectionData
@@ -200,7 +208,7 @@ function RunExposureAssist.run()
 
         local progress = LrProgressScope({
             title = "AI Exposure Assist",
-            caption = "Preparing the current folder: " .. tostring(#photos) .. " master photos..."
+            caption = "Preparing the current folder: " .. tostring(#photos) .. " RAW master photos..."
         })
         local exitStatus = LrTasks.execute(command)
         progress:done()
@@ -215,9 +223,10 @@ function RunExposureAssist.run()
             "Exit code: " .. tostring(exitStatus),
             "Job ID: " .. jobId,
             "Source folder: " .. tostring(sourceFolder),
-            "Eligible master photos: " .. tostring(#photos),
+            "Eligible RAW master photos: " .. tostring(#photos),
             "Skipped virtual copies: " .. tostring(exclusions.skippedVirtualCopies),
             "Skipped videos: " .. tostring(exclusions.skippedVideos),
+            "Skipped unsupported formats: " .. tostring(exclusions.skippedUnsupportedFormats),
             "Skipped missing paths: " .. tostring(exclusions.skippedMissingPaths),
             "Skipped duplicate paths: " .. tostring(exclusions.skippedDuplicatePaths),
             "Job directory: " .. tostring(result.job_dir),
@@ -228,7 +237,7 @@ function RunExposureAssist.run()
             "AI Exposure Assist — Folder Prepared",
             "Source folder:\n" .. tostring(sourceFolder) .. "\n\n"
                 .. "Prepared " .. tostring(result.total_found or 0) .. " previews from "
-                .. tostring(result.total_selected or #photos) .. " eligible master photos.\n\n"
+                .. tostring(result.total_selected or #photos) .. " eligible RAW master photos.\n\n"
                 .. "Give this job folder to any vision-capable AI app:\n"
                 .. tostring(result.job_dir) .. "\n\n"
                 .. "The AI must read AI_TASK.md and save decisions in:\n"
