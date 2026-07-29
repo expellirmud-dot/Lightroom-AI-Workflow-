@@ -1,32 +1,31 @@
-# Accepted Decisions — Lightroom AI Exposure MVP
+# Accepted Decisions — Lightroom AI Exposure Assist
 
-## Project Decisions
+## Canonical architecture
 
-### Architecture
+- The production workflow is **prepare once → external AI file review → apply
+  the same saved job**.
+- A one-shot AI/API call is not the canonical production route. Legacy CLI
+  modes remain only for compatibility.
+- The Lightroom plug-in snapshots and extracts all selected previews once, then
+  stops.
+- Any vision-capable AI app may analyze the prepared folder. The application is
+  provider-agnostic and does not require a Gemini API key.
+- AI decisions belong inside the prepared job at `decisions/`; a global manual
+  response directory is not canonical.
+- Apply reopens the exact saved job and must not read the preview cache again.
+- The explicit Apply Prepared Job action plus the exact job-ID token form the
+  two-key authorization boundary.
 
-- **Separate project** at `D:\ai-tools\lightroom-ai-exposure`. Isolated from `ai-worker-harness` to keep scopes clean and avoid cross-contamination.
-- **No direct Catalog or Preview-cache access in MVP.** Lightroom plugin provides rendered JPEG previews and manifest metadata via file handoff only.
-- **Lightroom plugin renders selected previews** in a later Work Order (WO-002+). This Work Order does not implement the plugin.
-- **File handoff + one-shot CLI** is the initial IPC mechanism. No Flask, FastAPI, resident HTTP server, or file watcher in MVP.
-- **Only `crs:Exposure2012`** may eventually be mutated. All other Lightroom develop properties are out of scope.
-- **Default execution is dry_run.** Creates plans without mutating user files.
-- **Final export remains manual.** The user controls Lightroom export after reviewing results.
+## Safety decisions
 
-### Risk Decisions
-
-- **XMP writes use backup + temp file + atomic replace.** Failed writes leave originals intact.
-- **AI output is untrusted input.** Every decision is schema-validated and clamped before use.
-- **No API keys in tracked files.** Secrets live in `.env` (gitignored) or environment variables only.
-- **No broad staging (`git add .`).** Only explicitly allowed files are committed.
-- **Workers do not commit or push.** Commit/push only by authorized Work Orders.
-
-### Scope Decisions
-
-| Decision | Rationale |
-|----------|-----------|
-| `crs:Exposure2012` only | MVP adjusts exposure only; keeps risk minimal and predictable |
-| One-shot CLI | Avoids server lifecycle complexity for MVP |
-| File handoff | Simplest IPC for MVP; previews are shared files |
-| `dry_run: true` default | Safe default; user always sees what would happen |
-| XMP backup before write | Recoverable changes; no destructive writes |
-| Manual export | User curates final output; automation not needed for MVP |
+- Lightroom catalog files are never opened or modified.
+- Preview-cache databases may be read only through validated SQLite snapshots;
+  the live cache is never written.
+- Only `crs:Exposure2012` may be modified.
+- Every changed XMP uses backup, SHA-256 verification, temp write, atomic
+  replace, post-write validation, and rollback.
+- Zero-delta decisions never rewrite XMP.
+- Non-FOUND previews receive terminal skip records rather than blocking safe
+  unrelated images.
+- A rollback failure halts the batch immediately.
+- Runtime jobs, previews, decisions, logs, and backups are never committed.
