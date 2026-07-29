@@ -1,70 +1,62 @@
 # Lightroom AI Exposure Assist
 
-A Windows-first Lightroom Classic exposure assistant.
+A Windows-first Lightroom Classic assistant that prepares a folder of current
+Lightroom previews, lets any vision-capable AI app judge exposure, and writes
+only validated `crs:Exposure2012` changes to XMP sidecars.
 
-## MVP Workflow
+## How it works
 
-1. User opens a Lightroom Classic folder and selects photos.
-2. Lightroom plugin renders JPEG previews with the current preset/develop appearance.
-3. An ordered `manifest.json` is written listing each image, its RAW path, XMP sidecar path, and preview path.
-4. A one-shot Python CLI validates the job.
-5. A vision model returns one exposure decision per image.
-6. Decisions are validated and clamped.
-7. Existing XMP sidecars are backed up.
-8. Only `crs:Exposure2012` may be changed.
-9. A `result.json` report is written.
-10. User reads metadata back into Lightroom and exports manually.
+1. Open the intended Lightroom folder and select all photos to process.
+2. Run **Plug-in Extras → AI Exposure Assist — Prepare Selected Folder**.
+3. Lightroom/Python extracts the selected previews once into
+   `runtime/jobs/<job-id>/` and stops.
+4. Give that job folder to AGY, Gemini CLI, Codex, or another vision AI app.
+5. The AI reads `AI_TASK.md` and saves one JSON decision per FOUND image in
+   the job's `decisions/` folder.
+6. Optionally validate without mutation:
 
-## Quick Start (dry_run)
+   ```powershell
+   uv run lr-ai-exposure --process-job <job-id>
+   ```
 
-```powershell
-# Clone the repository
-git clone https://github.com/expellirmud-dot/Lightroom-AI-Workflow-.git
-cd Lightroom-AI-Workflow-
+7. Run **AI Exposure Assist — Apply Prepared Job**. The program validates the
+   saved decisions, backs up each approved XMP, changes only Exposure2012,
+   verifies the result, and refreshes Lightroom metadata.
 
-# Copy environment template
-copy .env.example .env
+No Gemini API call is required by the application.
 
-# Validate configuration
-python -m lr_ai_exposure.main --check-config
-
-# Run tests
-python -m pytest -q
-```
-
-## Project Structure
+## Prepared job layout
 
 ```text
-src/lr_ai_exposure/   — Python package (src layout)
-config/settings.json  — default configuration (dry_run: true)
-docs/                 — architecture, safety, and contract decisions
-runtime/              — jobs, logs, temp (gitignored)
-tests/                — pytest suite
-lightroom-plugin/AIExposureAssist.lrplugin/ — Lightroom Classic plug-in (WO-006+)
+runtime/jobs/<job-id>/
+├── AI_TASK.md
+├── decision-schema.json
+├── selection.json
+├── manifest.json
+├── job-state.json
+├── previews/
+├── decisions/
+└── xmp_backups/
 ```
 
-## Lightroom Plug-in (WO-006)
+See `docs/FOLDER_JOB_WORKFLOW.md` for the complete contract.
 
-A minimal Lightroom Classic plug-in shell lives under
-`lightroom-plugin/AIExposureAssist.lrplugin/`. It registers an
-`AI Exposure Assist` command under **Plug-in Extras** that reports the
-current selection count or a clear not-yet-implemented message.
+## Setup and validation
 
-The WO-006 skeleton performs **no** Python execution, preview export,
-AI logic, catalog mutation, or XMP writes. Preview export and manifest
-handoff are implemented in WO-007; AI judgment and XMP writes arrive in
-later Work Orders.
+```powershell
+git clone https://github.com/expellirmud-dot/Lightroom-AI-Workflow-.git
+cd Lightroom-AI-Workflow-
+copy .env.example .env
+uv run lr-ai-exposure --check-config
+uv run pytest -q
+```
 
-## Non-Negotiable Boundaries (MVP)
+## Safety boundaries
 
-- Do not edit RAW, NEF, JPEG originals, or Lightroom Catalog files.
-- Do not read or write `.lrcat`, `.lrcat-wal`, `.lrcat-shm`, or `.lrdata` directly.
-- Do not modify EXIF camera-capture fields.
-- Do not modify White Balance, Contrast, Highlights, Shadows, Crop, Masks, Keywords, Rating, Label, Sharpening, or Noise Reduction.
-- The only editable Lightroom development property is `crs:Exposure2012`.
-- XMP backup is created before every authorized real write.
-- Default execution mode is `dry_run`.
-
-## License
-
-See repository root for details.
+- Never modify RAW, JPEG originals, or Lightroom catalog files.
+- Never write to the Lightroom preview cache.
+- Modify only `crs:Exposure2012` in existing XMP sidecars.
+- Back up and verify every authorized XMP write.
+- REVIEW, SKIP, risky, low-confidence, missing-preview, and zero-delta images
+  are not mutated.
+- Final export remains manual.
