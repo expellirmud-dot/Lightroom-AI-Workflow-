@@ -1,10 +1,4 @@
---[[
-AI Exposure Assist — Lightroom Classic plug-in metadata.
-
-This file follows the Lightroom Classic SDK Info.lua contract. The menu item
-is declared here so Lightroom can load and expose the command without relying
-on runtime menu registration.
-]]
+-- AI Exposure Assist — Lightroom Classic plug-in metadata.
 
 return {
     LrSdkVersion = 10.0,
@@ -15,15 +9,20 @@ return {
 
     LrLibraryMenuItems = {
         {
-            title = "AI Exposure Assist",
+            title = "AI Exposure Assist — Prepare Selected Folder",
             file = "RunExposureAssist.lua",
+            enabledWhen = "photosSelected",
+        },
+        {
+            title = "AI Exposure Assist — Apply Prepared Job",
+            file = "ApplyPreparedJob.lua",
             enabledWhen = "photosSelected",
         },
     },
 
     VERSION = {
         major = 1,
-        minor = 0,
+        minor = 1,
         revision = 0,
         build = 1,
     },
