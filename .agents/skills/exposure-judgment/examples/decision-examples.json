@@ -1,16 +1,15 @@
 [
   {
     "image_id": "IMG_001",
-    "subject_type": "person",
-    "subject_exposure": "SLIGHTLY_UNDEREXPOSED",
-    "background_exposure": "BALANCED",
-    "scene_intent": "outdoor_daylight",
-    "highlight_risk": "low",
-    "group_id": "group_1",
-    "reference_image_id": "IMG_001",
-    "recommended_delta_ev": 0.25,
-    "action": "APPLY",
+    "relevance_verdict": "KEEP",
+    "quality_verdict": "KEEP",
+    "delta_ev": 0.25,
     "confidence": 0.9,
-    "reason": "Person is slightly underexposed despite balanced background."
+    "highlight_risk": false,
+    "shadow_risk": false,
+    "subject_rationale": "The primary person is slightly underexposed but retains facial detail.",
+    "scene_rationale": "Outdoor daylight background is balanced and important highlights have headroom.",
+    "batch_consistency_group": "outdoor-daylight-01",
+    "reason": "A modest positive correction brings the subject closer to the group's reference exposure without risking highlights."
   }
 ]
