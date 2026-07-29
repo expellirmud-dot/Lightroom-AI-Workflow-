@@ -17,6 +17,15 @@ from lr_ai_exposure.job_lifecycle import (
 )
 
 
+IMMUTABLE_ARTIFACTS = {
+    "selection.json",
+    "manifest.json",
+    "AI_TASK.md",
+    "AI_SKILLS.md",
+    "decision-schema.json",
+}
+
+
 def _prepared_manifest(tmp_path: Path) -> tuple[Path, Path, Manifest]:
     runtime = tmp_path / "runtime"
     job_dir = runtime / "jobs" / "job-folder"
@@ -80,6 +89,13 @@ def test_prepare_job_writes_self_contained_external_ai_bundle(tmp_path: Path) ->
     assert (job_dir / "job-state.json").is_file()
     assert (runtime / "staging" / "latest-prepared-job.json").is_file()
     assert state["ai_skills"] == str(job_dir.resolve() / "AI_SKILLS.md")
+    assert set(state["artifact_sha256"]) == IMMUTABLE_ARTIFACTS
+    assert all(len(value) == 64 for value in state["artifact_sha256"].values())
+
+    persisted_state = json.loads(
+        (job_dir / "job-state.json").read_text(encoding="utf-8")
+    )
+    assert persisted_state["artifact_sha256"] == state["artifact_sha256"]
 
     task = (job_dir / "AI_TASK.md").read_text(encoding="utf-8")
     assert "Read `AI_SKILLS.md` completely" in task
@@ -136,6 +152,19 @@ def test_resolve_saved_job_rejects_missing_skill_bundle(tmp_path: Path) -> None:
         resolve_saved_job(runtime, "job-folder")
 
 
+def test_resolve_saved_job_rejects_modified_immutable_artifact(tmp_path: Path) -> None:
+    runtime, job_dir, manifest = _prepared_manifest(tmp_path)
+    prepare_external_ai_job(job_dir, manifest, runtime)
+    skills_path = job_dir / "AI_SKILLS.md"
+    skills_path.write_text(
+        skills_path.read_text(encoding="utf-8") + "\nunauthorized edit\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(JobLifecycleError, match="artifact integrity mismatch"):
+        resolve_saved_job(runtime, "job-folder")
+
+
 def test_saved_job_id_path_escape_is_rejected(tmp_path: Path) -> None:
     runtime = tmp_path / "runtime"
     with pytest.raises(JobLifecycleError):
@@ -146,7 +175,9 @@ def test_external_provider_is_job_scoped(tmp_path: Path) -> None:
     settings = {"ai_provider": "google", "ai_model": "old"}
     configured = configure_external_file_provider(settings, tmp_path / "job")
     assert configured["ai_provider"] == "manual_app"
-    assert configured["manual_response_directory"] == str(tmp_path / "job" / "decisions")
+    assert configured["manual_response_directory"] == str(
+        tmp_path / "job" / "decisions"
+    )
     assert configured["ai_model"] == "old"
     assert settings["ai_provider"] == "google"
 
