@@ -26,12 +26,12 @@ def apply_exposure_deltas(
     decisions: list[SinglePassDecision],
     config: dict,
 ) -> dict:
-    """Apply safe decisions to the exact XMP targets recorded by a saved job.
+    """Apply safe decisions to exact XMP targets recorded by a saved job.
 
-    Manifest and selection identity are reconciled across the whole selected
-    folder. Decisions are required only for ``FOUND`` preview entries; entries
-    whose previews could not be extracted receive explicit terminal skip
-    records instead of blocking unrelated images.
+    Production handoff manifests mark analyzable previews ``FOUND``. Historical
+    synthetic fixtures used the dataclass default ``PENDING``; those entries
+    remain decision-bearing for compatibility. Explicit missing/ambiguous/error
+    states receive terminal skip records and do not block unrelated images.
     """
     job_dir = Path(job_dir)
     manifest = read_manifest(job_dir)
@@ -47,10 +47,10 @@ def apply_exposure_deltas(
     identities = selection.get("photos", [])
     selection_map = {str(item["id_local"]): item for item in identities}
     all_manifest_map = {str(entry.image_id): entry for entry in manifest.entries}
-    found_manifest_map = {
+    analyzable_manifest_map = {
         str(entry.image_id): entry
         for entry in manifest.entries
-        if entry.extraction_status == "FOUND"
+        if entry.extraction_status in {"FOUND", "PENDING"}
     }
 
     all_manifest_ids = set(all_manifest_map)
@@ -65,9 +65,9 @@ def apply_exposure_deltas(
         raise ValueError(
             "Exact ID set reconciliation failed between full manifest and selection"
         )
-    if set(found_manifest_map) != decision_ids:
+    if set(analyzable_manifest_map) != decision_ids:
         raise ValueError(
-            "Exact ID set reconciliation failed between FOUND manifest entries and decisions"
+            "Exact ID set reconciliation failed between analyzable manifest entries and decisions"
         )
 
     results = {
@@ -151,7 +151,7 @@ def apply_exposure_deltas(
 
     for entry in manifest.entries:
         image_id = str(entry.image_id)
-        if image_id in settled_ids or entry.extraction_status == "FOUND":
+        if image_id in settled_ids or entry.extraction_status in {"FOUND", "PENDING"}:
             continue
         record_skip(
             image_id,
@@ -166,7 +166,7 @@ def apply_exposure_deltas(
             continue
 
         selection_item = selection_map[image_id]
-        manifest_entry = found_manifest_map[image_id]
+        manifest_entry = analyzable_manifest_map[image_id]
 
         if selection_item.get("uuid") != manifest_entry.uuid:
             record_error(image_id, "Cache UUID mismatch")
