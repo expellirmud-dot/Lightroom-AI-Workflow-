@@ -3,26 +3,34 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from lr_ai_exposure.job import Manifest
+
 
 class Verdict(str, Enum):
     KEEP = "KEEP"
     REVIEW = "REVIEW"
     SKIP = "SKIP"
 
+
 class SinglePassError(ValueError):
-    """Raised when single-pass AI decision contract is violated."""
+    """Raised when the single-pass AI decision contract is violated."""
+
 
 class SinglePassDecision(BaseModel):
     """One AI decision for a single image combining triage and exposure."""
+
     model_config = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
 
     image_id: str = Field(..., description="The Lightroom id_local of the image")
     relevance_verdict: Verdict
     quality_verdict: Verdict
-    delta_ev: float = Field(..., allow_inf_nan=False, description="Exposure adjustment in EV.")
+    delta_ev: float = Field(
+        ...,
+        allow_inf_nan=False,
+        description="Exposure adjustment in EV.",
+    )
     confidence: float = Field(..., ge=0.0, le=1.0, allow_inf_nan=False)
     highlight_risk: bool
     shadow_risk: bool
@@ -34,53 +42,57 @@ class SinglePassDecision(BaseModel):
 
 import json
 
-def validate_single_pass_decision(raw: Mapping[str, Any], max_delta_ev: float = 3.0, min_confidence: float = 0.8) -> SinglePassDecision:
-    """Validate raw decision dictionary against the strict single-pass contract."""
+
+def validate_single_pass_decision(
+    raw: Mapping[str, Any],
+    max_delta_ev: float = 3.0,
+    min_confidence: float = 0.8,
+) -> SinglePassDecision:
+    """Validate a raw decision dictionary against the strict contract."""
     try:
-        # Pydantic strict mode requires JSON validation to coerce strings to Enums
         decision = SinglePassDecision.model_validate_json(json.dumps(raw))
-        
-        # Reject out-of-range delta_ev; do not clamp
+
         if not (-max_delta_ev <= decision.delta_ev <= max_delta_ev):
-            raise ValueError(f"delta_ev {decision.delta_ev} is out of bounds [{-max_delta_ev}, {max_delta_ev}]")
-            
-        # Low confidence downgrades based on threshold
+            raise ValueError(
+                f"delta_ev {decision.delta_ev} is out of bounds "
+                f"[{-max_delta_ev}, {max_delta_ev}]"
+            )
+
         if decision.confidence < min_confidence:
             if decision.relevance_verdict == Verdict.KEEP:
                 decision.relevance_verdict = Verdict.REVIEW
             if decision.quality_verdict == Verdict.KEEP:
                 decision.quality_verdict = Verdict.REVIEW
-            decision.reason = f"Downgraded to REVIEW due to low confidence. {decision.reason}".strip()
-            
-        # Force REVIEW on highlight_risk or shadow_risk
+            decision.reason = (
+                "Downgraded to REVIEW due to low confidence. "
+                f"{decision.reason}"
+            ).strip()
+
         if decision.highlight_risk or decision.shadow_risk:
             if decision.quality_verdict == Verdict.KEEP:
                 decision.quality_verdict = Verdict.REVIEW
-            decision.reason = f"Downgraded to REVIEW due to risk flags. {decision.reason}".strip()
-            
+            decision.reason = (
+                "Downgraded to REVIEW due to risk flags. "
+                f"{decision.reason}"
+            ).strip()
+
         return decision
-    except Exception as e:
-        raise SinglePassError(f"Validation failed: {str(e)}") from e
+    except Exception as exc:
+        raise SinglePassError(f"Validation failed: {exc}") from exc
 
 
-import os
 from pathlib import Path
-from typing import Any
 
-def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str, Any]) -> list[SinglePassDecision]:
-    """Analyze a batch of extracted previews using a configurable vision API.
-    Ensures exactly one analysis pass per preview. MAX_IN_FLIGHT=1.
 
-    For the ``manual_app`` provider (WO-023 batch contract):
+def analyze_job_single_pass(
+    manifest: Manifest,
+    job_dir: Path,
+    config: dict[str, Any],
+) -> list[SinglePassDecision]:
+    """Analyze or import one decision per FOUND preview in manifest order.
 
-    - ``manual_response_directory`` names the authorized response
-      directory; exactly one JSON response per FOUND manifest entry is
-      resolved by ``resolve_manual_response_map`` BEFORE analysis, so an
-      incomplete/duplicate/unknown batch fails closed with no partial
-      processing.
-    - One canonical ``AnalysisRecord`` (complete decision + provider
-      evidence) is preserved per decision and written atomically to
-      ``analysis-records.json`` in the job directory, in manifest order.
+    ``google`` performs a network call. ``manual_app`` imports decision files
+    from the configured directory and is the canonical prepared-job provider.
     """
     provider_name = config.get("ai_provider", "google")
     model_name = config.get("ai_model", "gemini-2.5-pro")
@@ -95,8 +107,6 @@ def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str,
     else:
         raise SinglePassError(f"Unknown ai_provider: {provider_name}")
 
-    # WO-023: manual provider requires an authorized response directory and
-    # exact identity reconciliation before any analysis begins.
     response_map: dict[str, Path] = {}
     if provider_name == "manual_app":
         response_directory = config.get("manual_response_directory")
@@ -105,10 +115,11 @@ def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str,
                 "manual_app provider requires 'manual_response_directory' in config"
             )
         response_map = resolve_manual_response_map(
-            manifest, Path(response_directory)
+            manifest,
+            Path(response_directory),
         )
 
-    decisions = []
+    decisions: list[SinglePassDecision] = []
     records = []
 
     for entry in manifest.entries:
@@ -116,12 +127,12 @@ def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str,
             continue
 
         preview_full_path = job_dir / entry.preview_path
-
-        # Verify job-root containment
         try:
             preview_full_path.resolve().relative_to(job_dir.resolve())
         except ValueError:
-            raise SinglePassError(f"Preview path escapes job directory: {preview_full_path}")
+            raise SinglePassError(
+                f"Preview path escapes job directory: {preview_full_path}"
+            )
 
         try:
             if provider_name == "google":
@@ -130,17 +141,19 @@ def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str,
                     preview_full_path=preview_full_path,
                     model_name=model_name,
                 )
-            else:  # manual_app
+            else:
                 decision, metadata = analyze_single_image_manual_app(
                     entry=entry,
                     preview_full_path=preview_full_path,
                     response_file=response_map[str(entry.image_id)],
+                    model_name=str(model_name),
                 )
             decisions.append(decision)
-        except Exception as e:
-            raise SinglePassError(f"Failed to analyze {entry.image_id}: {e}") from e
+        except Exception as exc:
+            raise SinglePassError(
+                f"Failed to analyze {entry.image_id}: {exc}"
+            ) from exc
 
-        # Preserve provider evidence beside the decision (manifest order).
         from lr_ai_exposure.analysis_artifacts import AnalysisRecord
 
         token_usage = metadata.get("usage") or None
@@ -163,7 +176,6 @@ def analyze_job_single_pass(manifest: Manifest, job_dir: Path, config: dict[str,
             )
         )
 
-    # Write canonical evidence records atomically beside the decisions.
     if records:
         from lr_ai_exposure.analysis_artifacts import write_analysis_records
 
