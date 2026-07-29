@@ -2,18 +2,31 @@
 
 ## Input
 
-The AI receives one prepared job folder containing `AI_TASK.md`,
-`manifest.json`, `decision-schema.json`, and Lightroom-rendered JPEG previews.
-Only manifest entries with `extraction_status: FOUND` require decisions.
+The AI receives one self-contained prepared job folder containing:
 
-The AI may be any local or connected vision-capable application. No network API
-provider is required by the Lightroom application.
+- `AI_TASK.md` — exact operating instructions for this job;
+- `AI_SKILLS.md` — the complete bundled contents of all four canonical visual
+  skills, including references and examples;
+- `manifest.json` — ordered Lightroom identity and preview records;
+- `decision-schema.json` — strict output schema;
+- Lightroom-rendered JPEG previews.
+
+Only manifest entries with `extraction_status: FOUND` require decisions. The AI
+may be any local or connected vision-capable application. No network API
+provider is required by the Lightroom application, and the AI does not need
+separate repository access.
 
 ## Required judgment
 
-The AI must apply the repository skills for exposure, batch consistency,
-relevance, and visual quality. It must inspect the actual preview bytes and not
-infer decisions from filenames.
+The AI must read `AI_SKILLS.md` completely and apply its exposure, batch
+consistency, relevance, and visual-quality rules. It must inspect the actual
+preview bytes and must not infer decisions from filenames alone.
+
+The judgment covers intended subject/person priority, subject and background
+exposure, scene intent, highlight/shadow safety, focus, blur, obstruction,
+accidental/test-shot evidence, relevance, duplicate/supporting value, visual
+grouping, reference-frame choice, batch consistency, bounded EV correction,
+and KEEP/REVIEW/SKIP disposition.
 
 ## Decision file
 
@@ -36,6 +49,9 @@ Write one UTF-8 JSON object per FOUND image to
 }
 ```
 
+Use `delta_ev: 0.0` when no exposure correction is justified. Do not invent
+precision, objects, scene details, identities, or paths.
+
 ## Validation
 
 - Exactly one response must exist for every FOUND manifest ID.
@@ -48,5 +64,8 @@ Write one UTF-8 JSON object per FOUND image to
 - Low confidence or any risk flag downgrades automatic action to REVIEW.
 - Manifest order is preserved in canonical analysis artifacts.
 - Preview byte count and SHA-256 are verified before importing each response.
+- Missing or altered `AI_TASK.md`, `AI_SKILLS.md`, or schema makes a prepared
+  job invalid.
 
-The AI never writes RAW, XMP, catalog, cache, or manifest files.
+The AI never writes RAW, XMP, catalog, cache, manifest, task, skill, schema, or
+preview files.
