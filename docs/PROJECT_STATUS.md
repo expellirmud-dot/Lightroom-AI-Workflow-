@@ -1,67 +1,104 @@
 # Project Status
 
 LAST_UPDATED: 2026-07-29
-PROJECT_PHASE: Prepared Folder Lifecycle Remediation
+PROJECT_PHASE: Prepared Current-Folder Lifecycle — Automated Green, Live Certification Pending
 CURRENT_WORK_ORDER: Work-Order/WO-029-FOLDER-JOB-LIFECYCLE.md
 LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-028-HOTFIX.md
 BASELINE_MAIN_COMMIT: 243c405e46aa36116e377cfa8cb062ed37fdb44a
 ACTIVE_BRANCH: wo-029-folder-job-lifecycle
+DRAFT_PR: 1
 
 ## Project objective
 
-Build a Windows-first Lightroom Classic exposure assistant that prepares the
-complete selected folder once, allows any vision-capable AI app to write
-job-scoped exposure decisions, and later applies only validated
-`crs:Exposure2012` deltas to existing XMP sidecars.
+Build a Windows-first Lightroom Classic exposure assistant that automatically
+prepares every eligible proprietary-RAW master in the current Lightroom folder
+once, packages the complete visual judgment contract for any external AI app,
+and later applies only validated `crs:Exposure2012` deltas to existing XMP
+sidecars from the same saved job.
 
 ## Verified baseline before WO-029
 
-- Real Lightroom selection, preview-cache extraction, manifest handoff, and
-  manual decision import completed successfully for one real photo.
-- Analyze-only completed with one reconciled decision and zero XMP mutations.
-- Transactional XMP backup, write verification, rollback, and bounded batch
-  behavior have automated/pilot evidence.
+- A real Lightroom selection reached read-only preview-cache extraction,
+  manifest identity reconciliation, external manual decision import, and a
+  successful Analyze Only result for one real photo.
+- Analyze Only produced one decision and zero XMP mutations.
+- Transactional XMP backup, SHA-256 verification, atomic write, rollback, and
+  bounded batch behavior had automated/pilot evidence.
 - Controlled batch tests previously covered 5, 20, and 50 entries.
 
-## WO-029 implementation status
+## WO-029 implemented behavior
 
-The branch implements but has not yet closed validation for:
+- Lightroom requires exactly one active folder and automatically enumerates all
+  directly contained eligible proprietary-RAW master photos; Ctrl+A is not
+  required.
+- Virtual copies, videos, non-RAW formats, missing paths, and duplicate source
+  paths are excluded and counted.
+- One read-only cache handoff creates a durable prepared job and stops before
+  AI or XMP apply.
+- Every job contains `AI_TASK.md`, `AI_SKILLS.md`, strict schema, manifest,
+  state, previews, and job-scoped decision directory.
+- `AI_SKILLS.md` bundles the complete Markdown/JSON content of the four
+  canonical visual skills, so an external AI needs only the job folder.
+- `--process-job` and `--apply-job` reopen the same job without re-reading the
+  preview cache or invoking AI again.
+- Apply requires the matching Lightroom source folder and exact job-ID
+  authorization.
+- FOUND/analyzable decisions are reconciled separately from unavailable
+  previews; every eligible image receives one terminal record.
+- Zero-delta decisions leave XMP byte-identical.
+- Canonical RAW/XMP paths, source-folder containment, backup path/hash,
+  atomic checkpoint, post-write verification, rollback, and fatal rollback
+  stop are enforced.
+- Lightroom exposes separate **Prepare Current Folder** and
+  **Apply Prepared Job** commands.
 
-- prepare-once durable folder jobs;
-- `AI_TASK.md`, decision schema, job state, and latest-job pointer;
-- job-scoped external AI decision files;
-- saved-job process and apply CLI operations without cache re-extraction;
-- separate Lightroom Prepare and Apply menu commands;
-- FOUND-only decision reconciliation;
-- terminal records for missing previews and zero-delta decisions;
-- exact canonical path checks and atomic apply checkpoints;
-- provider-neutral metadata and documentation reconciliation.
+## Automated validation
 
-Capability status remains at most `IMPLEMENTED` until the required branch and
-pull-request validation executes successfully.
+GitHub Actions run `30412526981` passed on Windows Python 3.12 and 3.13 at
+branch head `451011ff08dbe540b0dc20fffc7c9b22ee6d4664`:
 
-## Current risks and required gates
+- focused WO-029 prepared-job tests;
+- full pytest suite;
+- CLI config smoke;
+- integration suite;
+- compileall for source and tests;
+- diff check;
+- clean working-tree/no-runtime-artifact check.
 
-- WO-029 focused and full tests have not yet been recorded in the validation
-  register.
-- Lightroom Lua behavior has static contract coverage but still requires a real
-  prepare-folder and apply-folder certification after automated tests pass.
-- Existing XMP sidecars must already exist and contain one unambiguous
+The current documentation/evidence reconciliation commits require one final CI
+rerun before the branch is frozen for Lightroom certification.
+
+## Current capability level
+
+- Python prepared-job lifecycle and saved-job apply: `INTEGRATED` by automated
+  Windows CI.
+- Lightroom folder enumeration and two-menu Lua workflow: `TESTED` by static
+  contracts only.
+- New WO-029 end-to-end folder workflow: not `LIVE_VERIFIED`.
+
+## Remaining live gate
+
+1. Reload the branch plug-in in Lightroom.
+2. Open exactly one folder containing eligible proprietary RAW masters.
+3. Run **Prepare Current Folder** and inspect the produced self-contained job.
+4. Give only the job folder to an external vision AI and create the exact
+   decision set.
+5. Run **Apply Prepared Job** with the same folder active.
+6. Reconcile all per-image terminal records, XMP backup/hash/value evidence,
+   and Lightroom metadata refresh.
+
+WO-029 must remain ACTIVE and PR #1 must remain draft until this live gate
+passes. `main` remains at WO-028 commit `243c405`.
+
+## Known limitations
+
+- Existing XMP sidecars must already contain one unambiguous finite
   `crs:Exposure2012` value.
-- A source folder larger than the operationally accepted batch size should be
-  prepared in bounded selections until representative larger-folder evidence
-  exists.
-- Historical capability rows and validation entries containing `pending`
-  commit references remain historical debt and must not be treated as stronger
-  evidence than their recorded commands.
-
-## Next gate
-
-1. Run Windows CI on the WO-029 branch through a pull request.
-2. Repair all focused/full/integration failures.
-3. Record actual validation evidence and commit SHA.
-4. Perform one real Lightroom Prepare Selected Folder certification.
-5. Use an external AI app to create decisions in that prepared job.
-6. Perform one real Apply Prepared Job certification on an authorized folder.
-7. Close WO-029 only after documentation, capability, and current-work truth
-   are reconciled.
+- Child folders are not included by `getPhotos(false)`; each Lightroom folder
+  is prepared as its own job.
+- DNG/JPEG/TIFF/PSD/video/virtual-copy inputs are intentionally excluded from
+  writable targets.
+- The external AI may process a large prepared folder in internal chunks, but
+  it must return one exact complete decision set and preserve batch consistency.
+- Legacy one-shot/Google provider code remains compatibility-only and is not
+  the canonical workflow.
