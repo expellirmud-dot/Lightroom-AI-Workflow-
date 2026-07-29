@@ -1,145 +1,52 @@
-# AI Judge Contract — Lightroom AI Exposure MVP
+# AI Judge Contract — External File Workflow
 
-## Overview
+## Input
 
-The vision AI judge receives a list of Lightroom-rendered JPEG previews and returns exactly one decision per image. The AI is an untrusted input source — all output must be schema-validated before use.
+The AI receives one prepared job folder containing `AI_TASK.md`,
+`manifest.json`, `decision-schema.json`, and Lightroom-rendered JPEG previews.
+Only manifest entries with `extraction_status: FOUND` require decisions.
 
-## Input Contract
+The AI may be any local or connected vision-capable application. No network API
+provider is required by the Lightroom application.
 
-The judge receives an ordered list of preview image paths (or a manifest listing). The judge **must not** invent filenames or paths — it may only reference image IDs that appear in the manifest.
+## Required judgment
 
-### Manifest format (reference)
+The AI must apply the repository skills for exposure, batch consistency,
+relevance, and visual quality. It must inspect the actual preview bytes and not
+infer decisions from filenames.
 
-```json
-[
-  {
-    "image_id": "PTO_3392",
-    "raw_path": "C:\\Users\\Expellirmud\\Pictures\\LR\\ToTo\\PTO_3392.NEF",
-    "xmp_path": "C:\\Users\\Expellirmud\\Pictures\\LR\\ToTo\\PTO_3392.xmp",
-    "preview_path": "runtime/jobs/.../previews/000001__PTO_3392.jpg",
-    "sequence": 1
-  }
-]
-```
+## Decision file
 
-## Output Contract
-
-The judge returns a JSON object with an `images` array. Each entry has exactly these fields:
+Write one UTF-8 JSON object per FOUND image to
+`runtime/jobs/<job-id>/decisions/<image_id>.json`:
 
 ```json
 {
-  "image_id": "PTO_3392",
-  "subject_type": "person",
-  "subject_exposure": "SLIGHTLY_UNDEREXPOSED",
-  "background_exposure": "BALANCED",
-  "scene_intent": "outdoor_daylight",
-  "highlight_risk": "low",
-  "group_id": "group1",
-  "reference_image_id": "PTO_3392",
-  "recommended_delta_ev": 0.25,
-  "action": "APPLY",
-  "confidence": 0.91,
-  "reason": "Slight underexposure of the main subject.",
-  "relevance_class": "KEEP_PRIMARY",
-  "quality_action": "APPLY",
-  "event_relation": "same_event",
-  "test_shot_likelihood": "none",
-  "accidental_likelihood": "none",
-  "quality_flags": [],
-  "duplicate_of": ""
+  "image_id": "4042206",
+  "relevance_verdict": "KEEP",
+  "quality_verdict": "KEEP",
+  "delta_ev": 0.25,
+  "confidence": 0.92,
+  "highlight_risk": false,
+  "shadow_risk": false,
+  "subject_rationale": "The primary face is slightly dark but retains detail.",
+  "scene_rationale": "Indoor event lighting should remain warm and believable.",
+  "batch_consistency_group": "indoor-stage-01",
+  "reason": "A modest positive correction matches the reference frames."
 }
 ```
 
-### Field Specifications
+## Validation
 
-| Field | Type | Required | Constraint |
-|-------|------|----------|------------|
-| `image_id` | `string` | Yes | Must match exactly one manifest `image_id`. No invented IDs. |
-| `subject_type` | `string` | Yes | Describes the main subject (e.g., person). |
-| `subject_exposure` | `string` | Yes | `ExposureClass` enum value. |
-| `background_exposure` | `string` | Yes | `ExposureClass` enum value. |
-| `scene_intent` | `string` | Yes | `SceneIntent` enum value. |
-| `highlight_risk` | `string` | Yes | `HighlightRisk` enum value (low, medium, high). |
-| `group_id` | `string` | Yes | Identifier for the visual batch grouping. |
-| `reference_image_id` | `string` | Yes | The reference frame ID for the group. |
-| `recommended_delta_ev` | `number` | Yes | Numeric. Clamped to `[-maximum_delta_ev, +maximum_delta_ev]`. |
-| `action` | `string` | Yes | `Action` enum value (APPLY, REVIEW, SKIP). |
-| `relevance_class` | `string` | Yes | `RelevanceClass` enum value. |
-| `quality_action` | `string` | Yes | `QualityAction` enum value (APPLY, REVIEW, SKIP). |
-| `event_relation` | `string` | Yes | Description of event relation. |
-| `test_shot_likelihood` | `string` | Yes | Likelihood (none, low, medium, high). |
-| `accidental_likelihood` | `string` | Yes | Likelihood (none, low, medium, high). |
-| `quality_flags` | `list` | Yes | List of strings identifying technical issues. |
-| `duplicate_of` | `string` | Yes | ID of the duplicate image, if any. |
-| `confidence` | `number` | Yes | Must be in `[0.0, 1.0]`. |
-| `reason` | `string` | Yes | Human-readable explanation for decisions or notable adjustments. |
+- Exactly one response must exist for every FOUND manifest ID.
+- Unknown, duplicate, missing, malformed, or escaping response files reject the
+  batch before partial processing.
+- `image_id` must match the manifest exactly.
+- Extra fields are rejected.
+- `delta_ev` must be finite and within configured bounds.
+- `confidence` must be within `[0, 1]`.
+- Low confidence or any risk flag downgrades automatic action to REVIEW.
+- Manifest order is preserved in canonical analysis artifacts.
+- Preview byte count and SHA-256 are verified before importing each response.
 
-### Mandatory Rules
-
-1. **Exactly one decision** for every manifest image — no omissions, no duplicates.
-2. `image_id` values must **match** manifest `image_id` values exactly. No invented IDs.
-3. `recommended_delta_ev` is the *suggested change* to exposure. Positive = brighter, negative = darker.
-4. `confidence` must be in the closed interval `[0.0, 1.0]`. Low-confidence decisions (`< 0.8`) must downgrade to `REVIEW`.
-5. `action` specifies whether the change should be applied or reviewed. Reject/delete semantics belong to relevance triage, not exposure judgment.
-6. The AI **never** writes files directly — the CLI validates and applies decisions.
-
-## Validation Rules Applied by CLI
-
-Before applying any decision, the CLI must:
-
-1. Reject any decision missing required fields.
-2. Reject invalid enum values.
-3. Reject any decision whose `recommended_delta_ev` or `confidence` is non-numeric or non-finite.
-4. Reject any decision whose `confidence` is not in `[0.0, 1.0]`.
-5. Clamp `recommended_delta_ev` to `[-maximum_delta_ev, +maximum_delta_ev]`.
-6. Downgrade `action` to `REVIEW` if `confidence < minimum_apply_confidence`.
-7. Downgrade `action` to `REVIEW` if `highlight_risk` is `high` and delta is positive.
-8. Check for large exposure jumps within groups and flag for review.
-9. Reject duplicate or unknown `image_id` values.
-10. Log all reviewed or rejected decisions in `result.json` with reasons.
-
-## Manual Batch Provider Contract (WO-023)
-
-When `ai_provider` is `manual_app`, decisions are supplied as JSON files in
-an authorized response directory instead of a network call.
-
-### Configuration
-
-| Field | Meaning |
-|---|---|
-| `manual_response_directory` | Authorized directory containing one `*.json` response per FOUND manifest entry. Replaces the retired single-file `manual_response_file`. |
-
-### Batch Preflight (before any analysis)
-
-`resolve_manual_response_map(manifest, response_dir)` must succeed before
-the first image is analyzed. It enforces exact identity reconciliation:
-
-1. Every response file must parse as JSON and declare `image_id`.
-   A missing `image_id` is **rejected — never system-bound** for manual
-   responses.
-2. Manifest FOUND IDs and response IDs must be **exactly equal as sets**:
-   - missing responses → reject the whole batch;
-   - unknown responses → reject the whole batch;
-   - duplicate `image_id` across response files → reject;
-   - duplicate `image_id` among FOUND manifest entries → reject.
-3. Every response path must resolve inside the authorized response
-   directory (symlink escapes are rejected).
-4. Failure occurs before partial processing: no decisions are returned and
-   no artifacts are written for a rejected batch.
-
-### Evidence Contract — `AnalysisRecord`
-
-Each validated decision is preserved beside its provider evidence in one
-canonical `AnalysisRecord` (`analysis-records.json`, manifest order,
-atomic write):
-
-| Field | Content |
-|---|---|
-| `decision` | Complete `SinglePassDecision` (`model_dump(mode="json")`) — no risk or rationale field is dropped. |
-| `provider` | Provider name (e.g. `manual_app`, `google`). |
-| `model` | Model identifier. |
-| `mode` | Execution mode (`ANALYZE_ONLY`). |
-| `preview_bytes` | Verified preview byte count. |
-| `preview_sha256` | Verified preview SHA-256. |
-| `response_reference` | Path of the response file that supplied the decision (or provider name for network providers). |
-| `token_usage` | Token usage dictionary when the provider reports it; otherwise `null`. |
+The AI never writes RAW, XMP, catalog, cache, or manifest files.
