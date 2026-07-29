@@ -26,6 +26,8 @@ def test_prepare_command_exports_active_folder_once() -> None:
     assert 'sourceType == "LrFolder"' in src
     assert 'getRawMetadata("isVirtualCopy")' in src
     assert 'getRawMetadata("isVideo")' in src
+    assert 'getRawMetadata("fileFormat")' in src
+    assert 'fileFormat ~= "RAW"' in src
     assert "catalog:getTargetPhotos()" not in src
     assert "--prepare-job" in src
     assert 'requested_mode = "PREPARE"' in src
@@ -41,6 +43,7 @@ def test_prepare_handoff_carries_folder_and_identity_fields() -> None:
     assert "preview_cache_path" in src
     assert "skipped_virtual_copies" in src
     assert "skipped_videos" in src
+    assert "skipped_unsupported_formats" in src
 
 
 def test_apply_command_reopens_saved_job_without_lrdata() -> None:
