@@ -1,11 +1,9 @@
-"""Static contract tests for the Lightroom AI Exposure plugin."""
+"""Static contract tests for the prepared-folder Lightroom plug-in."""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
-
-import pytest
 
 PLUGIN_DIR = (
     Path(__file__).resolve().parent.parent
@@ -20,49 +18,43 @@ def _read(name: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_runexposureassist_has_required_entries() -> None:
-    """RunExposureAssist.lua must expose run."""
+def test_prepare_command_exports_selection_once() -> None:
     src = _read("RunExposureAssist.lua")
-    assert re.search(r"function\s+RunExposureAssist\.run", src), "run() missing"
-    assert "return RunExposureAssist" in src, "Module must return itself"
+    assert re.search(r"function\s+RunExposureAssist\.run", src)
+    assert "--prepare-job" in src
+    assert 'requested_mode = "PREPARE"' in src
+    assert "--apply" not in src
+    assert "--analyze-only" not in src
 
 
-def test_manifest_schema_fields_present() -> None:
-    """Selection handoff entries must carry required identity fields."""
+def test_prepare_handoff_carries_identity_fields() -> None:
     src = _read("RunExposureAssist.lua")
     for field in ("id_local", "path", "uuid"):
-        assert field in src, f"Selection entry missing field {field!r}"
+        assert field in src
+    assert "Json.encode" in src
+    assert "preview_cache_path" in src
 
 
-def test_uses_secure_json() -> None:
-    """Must use local Json module for serialization (WO-028)."""
-    src = _read("RunExposureAssist.lua")
-    assert "Json.encode" in src, "Must use local Json"
+def test_apply_command_reopens_saved_job_without_lrdata() -> None:
+    src = _read("ApplyPreparedJob.lua")
+    assert "--apply-job" in src
+    assert "--authorize-apply" in src
+    assert "latest-prepared-job.json" in src
+    assert "--lrdata" not in src
+    assert "--selection" not in src
+    assert "APPLIED_VERIFIED" in src
+    assert "readMetadata" in src
 
 
-def test_no_ai_or_xmp_write_or_http() -> None:
-    """Plugin must not implement AI, XMP writes, HTTP, watchers, or catalog mutation."""
-    forbidden = [
-        "LrHttp",
-        "os.execute",
-        "crs:Exposure2012",
-        "xmp:Update",
-        "writeXmp",
-        "LrSocket",
-        "LrFTP",
-    ]
-    raw = _read("RunExposureAssist.lua")
-    code_lines = [
-        ln for ln in raw.splitlines()
-        if not ln.lstrip().startswith("--") and "--[[" not in ln
-    ]
-    src = "\n".join(code_lines).lower()
-    for token in forbidden:
-        assert token.lower() not in src, f"RunExposureAssist.lua must not contain {token!r}"
+def test_plugin_never_implements_ai_or_xmp_writes() -> None:
+    combined = _read("RunExposureAssist.lua") + _read("ApplyPreparedJob.lua")
+    for token in ("LrHttp", "os.execute", "crs:Exposure2012=", "writeXmp", "LrSocket", "LrFTP"):
+        assert token.lower() not in combined.lower()
 
 
-def test_plugininit_invokes_run() -> None:
-    """PluginInit.lua must still bind the command."""
-    src = _read("PluginInit.lua")
-    assert "AI Exposure Assist" in src
-    assert "bindToPluginExtras" in src
+def test_info_registers_prepare_and_apply_menu_items() -> None:
+    src = _read("Info.lua")
+    assert "Prepare Selected Folder" in src
+    assert "Apply Prepared Job" in src
+    assert "RunExposureAssist.lua" in src
+    assert "ApplyPreparedJob.lua" in src
