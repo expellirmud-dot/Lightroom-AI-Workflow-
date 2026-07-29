@@ -26,6 +26,14 @@ JOB_STATE_APPLY_COMPLETED = "APPLY_COMPLETED"
 JOB_STATE_APPLY_COMPLETED_WITH_SKIPS = "APPLY_COMPLETED_WITH_SKIPS"
 JOB_STATE_APPLY_FAILED = "APPLY_FAILED"
 
+_EXTERNAL_AI_SKILLS = (
+    "exposure-judgment",
+    "batch-consistency-review",
+    "image-relevance-triage",
+    "visual-quality-safety",
+)
+_SKILL_FILE_SUFFIXES = {".md", ".json"}
+
 
 def _atomic_write_json(path: Path, payload: Any) -> Path:
     path = Path(path)
@@ -58,7 +66,79 @@ def _single_source_root(manifest: Manifest) -> Path:
     return next(iter(parents))
 
 
-def _task_markdown(job_dir: Path, manifest: Manifest) -> str:
+def _default_project_root() -> Path:
+    """Resolve the repository root from the installed src-layout package."""
+    return Path(__file__).resolve().parents[2]
+
+
+def _build_ai_skill_bundle(project_root: Path) -> str:
+    """Build a deterministic, self-contained bundle of all visual AI skills.
+
+    External AI applications may receive only the prepared job folder, so the
+    job must carry the complete skill rules rather than pointing back to the
+    repository. Markdown and JSON files under each canonical skill directory
+    are bundled in sorted relative-path order.
+    """
+    project_root = Path(project_root).resolve()
+    skills_root = project_root / ".agents" / "skills"
+    sections: list[str] = [
+        "# Lightroom AI Exposure — Bundled Visual Skills",
+        "",
+        "This file is generated from the repository's four canonical visual ",
+        "skills when the job is prepared. It is part of the immutable AI input ",
+        "bundle. Apply every rule below to the actual preview images.",
+        "",
+    ]
+
+    for skill_name in _EXTERNAL_AI_SKILLS:
+        skill_root = skills_root / skill_name
+        entrypoint = skill_root / "SKILL.md"
+        if not entrypoint.is_file():
+            raise JobLifecycleError(
+                f"Canonical AI skill entrypoint not found: {entrypoint}"
+            )
+
+        files = sorted(
+            path
+            for path in skill_root.rglob("*")
+            if path.is_file() and path.suffix.lower() in _SKILL_FILE_SUFFIXES
+        )
+        if entrypoint not in files:
+            raise JobLifecycleError(
+                f"Canonical AI skill entrypoint was not included: {entrypoint}"
+            )
+
+        sections.extend(
+            [
+                f"# Skill: {skill_name}",
+                "",
+            ]
+        )
+        for path in files:
+            relative = path.relative_to(project_root).as_posix()
+            try:
+                content = path.read_text(encoding="utf-8").rstrip()
+            except OSError as exc:
+                raise JobLifecycleError(
+                    f"Cannot read canonical AI skill file {path}: {exc}"
+                ) from exc
+            sections.extend(
+                [
+                    f"## Source: `{relative}`",
+                    "",
+                    content,
+                    "",
+                ]
+            )
+
+    return "\n".join(sections).rstrip() + "\n"
+
+
+def _task_markdown(
+    job_dir: Path,
+    manifest: Manifest,
+    skills_path: Path,
+) -> str:
     found = [entry for entry in manifest.entries if entry.extraction_status == "FOUND"]
     return f"""# External AI Exposure Task
 
@@ -69,24 +149,26 @@ def _task_markdown(job_dir: Path, manifest: Manifest) -> str:
 - Preview directory: `{job_dir / 'previews'}`
 - Decision directory: `{job_dir / 'decisions'}`
 - Decision schema: `{job_dir / 'decision-schema.json'}`
+- Bundled visual skills: `{skills_path}`
 - FOUND previews requiring decisions: **{len(found)}**
 
 ## Required operating model
 
-1. Read `manifest.json` in manifest order.
-2. Inspect every preview whose `extraction_status` is `FOUND`.
-3. Apply the repository skills:
-   - `.agents/skills/exposure-judgment/SKILL.md`
-   - `.agents/skills/batch-consistency-review/SKILL.md`
-   - `.agents/skills/image-relevance-triage/SKILL.md`
-   - `.agents/skills/visual-quality-safety/SKILL.md`
-4. Write exactly one UTF-8 JSON file per FOUND image to `decisions/`.
-5. The filename should be `<image_id>.json`; the declared `image_id` inside
+1. Read `AI_SKILLS.md` completely before judging any image.
+2. Read `manifest.json` in manifest order.
+3. Inspect every preview whose `extraction_status` is `FOUND`.
+4. Apply all four bundled skills:
+   - `exposure-judgment`
+   - `batch-consistency-review`
+   - `image-relevance-triage`
+   - `visual-quality-safety`
+5. Write exactly one UTF-8 JSON file per FOUND image to `decisions/`.
+6. The filename should be `<image_id>.json`; the declared `image_id` inside
    the JSON is authoritative and must exactly match the manifest.
-6. Do not create responses for MISSING, AMBIGUOUS, INVALID_JPEG, or failed
+7. Do not create responses for MISSING, AMBIGUOUS, INVALID_JPEG, or failed
    manifest entries.
-7. Do not modify RAW, XMP, Lightroom catalog, preview cache, manifest, or
-   preview files.
+8. Do not modify RAW, XMP, Lightroom catalog, preview cache, manifest, skill,
+   schema, or preview files.
 
 ## What the AI must judge
 
@@ -128,10 +210,16 @@ def prepare_external_ai_job(
     job_dir: Path,
     manifest: Manifest,
     runtime_directory: Path,
+    project_root: Path | None = None,
 ) -> dict[str, Any]:
     """Finalize a cache-extracted job for an external file-capable AI agent."""
     job_dir = Path(job_dir).resolve()
     runtime_directory = Path(runtime_directory).resolve()
+    project_root = (
+        _default_project_root()
+        if project_root is None
+        else Path(project_root).resolve()
+    )
     decisions_dir = job_dir / "decisions"
     decisions_dir.mkdir(parents=True, exist_ok=True)
 
@@ -145,9 +233,13 @@ def prepare_external_ai_job(
         job_dir / "decision-schema.json",
         SinglePassDecision.model_json_schema(),
     )
+    skills_path = _atomic_write_text(
+        job_dir / "AI_SKILLS.md",
+        _build_ai_skill_bundle(project_root),
+    )
     task_path = _atomic_write_text(
         job_dir / "AI_TASK.md",
-        _task_markdown(job_dir, manifest),
+        _task_markdown(job_dir, manifest, skills_path),
     )
 
     state = {
@@ -161,6 +253,7 @@ def prepare_external_ai_job(
         "decision_directory": str(decisions_dir),
         "decision_schema": str(schema_path),
         "ai_task": str(task_path),
+        "ai_skills": str(skills_path),
         "total_selected": manifest.total_selected,
         "total_found": manifest.total_found,
         "total_missing": manifest.total_missing,
@@ -214,6 +307,13 @@ def resolve_saved_job(runtime_directory: Path, job_id: str) -> tuple[Path, Manif
     state_path = job_dir / "job-state.json"
     if not state_path.is_file():
         raise JobLifecycleError(f"Prepared job state not found: {state_path}")
+
+    for required_name in ("AI_TASK.md", "AI_SKILLS.md", "decision-schema.json"):
+        required_path = job_dir / required_name
+        if not required_path.is_file():
+            raise JobLifecycleError(
+                f"Prepared job artifact not found: {required_path}"
+            )
 
     return job_dir, manifest, selection_path
 
