@@ -1,38 +1,67 @@
 # Project Status
 
 LAST_UPDATED: 2026-07-29
-PROJECT_PHASE: Reproducible CLI Certification Complete
-CURRENT_WORK_ORDER: NONE
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-024-REPRODUCIBLE-CLI-CERTIFICATION.md
-LATEST_COMMIT: 2c324d1
-LAST_VERIFIED_EVIDENCE: Windows CI py312/py313 PASSED (GitHub Actions runs 30382636338 and 30384086375 on commits 17a82dd and e274c74)
+PROJECT_PHASE: Prepared Folder Lifecycle Remediation
+CURRENT_WORK_ORDER: Work-Order/WO-029-FOLDER-JOB-LIFECYCLE.md
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-028-HOTFIX.md
+BASELINE_MAIN_COMMIT: 243c405e46aa36116e377cfa8cb062ed37fdb44a
+ACTIVE_BRANCH: wo-029-folder-job-lifecycle
 
-## Project Objective
+## Project objective
 
-Build a Windows-first Lightroom Classic exposure assistant. Users select
-photos in Lightroom Classic, the system renders previews, asks a vision
-model to evaluate exposure consistency, writes approved exposure changes
-to XMP sidecars, and returns a result report for the user to apply
-manually.
+Build a Windows-first Lightroom Classic exposure assistant that prepares the
+complete selected folder once, allows any vision-capable AI app to write
+job-scoped exposure decisions, and later applies only validated
+`crs:Exposure2012` deltas to existing XMP sidecars.
 
-## Current Capability Status
+## Verified baseline before WO-029
 
-| Status | Count | Capabilities |
-|---|---|---|
-| `TESTED` | 20 | CAP-001..CAP-004, CAP-008..CAP-011, CAP-015, CAP-017..CAP-026, CAP-033 |
-| `INTEGRATED` | 4 | CAP-005, CAP-006, CAP-031, CAP-032 |
-| `NOT_STARTED` | 3 | CAP-007, CAP-012, CAP-013 |
-| `DEFERRED` | 1 | CAP-014 (automatic export) |
+- Real Lightroom selection, preview-cache extraction, manifest handoff, and
+  manual decision import completed successfully for one real photo.
+- Analyze-only completed with one reconciled decision and zero XMP mutations.
+- Transactional XMP backup, write verification, rollback, and bounded batch
+  behavior have automated/pilot evidence.
+- Controlled batch tests previously covered 5, 20, and 50 entries.
 
-## Known Risks
+## WO-029 implementation status
 
-- REAL_XMP_APPLY_NOT_AUTHORIZED
-- No Lightroom integration has been implemented or tested with real Lightroom Classic data.
-- No Vision AI API integration has been implemented.
-- No live XMP write has been validated against real Lightroom catalogs or XMP sidecars.
-- No end-to-end workflow has been validated with the Lightroom plugin.
-- The checked-in `config/settings.json` references example paths that are machine-specific.
+The branch implements but has not yet closed validation for:
 
-## Next Recommended Bounded Seam
+- prepare-once durable folder jobs;
+- `AI_TASK.md`, decision schema, job state, and latest-job pointer;
+- job-scoped external AI decision files;
+- saved-job process and apply CLI operations without cache re-extraction;
+- separate Lightroom Prepare and Apply menu commands;
+- FOUND-only decision reconciliation;
+- terminal records for missing previews and zero-delta decisions;
+- exact canonical path checks and atomic apply checkpoints;
+- provider-neutral metadata and documentation reconciliation.
 
-WO-025 preparation only
+Capability status remains at most `IMPLEMENTED` until the required branch and
+pull-request validation executes successfully.
+
+## Current risks and required gates
+
+- WO-029 focused and full tests have not yet been recorded in the validation
+  register.
+- Lightroom Lua behavior has static contract coverage but still requires a real
+  prepare-folder and apply-folder certification after automated tests pass.
+- Existing XMP sidecars must already exist and contain one unambiguous
+  `crs:Exposure2012` value.
+- A source folder larger than the operationally accepted batch size should be
+  prepared in bounded selections until representative larger-folder evidence
+  exists.
+- Historical capability rows and validation entries containing `pending`
+  commit references remain historical debt and must not be treated as stronger
+  evidence than their recorded commands.
+
+## Next gate
+
+1. Run Windows CI on the WO-029 branch through a pull request.
+2. Repair all focused/full/integration failures.
+3. Record actual validation evidence and commit SHA.
+4. Perform one real Lightroom Prepare Selected Folder certification.
+5. Use an external AI app to create decisions in that prepared job.
+6. Perform one real Apply Prepared Job certification on an authorized folder.
+7. Close WO-029 only after documentation, capability, and current-work truth
+   are reconciled.
