@@ -6,8 +6,10 @@ Build a Windows-first Lightroom Classic exposure assistant whose canonical
 production workflow is:
 
 ```text
-select all intended photos in one Lightroom folder
+open exactly one Lightroom folder
+→ enumerate every eligible proprietary-RAW master automatically
 → prepare all previews once
+→ bundle the canonical visual skills into the job
 → external vision AI writes job-scoped decisions
 → validate the same saved job
 → explicitly apply guarded Exposure2012 changes
@@ -45,38 +47,50 @@ stop condition.
 
 ## Canonical Runtime Lifecycle
 
-1. Lightroom reads the current selected-photo identities.
-2. `PREPARE_JOB` snapshots the preview-cache databases read-only and extracts
-   the complete selected preview set once.
-3. The prepared job owns its manifest, previews, AI task, schema, decisions,
-   evidence, logs, and XMP backups.
-4. Any vision-capable external AI application may read the prepared job and
-   write one JSON decision per FOUND preview.
-5. `PROCESS_SAVED_JOB` validates the decisions without touching XMP.
-6. `APPLY_SAVED_JOB` reopens the same job, derives the safe per-image allowlist,
-   and performs guarded XMP transactions.
-7. Lightroom refreshes metadata only for `APPLIED_VERIFIED` images.
+1. Lightroom requires exactly one active `LrFolder` and reads every directly
+   contained proprietary-RAW master automatically; no Ctrl+A photo selection is
+   required.
+2. Virtual copies, videos, non-RAW formats, missing paths, and duplicate source
+   paths are excluded and counted because this workflow is sidecar-only.
+3. `PREPARE_JOB` snapshots the preview-cache databases read-only and extracts
+   the complete eligible folder preview set once.
+4. The prepared job owns its manifest, previews, `AI_TASK.md`, bundled
+   `AI_SKILLS.md`, decision schema, decisions, evidence, logs, and XMP backups.
+5. Any vision-capable external AI application may receive only that prepared
+   job folder, read the bundled instructions and skills, and write one JSON
+   decision per FOUND preview.
+6. `PROCESS_SAVED_JOB` validates the decisions without touching XMP.
+7. `APPLY_SAVED_JOB` requires the matching Lightroom source folder to be active,
+   reopens the same job, derives the safe per-image allowlist, and performs
+   guarded XMP transactions.
+8. Lightroom refreshes metadata only for `APPLIED_VERIFIED` images found in the
+   matching active folder.
 
 The apply stage must not repeat cache extraction, create a replacement job, or
 call an AI provider again.
 
 ## Runtime Ownership Rules
 
-- Lightroom plug-in owns selection identity, prepare invocation, explicit
-  apply invocation, and metadata refresh.
+- Lightroom plug-in owns active-folder enumeration, identity capture, prepare
+  invocation, explicit apply invocation, source-folder confirmation, and
+  metadata refresh.
 - Cache extractor owns read-only SQLite snapshots and JPEG extraction.
+- Job lifecycle owns prepared state, self-contained skill/task/schema artifacts,
+  latest-job pointer, and saved-job resolution.
 - External AI owns visual judgment and decision JSON only.
 - Python owns decision validation, identity reconciliation, authorization,
   XMP mutation, evidence, checkpoint, and rollback.
 - Decisions belong in `runtime/jobs/<job-id>/decisions/`.
-- One prepared job contains photos from exactly one source folder.
-- Every selected image receives exactly one terminal settlement record.
+- One prepared job contains eligible RAW masters from exactly one source folder.
+- Every eligible RAW master receives exactly one terminal settlement record.
 
 ## Non-Negotiable Boundaries
 
 - Never open or modify `.lrcat`, `.lrcat-wal`, or `.lrcat-shm`.
 - Never write to `.lrdata`; read only through validated SQLite snapshots.
 - Never modify RAW, NEF, JPEG originals, or EXIF capture fields.
+- DNG, JPEG, TIFF, PSD, video, and virtual-copy inputs are outside the
+  sidecar-only apply boundary and must not be prepared as writable targets.
 - The only editable Lightroom development property is
   `crs:Exposure2012`.
 - Never modify White Balance, Contrast, Highlights, Shadows, Whites, Blacks,
@@ -88,6 +102,21 @@ call an AI provider again.
 - Never store credentials or API keys in tracked files.
 - Runtime jobs, previews, decisions, logs, XMP backups, and temp files must not
   be committed.
+
+## Prepared-Job Integrity Rules
+
+- A prepared job is self-contained and must include `selection.json`,
+  `manifest.json`, `job-state.json`, `AI_TASK.md`, `AI_SKILLS.md`,
+  `decision-schema.json`, `previews/`, and `decisions/`.
+- `AI_SKILLS.md` is generated deterministically from all Markdown/JSON files in
+  the four canonical visual skill directories.
+- Missing canonical skill source files make prepare fail closed.
+- Missing task, skill bundle, schema, manifest, state, or selection makes saved
+  processing fail closed.
+- External AI must not modify the task, bundled skills, schema, manifest, or
+  previews.
+- Apply must use the exact prepared job and source folder; a global response
+  directory is not canonical.
 
 ## XMP Rules
 
@@ -108,15 +137,16 @@ call an AI provider again.
 
 ## AI Decision Rules
 
-Every external AI task must use all four skills:
+Every prepared job must bundle all content from these four skills:
 
-- `.agents/skills/exposure-judgment/SKILL.md`
-- `.agents/skills/batch-consistency-review/SKILL.md`
-- `.agents/skills/image-relevance-triage/SKILL.md`
-- `.agents/skills/visual-quality-safety/SKILL.md`
+- `.agents/skills/exposure-judgment/`
+- `.agents/skills/batch-consistency-review/`
+- `.agents/skills/image-relevance-triage/`
+- `.agents/skills/visual-quality-safety/`
 
 The AI must:
 
+- read `AI_TASK.md` and `AI_SKILLS.md` completely;
 - inspect the actual preview rather than infer from filenames;
 - identify the intended subject and person priority;
 - classify scene intent and preserve legitimate atmosphere;
