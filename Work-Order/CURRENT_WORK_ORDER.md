@@ -1,5 +1,5 @@
-STATUS: NONE
-ACTIVE_WORK_ORDER: None
+STATUS: ACTIVE
+ACTIVE_WORK_ORDER: Work-Order/WO-029-FOLDER-JOB-LIFECYCLE.md
 LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-028-HOTFIX.md
 BLOCK_REASON: None
-NOTE: WO-028 hotfix closed out after successful real-runtime certification.
+NOTE: Owner authorized repository-wide workflow audit and correction to the canonical prepare-once, external-AI, saved-job apply lifecycle.
