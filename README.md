@@ -1,29 +1,33 @@
 # Lightroom AI Exposure Assist
 
-A Windows-first Lightroom Classic assistant that prepares a folder of current
-Lightroom previews, lets any vision-capable AI app judge exposure, and writes
-only validated `crs:Exposure2012` changes to XMP sidecars.
+A Windows-first Lightroom Classic assistant that prepares every eligible master
+photo in the current Lightroom folder, lets any vision-capable AI app judge
+exposure, and writes only validated `crs:Exposure2012` changes to XMP
+sidecars.
 
 ## How it works
 
-1. Open the intended Lightroom folder and select all photos to process.
-2. Run **Plug-in Extras → AI Exposure Assist — Prepare Selected Folder**.
-3. Lightroom/Python extracts the selected previews once into
+1. Open exactly one intended folder in Lightroom's Library source panel.
+2. Run **Plug-in Extras → AI Exposure Assist — Prepare Current Folder**.
+3. The plug-in reads every eligible master photo in that folder, excluding
+   virtual copies, videos, missing paths, and duplicate source paths.
+4. Lightroom/Python extracts the folder previews once into
    `runtime/jobs/<job-id>/` and stops.
-4. Give that job folder to AGY, Gemini CLI, Codex, or another vision AI app.
-5. The AI reads `AI_TASK.md` and saves one JSON decision per FOUND image in
+5. Give that job folder to AGY, Gemini CLI, Codex, or another vision AI app.
+6. The AI reads `AI_TASK.md` and saves one JSON decision per FOUND image in
    the job's `decisions/` folder.
-6. Optionally validate without mutation:
+7. Optionally validate without mutation:
 
    ```powershell
    uv run lr-ai-exposure --process-job <job-id>
    ```
 
-7. Run **AI Exposure Assist — Apply Prepared Job**. The program validates the
+8. Run **AI Exposure Assist — Apply Prepared Job**. The program validates the
    saved decisions, backs up each approved XMP, changes only Exposure2012,
-   verifies the result, and refreshes Lightroom metadata.
+   verifies the result, and refreshes Lightroom metadata where possible.
 
-No Gemini API call is required by the application.
+No Gemini API call is required by the application. No manual Ctrl+A selection
+is required for preparation.
 
 ## Prepared job layout
 
