@@ -1,9 +1,10 @@
 --[[
-AI Exposure Assist — Apply Latest Prepared Job
+AI Exposure Assist — Apply Latest Prepared Folder Job
 
-Loads the durable job created by RunExposureAssist.lua, validates external AI
-decisions through Python, applies only guarded non-zero Exposure2012 deltas,
-and refreshes Lightroom metadata for APPLIED_VERIFIED images currently selected.
+Loads the durable job created by RunExposureAssist.lua, requires the matching
+source folder to be active, validates external AI decisions through Python,
+applies only guarded non-zero Exposure2012 deltas, and refreshes Lightroom
+metadata for APPLIED_VERIFIED master photos in that folder.
 ]]
 
 local LrApplication = import "LrApplication"
@@ -48,6 +49,28 @@ local function writeUtf8File(path, content)
     end
 end
 
+local function getSingleActiveFolder(catalog)
+    local activeSources = catalog:getActiveSources() or {}
+    local activeFolder = nil
+    for _, source in ipairs(activeSources) do
+        if type(source) ~= "string" then
+            local ok, sourceType = pcall(function()
+                return source:type()
+            end)
+            if ok and sourceType == "LrFolder" then
+                if activeFolder ~= nil then
+                    error("Open exactly one Lightroom folder before applying a prepared job.")
+                end
+                activeFolder = source
+            end
+        end
+    end
+    if activeFolder == nil then
+        error("Open exactly one Lightroom folder before applying a prepared job.")
+    end
+    return activeFolder
+end
+
 local function validateBridgeResult(result, expectedJobId, exitStatus)
     if result.protocol_version ~= "1.0" then
         error("Protocol version mismatch")
@@ -88,10 +111,33 @@ function ApplyPreparedJob.run()
         if type(jobId) ~= "string" or jobId == "" then
             error("latest-prepared-job.json does not contain a job_id")
         end
+        if type(pointer.state_path) ~= "string" or pointer.state_path == "" then
+            error("latest-prepared-job.json does not contain a state_path")
+        end
+
+        local state = readJsonFile(pointer.state_path)
+        if state.job_id ~= jobId then
+            error("Prepared job state identity mismatch")
+        end
+        local sourceRoot = state.source_root
+        if type(sourceRoot) ~= "string" or sourceRoot == "" then
+            error("Prepared job state does not contain source_root")
+        end
+
+        local catalog = LrApplication.activeCatalog()
+        local activeFolder = getSingleActiveFolder(catalog)
+        local activeFolderPath = activeFolder:getPath()
+        if string.lower(activeFolderPath) ~= string.lower(sourceRoot) then
+            error(
+                "The active Lightroom folder does not match the prepared job. "
+                .. "Open this folder first: " .. tostring(sourceRoot)
+            )
+        end
 
         local confirmation = LrDialogs.confirm(
             "AI Exposure Assist — Apply Prepared Job",
-            "Apply validated exposure decisions for " .. jobId .. "?\n\n"
+            "Source folder:\n" .. tostring(sourceRoot) .. "\n\n"
+                .. "Apply validated exposure decisions for " .. jobId .. "?\n\n"
                 .. "Only crs:Exposure2012 may change. Every changed XMP is backed up and verified.",
             "Apply Exposure",
             "Cancel"
@@ -100,11 +146,11 @@ function ApplyPreparedJob.run()
             return
         end
 
-        local catalog = LrApplication.activeCatalog()
-        local targets = catalog:getTargetPhotos() or {}
         local photoMap = {}
-        for _, photo in ipairs(targets) do
-            photoMap[tostring(photo.localIdentifier)] = photo
+        for _, photo in ipairs(activeFolder:getPhotos(false) or {}) do
+            if not photo:getRawMetadata("isVirtualCopy") then
+                photoMap[tostring(photo.localIdentifier)] = photo
+            end
         end
 
         local stagingDir = LrPathUtils.child(REPO_ROOT, "runtime\\staging")
@@ -117,7 +163,7 @@ function ApplyPreparedJob.run()
 
         local progress = LrProgressScope({
             title = "AI Exposure Assist",
-            caption = "Validating decisions and applying exposure..."
+            caption = "Validating decisions and applying folder exposure..."
         })
         local exitStatus = LrTasks.execute(command)
         progress:done()
@@ -127,14 +173,14 @@ function ApplyPreparedJob.run()
         local evidence = readJsonFile(result.apply_evidence)
 
         local refreshIds = {}
-        local notSelectedCount = 0
+        local missingFromFolderCount = 0
         for _, item in ipairs(evidence.results or {}) do
             if item.status == "APPLIED_VERIFIED" then
                 local imageId = tostring(item.image_id)
                 if photoMap[imageId] then
                     table.insert(refreshIds, imageId)
                 else
-                    notSelectedCount = notSelectedCount + 1
+                    missingFromFolderCount = missingFromFolderCount + 1
                 end
             end
         end
@@ -153,17 +199,18 @@ function ApplyPreparedJob.run()
             "Command: " .. command,
             "Exit code: " .. tostring(exitStatus),
             "Job ID: " .. jobId,
+            "Source folder: " .. tostring(sourceRoot),
             "Applied: " .. tostring(result.applied or 0),
             "Skipped: " .. tostring(result.skipped or 0),
             "Errors: " .. tostring(result.errors or 0),
             "Refreshed in Lightroom: " .. tostring(#refreshIds),
-            "Applied but not currently selected: " .. tostring(notSelectedCount)
+            "Applied IDs absent from active folder: " .. tostring(missingFromFolderCount)
         }, "\n"))
 
         local extra = ""
-        if notSelectedCount > 0 then
-            extra = "\n\n" .. tostring(notSelectedCount)
-                .. " applied photos were not in the current selection. Use Lightroom ‘Read Metadata from Files’ for those photos."
+        if missingFromFolderCount > 0 then
+            extra = "\n\n" .. tostring(missingFromFolderCount)
+                .. " applied IDs were not found in the active folder and were not refreshed."
         end
         LrDialogs.message(
             "AI Exposure Assist — Apply Complete",
