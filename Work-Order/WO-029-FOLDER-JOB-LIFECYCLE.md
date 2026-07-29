@@ -2,7 +2,7 @@
 
 ## Status
 
-ACTIVE — AUTOMATED VALIDATION GREEN AT PRIOR HEAD; FINAL CI AND REAL LIGHTROOM CERTIFICATION PENDING
+ACTIVE — AUTOMATED CERTIFIED; REAL LIGHTROOM CERTIFICATION PENDING
 
 ## Owner decision
 
@@ -96,6 +96,10 @@ CURRENT_LIGHTROOM_FOLDER
 - Focused, full, integration, compile, diff, and clean-tree gates pass on Windows Python 3.12 and 3.13 before live certification.
 - A real Lightroom folder prepare → external AI decisions → saved-job apply smoke passes before closeout.
 
+## Automated evidence
+
+GitHub Actions run `30413267495` passed all required steps on Windows Python 3.12 and 3.13 at code/documentation head `4fd50d6faeb3f4b1e3ad8184961ce1ca94bfc553`. The current branch remains subject to the same CI workflow after evidence-only documentation commits.
+
 ## Validation
 
 ```powershell
@@ -110,4 +114,4 @@ git status --short
 
 ## Closeout policy
 
-Do not mark COMPLETED or merge to `main` until final automated validation and the real Lightroom prepared-folder certification are recorded. Keep the pull request in draft while live certification is pending.
+Do not mark COMPLETED or merge to `main` until the real Lightroom prepared-folder certification is recorded. Keep the pull request in draft while live certification is pending.
