@@ -5,10 +5,10 @@ Exposure Assist.
 
 ## Goal
 
-Prepare every eligible master photo in the current Lightroom folder once, let
-any file-capable vision AI analyze the exported job folder, save structured
-decisions, and then apply only validated `crs:Exposure2012` changes to the
-original XMP sidecars.
+Prepare every eligible proprietary-RAW master photo in the current Lightroom
+folder once, let any file-capable vision AI analyze the exported job folder,
+save structured decisions, and then apply only validated
+`crs:Exposure2012` changes to the original XMP sidecars.
 
 The application does not require a Gemini API call. The AI may be AGY, Gemini
 CLI, Codex, another desktop app, or any other model that can read local JPEGs
@@ -19,10 +19,10 @@ and write JSON files.
 ```text
 open exactly one Lightroom folder
 → Prepare Current Folder
-→ read every eligible master photo in that folder
+→ read every eligible RAW master photo in that folder
 → read-only cache snapshot and preview extraction once
 → durable runtime/jobs/<job-id>/ bundle
-→ external AI reads AI_TASK.md + previews
+→ external AI reads AI_TASK.md + AI_SKILLS.md + previews
 → external AI writes decisions/<image_id>.json
 → Process Prepared Job (optional validation-only)
 → Apply Prepared Job (explicit authorization)
@@ -42,15 +42,19 @@ The Lightroom command **AI Exposure Assist — Prepare Current Folder**:
    `LrFolder`.
 2. Calls `folder:getPhotos(false)` to read every photo directly contained in
    that folder; child folders are not included.
-3. Excludes virtual copies, videos, missing source paths, and duplicate source
-   paths because they cannot own independent RAW/XMP targets in this workflow.
+3. Includes proprietary-RAW master photos only. Virtual copies, videos,
+   DNG/JPEG/TIFF/PSD and other non-RAW formats, missing source paths, and
+   duplicate source paths are excluded. This is required because the project
+   is sidecar-only and must never write metadata into source image files.
 4. Writes `selection.json` with source folder, Lightroom `image_id`, RAW path,
    UUID, and exclusion counts.
 5. Snapshots `previews.db` and `root-pixels.db` read-only.
-6. Extracts one current-rendered JPEG preview per eligible master photo where
+6. Extracts one current-rendered JPEG preview per eligible RAW master where
    available.
-7. Writes a durable job folder.
-8. Stops without calling AI and without touching XMP.
+7. Copies the complete four-skill visual judgment policy into
+   `AI_SKILLS.md`, writes `AI_TASK.md`, and writes the strict decision schema.
+8. Writes a durable job state and latest-job pointer.
+9. Stops without calling AI and without touching XMP.
 
 Prepared job layout:
 
@@ -60,6 +64,7 @@ runtime/jobs/<job-id>/
 ├── manifest.json
 ├── job-state.json
 ├── AI_TASK.md
+├── AI_SKILLS.md
 ├── decision-schema.json
 ├── previews/
 ├── decisions/
@@ -75,8 +80,10 @@ prepared job rather than repeating Lightroom cache extraction.
 
 ## Phase 2 — External AI review
 
-The AI reads `AI_TASK.md`, `manifest.json`, and every FOUND preview. It must use
-all four project skills:
+The prepared job is self-contained. The AI does not need repository access. It
+must read `AI_TASK.md`, `AI_SKILLS.md`, `manifest.json`, and every FOUND
+preview. `AI_SKILLS.md` contains the complete current contents of all four
+canonical project skills and their Markdown/JSON references and examples:
 
 - `exposure-judgment`
 - `batch-consistency-review`
@@ -101,8 +108,8 @@ The AI writes exactly one JSON file for every FOUND manifest entry to:
 runtime/jobs/<job-id>/decisions/<image_id>.json
 ```
 
-The AI never edits RAW, XMP, Lightroom catalog, preview cache, manifest, or
-preview files.
+The AI never edits RAW, XMP, Lightroom catalog, preview cache, manifest,
+`AI_TASK.md`, `AI_SKILLS.md`, schema, or preview files.
 
 ## Phase 3 — Validate saved decisions
 
@@ -111,12 +118,14 @@ read the Lightroom cache and does not create a new job.
 
 Validation rejects the whole analysis batch before apply when decision files
 are missing, unknown, duplicated, malformed, outside the job directory, or
-identity-mismatched. Validated decisions are written to `ai-decisions.json`,
-`analysis-records.json`, and `analysis-evidence.json`.
+identity-mismatched. It also verifies preview byte size and SHA-256 before
+importing each response. Validated decisions are written to
+`ai-decisions.json`, `analysis-records.json`, and `analysis-evidence.json`.
 
 ## Phase 4 — Apply saved decisions
 
-The Lightroom command **AI Exposure Assist — Apply Prepared Job** invokes:
+The Lightroom command **AI Exposure Assist — Apply Prepared Job** requires the
+same source folder to be active, then invokes:
 
 ```text
 lr-ai-exposure --apply-job <job-id> --authorize-apply <job-id>
@@ -155,7 +164,7 @@ catalogs, and preview caches are never mutated.
 ## Resume and evidence
 
 `apply-evidence.json` is checkpointed after every image. Settled images are not
-processed twice. Every eligible master photo receives one terminal record,
+processed twice. Every eligible RAW master receives one terminal record,
 including images whose previews could not be extracted.
 
 The latest prepared job pointer is:
