@@ -67,22 +67,51 @@ def _prepared_manifest(tmp_path: Path) -> tuple[Path, Path, Manifest]:
     return runtime, job_dir, manifest
 
 
-def test_prepare_job_writes_durable_external_ai_bundle(tmp_path: Path) -> None:
+def test_prepare_job_writes_self_contained_external_ai_bundle(tmp_path: Path) -> None:
     runtime, job_dir, manifest = _prepared_manifest(tmp_path)
 
     state = prepare_external_ai_job(job_dir, manifest, runtime)
 
     assert state["state"] == JOB_STATE_PREPARED
     assert (job_dir / "AI_TASK.md").is_file()
+    assert (job_dir / "AI_SKILLS.md").is_file()
     assert (job_dir / "decision-schema.json").is_file()
     assert (job_dir / "decisions").is_dir()
     assert (job_dir / "job-state.json").is_file()
     assert (runtime / "staging" / "latest-prepared-job.json").is_file()
+    assert state["ai_skills"] == str(job_dir.resolve() / "AI_SKILLS.md")
+
     task = (job_dir / "AI_TASK.md").read_text(encoding="utf-8")
-    assert "exposure-judgment" in task
-    assert "batch-consistency-review" in task
-    assert "image-relevance-triage" in task
-    assert "visual-quality-safety" in task
+    assert "Read `AI_SKILLS.md` completely" in task
+    for skill_name in (
+        "exposure-judgment",
+        "batch-consistency-review",
+        "image-relevance-triage",
+        "visual-quality-safety",
+    ):
+        assert skill_name in task
+
+    skills = (job_dir / "AI_SKILLS.md").read_text(encoding="utf-8")
+    assert "# Skill: exposure-judgment" in skills
+    assert "# Skill: batch-consistency-review" in skills
+    assert "# Skill: image-relevance-triage" in skills
+    assert "# Skill: visual-quality-safety" in skills
+    assert "DELTA_EV_GUIDE.md" in skills
+    assert "GROUPING_RULES.md" in skills
+
+
+def test_prepare_job_fails_closed_when_skill_source_is_missing(tmp_path: Path) -> None:
+    runtime, job_dir, manifest = _prepared_manifest(tmp_path)
+    empty_project = tmp_path / "empty-project"
+    empty_project.mkdir()
+
+    with pytest.raises(JobLifecycleError, match="skill entrypoint not found"):
+        prepare_external_ai_job(
+            job_dir,
+            manifest,
+            runtime,
+            project_root=empty_project,
+        )
 
 
 def test_resolve_saved_job_never_requires_lrdata(tmp_path: Path) -> None:
@@ -96,6 +125,15 @@ def test_resolve_saved_job_never_requires_lrdata(tmp_path: Path) -> None:
     assert resolved_dir == job_dir.resolve()
     assert resolved_manifest.job_id == "job-folder"
     assert selection == job_dir / "selection.json"
+
+
+def test_resolve_saved_job_rejects_missing_skill_bundle(tmp_path: Path) -> None:
+    runtime, job_dir, manifest = _prepared_manifest(tmp_path)
+    prepare_external_ai_job(job_dir, manifest, runtime)
+    (job_dir / "AI_SKILLS.md").unlink()
+
+    with pytest.raises(JobLifecycleError, match="Prepared job artifact not found"):
+        resolve_saved_job(runtime, "job-folder")
 
 
 def test_saved_job_id_path_escape_is_rejected(tmp_path: Path) -> None:
