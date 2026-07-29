@@ -9,14 +9,12 @@ return {
 
     LrLibraryMenuItems = {
         {
-            title = "AI Exposure Assist — Prepare Selected Folder",
+            title = "AI Exposure Assist — Prepare Current Folder",
             file = "RunExposureAssist.lua",
-            enabledWhen = "photosSelected",
         },
         {
             title = "AI Exposure Assist — Apply Prepared Job",
             file = "ApplyPreparedJob.lua",
-            enabledWhen = "photosSelected",
         },
     },
 
@@ -24,6 +22,6 @@ return {
         major = 1,
         minor = 1,
         revision = 0,
-        build = 1,
+        build = 2,
     },
 }
