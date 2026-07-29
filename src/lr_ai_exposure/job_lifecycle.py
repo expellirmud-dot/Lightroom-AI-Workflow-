@@ -8,6 +8,7 @@ same job and never re-reads the Lightroom preview cache.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Iterable
@@ -33,6 +34,13 @@ _EXTERNAL_AI_SKILLS = (
     "visual-quality-safety",
 )
 _SKILL_FILE_SUFFIXES = {".md", ".json"}
+_IMMUTABLE_JOB_ARTIFACTS = (
+    "selection.json",
+    "manifest.json",
+    "AI_TASK.md",
+    "AI_SKILLS.md",
+    "decision-schema.json",
+)
 
 
 def _atomic_write_json(path: Path, payload: Any) -> Path:
@@ -56,6 +64,13 @@ def _atomic_write_text(path: Path, content: str) -> Path:
     return path
 
 
+def _sha256_file(path: Path) -> str:
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError as exc:
+        raise JobLifecycleError(f"Cannot hash prepared-job artifact {path}: {exc}") from exc
+
+
 def _single_source_root(manifest: Manifest) -> Path:
     parents = {Path(entry.raw_path).resolve().parent for entry in manifest.entries}
     if len(parents) != 1:
@@ -67,26 +82,19 @@ def _single_source_root(manifest: Manifest) -> Path:
 
 
 def _default_project_root() -> Path:
-    """Resolve the repository root from the installed src-layout package."""
     return Path(__file__).resolve().parents[2]
 
 
 def _build_ai_skill_bundle(project_root: Path) -> str:
-    """Build a deterministic, self-contained bundle of all visual AI skills.
-
-    External AI applications may receive only the prepared job folder, so the
-    job must carry the complete skill rules rather than pointing back to the
-    repository. Markdown and JSON files under each canonical skill directory
-    are bundled in sorted relative-path order.
-    """
+    """Bundle all canonical visual-skill Markdown/JSON files deterministically."""
     project_root = Path(project_root).resolve()
     skills_root = project_root / ".agents" / "skills"
     sections: list[str] = [
         "# Lightroom AI Exposure — Bundled Visual Skills",
         "",
-        "This file is generated from the repository's four canonical visual ",
-        "skills when the job is prepared. It is part of the immutable AI input ",
-        "bundle. Apply every rule below to the actual preview images.",
+        "This immutable job artifact contains the repository's four canonical ",
+        "visual skills. Apply every rule below to the actual preview images. ",
+        "AI_TASK.md and decision-schema.json are authoritative for output fields.",
         "",
     ]
 
@@ -108,12 +116,7 @@ def _build_ai_skill_bundle(project_root: Path) -> str:
                 f"Canonical AI skill entrypoint was not included: {entrypoint}"
             )
 
-        sections.extend(
-            [
-                f"# Skill: {skill_name}",
-                "",
-            ]
-        )
+        sections.extend([f"# Skill: {skill_name}", ""])
         for path in files:
             relative = path.relative_to(project_root).as_posix()
             try:
@@ -122,23 +125,12 @@ def _build_ai_skill_bundle(project_root: Path) -> str:
                 raise JobLifecycleError(
                     f"Cannot read canonical AI skill file {path}: {exc}"
                 ) from exc
-            sections.extend(
-                [
-                    f"## Source: `{relative}`",
-                    "",
-                    content,
-                    "",
-                ]
-            )
+            sections.extend([f"## Source: `{relative}`", "", content, ""])
 
     return "\n".join(sections).rstrip() + "\n"
 
 
-def _task_markdown(
-    job_dir: Path,
-    manifest: Manifest,
-    skills_path: Path,
-) -> str:
+def _task_markdown(job_dir: Path, manifest: Manifest, skills_path: Path) -> str:
     found = [entry for entry in manifest.entries if entry.extraction_status == "FOUND"]
     return f"""# External AI Exposure Task
 
@@ -167,8 +159,8 @@ def _task_markdown(
    the JSON is authoritative and must exactly match the manifest.
 7. Do not create responses for MISSING, AMBIGUOUS, INVALID_JPEG, or failed
    manifest entries.
-8. Do not modify RAW, XMP, Lightroom catalog, preview cache, manifest, skill,
-   schema, or preview files.
+8. Do not modify RAW, XMP, Lightroom catalog, preview cache, manifest,
+   `AI_TASK.md`, `AI_SKILLS.md`, schema, or preview files.
 
 ## What the AI must judge
 
@@ -200,9 +192,10 @@ def _task_markdown(
 }}
 ```
 
-The application validates all files before any XMP mutation. A missing,
-unknown, duplicate, malformed, or identity-mismatched response rejects the
-analysis stage without partial apply.
+`AI_TASK.md` and `decision-schema.json` override any conceptual labels in the
+skill references. Extra JSON fields are rejected. The application validates
+all files before any XMP mutation; missing, unknown, duplicate, malformed, or
+identity-mismatched responses reject the analysis stage without partial apply.
 """
 
 
@@ -215,45 +208,49 @@ def prepare_external_ai_job(
     """Finalize a cache-extracted job for an external file-capable AI agent."""
     job_dir = Path(job_dir).resolve()
     runtime_directory = Path(runtime_directory).resolve()
-    project_root = (
-        _default_project_root()
-        if project_root is None
-        else Path(project_root).resolve()
-    )
+    project_root = _default_project_root() if project_root is None else Path(project_root).resolve()
+
+    selection_path = job_dir / "selection.json"
+    manifest_path = job_dir / "manifest.json"
+    if not selection_path.is_file() or not manifest_path.is_file():
+        raise JobLifecycleError(
+            "Prepared-job handoff requires existing selection.json and manifest.json"
+        )
+
+    source_root = _single_source_root(manifest)
+    skill_bundle = _build_ai_skill_bundle(project_root)
+
     decisions_dir = job_dir / "decisions"
     decisions_dir.mkdir(parents=True, exist_ok=True)
-
     if any(decisions_dir.glob("*.json")):
         raise JobLifecycleError(
             f"Newly prepared job decision directory is not empty: {decisions_dir}"
         )
 
-    source_root = _single_source_root(manifest)
     schema_path = _atomic_write_json(
-        job_dir / "decision-schema.json",
-        SinglePassDecision.model_json_schema(),
+        job_dir / "decision-schema.json", SinglePassDecision.model_json_schema()
     )
-    skills_path = _atomic_write_text(
-        job_dir / "AI_SKILLS.md",
-        _build_ai_skill_bundle(project_root),
-    )
+    skills_path = _atomic_write_text(job_dir / "AI_SKILLS.md", skill_bundle)
     task_path = _atomic_write_text(
-        job_dir / "AI_TASK.md",
-        _task_markdown(job_dir, manifest, skills_path),
+        job_dir / "AI_TASK.md", _task_markdown(job_dir, manifest, skills_path)
     )
 
+    artifact_sha256 = {
+        name: _sha256_file(job_dir / name) for name in _IMMUTABLE_JOB_ARTIFACTS
+    }
     state = {
         "protocol_version": "1.0",
         "job_id": manifest.job_id,
         "state": JOB_STATE_PREPARED,
         "source_root": str(source_root),
-        "manifest_path": str(job_dir / "manifest.json"),
-        "selection_path": str(job_dir / "selection.json"),
+        "manifest_path": str(manifest_path),
+        "selection_path": str(selection_path),
         "preview_directory": str(job_dir / "previews"),
         "decision_directory": str(decisions_dir),
         "decision_schema": str(schema_path),
         "ai_task": str(task_path),
         "ai_skills": str(skills_path),
+        "artifact_sha256": artifact_sha256,
         "total_selected": manifest.total_selected,
         "total_found": manifest.total_found,
         "total_missing": manifest.total_missing,
@@ -269,53 +266,10 @@ def prepare_external_ai_job(
         "state_path": str(state_path),
     }
     pointer_path = _atomic_write_json(
-        runtime_directory / "staging" / "latest-prepared-job.json",
-        pointer,
+        runtime_directory / "staging" / "latest-prepared-job.json", pointer
     )
     state["latest_pointer"] = str(pointer_path)
     return state
-
-
-def resolve_saved_job(runtime_directory: Path, job_id: str) -> tuple[Path, Manifest, Path]:
-    """Resolve an existing prepared job without touching the Lightroom cache."""
-    if not job_id or job_id in {".", ".."} or "/" in job_id or "\\" in job_id:
-        raise JobLifecycleError(f"Invalid job_id: {job_id!r}")
-
-    jobs_root = (Path(runtime_directory) / "jobs").resolve()
-    job_dir = (jobs_root / job_id).resolve()
-    try:
-        job_dir.relative_to(jobs_root)
-    except ValueError as exc:
-        raise JobLifecycleError(f"Job path escapes runtime jobs root: {job_id}") from exc
-
-    if not job_dir.is_dir():
-        raise JobLifecycleError(f"Prepared job directory not found: {job_dir}")
-
-    try:
-        manifest = read_manifest(job_dir)
-    except ManifestError as exc:
-        raise JobLifecycleError(str(exc)) from exc
-    if manifest.job_id != job_id:
-        raise JobLifecycleError(
-            f"Saved job identity mismatch: directory={job_id} manifest={manifest.job_id}"
-        )
-
-    selection_path = job_dir / "selection.json"
-    if not selection_path.is_file():
-        raise JobLifecycleError(f"Saved selection not found: {selection_path}")
-
-    state_path = job_dir / "job-state.json"
-    if not state_path.is_file():
-        raise JobLifecycleError(f"Prepared job state not found: {state_path}")
-
-    for required_name in ("AI_TASK.md", "AI_SKILLS.md", "decision-schema.json"):
-        required_path = job_dir / required_name
-        if not required_path.is_file():
-            raise JobLifecycleError(
-                f"Prepared job artifact not found: {required_path}"
-            )
-
-    return job_dir, manifest, selection_path
 
 
 def load_job_state(job_dir: Path) -> dict[str, Any]:
@@ -329,6 +283,62 @@ def load_job_state(job_dir: Path) -> dict[str, Any]:
     return raw
 
 
+def _verify_immutable_job_artifacts(job_dir: Path, state: dict[str, Any]) -> None:
+    expected_hashes = state.get("artifact_sha256")
+    if not isinstance(expected_hashes, dict):
+        raise JobLifecycleError("Prepared job state is missing artifact_sha256")
+
+    for name in _IMMUTABLE_JOB_ARTIFACTS:
+        path = job_dir / name
+        if not path.is_file():
+            raise JobLifecycleError(f"Prepared job artifact not found: {path}")
+        expected = expected_hashes.get(name)
+        if not isinstance(expected, str) or not expected:
+            raise JobLifecycleError(f"Prepared job hash missing for {name}")
+        actual = _sha256_file(path)
+        if actual != expected:
+            raise JobLifecycleError(
+                f"Prepared job artifact integrity mismatch for {name}: "
+                f"expected {expected}, got {actual}"
+            )
+
+
+def resolve_saved_job(runtime_directory: Path, job_id: str) -> tuple[Path, Manifest, Path]:
+    """Resolve and verify an existing job without touching the Lightroom cache."""
+    if not job_id or job_id in {".", ".."} or "/" in job_id or "\\" in job_id:
+        raise JobLifecycleError(f"Invalid job_id: {job_id!r}")
+
+    jobs_root = (Path(runtime_directory) / "jobs").resolve()
+    job_dir = (jobs_root / job_id).resolve()
+    try:
+        job_dir.relative_to(jobs_root)
+    except ValueError as exc:
+        raise JobLifecycleError(f"Job path escapes runtime jobs root: {job_id}") from exc
+    if not job_dir.is_dir():
+        raise JobLifecycleError(f"Prepared job directory not found: {job_dir}")
+
+    state = load_job_state(job_dir)
+    if state.get("job_id") != job_id:
+        raise JobLifecycleError(
+            f"Saved job state identity mismatch: directory={job_id} state={state.get('job_id')}"
+        )
+    _verify_immutable_job_artifacts(job_dir, state)
+
+    try:
+        manifest = read_manifest(job_dir)
+    except ManifestError as exc:
+        raise JobLifecycleError(str(exc)) from exc
+    if manifest.job_id != job_id:
+        raise JobLifecycleError(
+            f"Saved job identity mismatch: directory={job_id} manifest={manifest.job_id}"
+        )
+
+    decisions_dir = job_dir / "decisions"
+    if not decisions_dir.is_dir():
+        raise JobLifecycleError(f"Prepared decision directory not found: {decisions_dir}")
+    return job_dir, manifest, job_dir / "selection.json"
+
+
 def update_job_state(job_dir: Path, state: str, **updates: Any) -> dict[str, Any]:
     payload = load_job_state(job_dir)
     payload["state"] = state
@@ -338,10 +348,8 @@ def update_job_state(job_dir: Path, state: str, **updates: Any) -> dict[str, Any
 
 
 def configure_external_file_provider(
-    settings: dict[str, Any],
-    job_dir: Path,
+    settings: dict[str, Any], job_dir: Path
 ) -> dict[str, Any]:
-    """Return per-job settings for importing external AI decision files."""
     configured = dict(settings)
     configured["ai_provider"] = "manual_app"
     configured["manual_response_directory"] = str(Path(job_dir) / "decisions")
@@ -354,10 +362,8 @@ def configure_external_file_provider(
 
 
 def eligible_apply_ids(
-    decisions: Iterable[SinglePassDecision],
-    minimum_confidence: float,
+    decisions: Iterable[SinglePassDecision], minimum_confidence: float
 ) -> list[str]:
-    """Derive the allowlist for the explicit Apply Prepared Job operation."""
     result: list[str] = []
     for decision in decisions:
         if decision.relevance_verdict != Verdict.KEEP:
