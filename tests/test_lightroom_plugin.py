@@ -46,11 +46,16 @@ def test_prepare_handoff_carries_folder_and_identity_fields() -> None:
     assert "skipped_unsupported_formats" in src
 
 
-def test_apply_command_reopens_saved_job_without_lrdata() -> None:
+def test_apply_command_reopens_saved_job_for_matching_active_folder() -> None:
     src = _read("ApplyPreparedJob.lua")
     assert "--apply-job" in src
     assert "--authorize-apply" in src
     assert "latest-prepared-job.json" in src
+    assert "pointer.state_path" in src
+    assert "state.source_root" in src
+    assert "catalog:getActiveSources()" in src
+    assert "activeFolder:getPhotos(false)" in src
+    assert "catalog:getTargetPhotos()" not in src
     assert "--lrdata" not in src
     assert "--selection" not in src
     assert "APPLIED_VERIFIED" in src
