@@ -150,7 +150,7 @@ def analyze_single_image_manual_app(
     metadata: dict[str, Any] = {
         "provider": "manual_app",
         "model": model_name,
-        "mode": "EXTERNAL_FILE",
+        "mode": "ANALYZE_ONLY",
         "response_file": str(response_file),
         "image_id": decision.image_id,
         "preview_bytes": actual_bytes,
@@ -160,6 +160,7 @@ def analyze_single_image_manual_app(
         "markers": [
             "JPEG_IDENTITY_VERIFIED",
             "CANONICAL_LIGHTROOM_IDENTITY_RECONCILED",
+            "MANUAL_DECISION_SCHEMA_VALID",
             "EXTERNAL_DECISION_SCHEMA_VALID",
             "NO_XMP_MUTATION",
         ],
