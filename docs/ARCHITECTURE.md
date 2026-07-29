@@ -1,71 +1,63 @@
-# Architecture — Lightroom AI Exposure MVP
+# Architecture — Lightroom AI Exposure Assist
 
-## Canonical Future Flow
+## Canonical flow
 
-```
-Lightroom selection
-→ Lightroom-rendered temporary JPEG previews (already include preset/develop appearance)
-→ ordered manifest.json
-→ one-shot Python CLI (default mode = ANALYZE_ONLY)
-→ Vision AI
-→ validated ai-decisions.json + analysis-evidence.json (full SinglePassDecision schema)
-→ [APPLY mode only] XMP backup
-→ [APPLY mode only] controlled Exposure2012 apply
-→ result.json / run.log
-→ user reads metadata into Lightroom
-→ user reviews and exports manually
-```
-
-### CLI Modes
-
-The canonical `lr-ai-exposure` CLI exposes two mutually-exclusive modes:
-
-- `--analyze-only` (default): runs handoff → single-pass AI judgment →
-  writes `ai-decisions.json` and `analysis-evidence.json`. The apply
-  layer is never imported or called. No XMP mutation occurs.
-- `--apply`: additionally invokes `apply_exposure_deltas` with the
-  validated settings object.
-
-When neither flag is supplied, ANALYZE_ONLY is selected. The apply
-module is imported lazily so the default execution path cannot reach
-`apply_exposure_deltas`.
-
-## Key Boundaries
-
-| Boundary | Rule |
-|----------|------|
-| Lightroom Catalog | Never open `.lrcat`, `.lrcat-wal`, `.lrcat-shm`, or `.lrdata` in MVP |
-| RAW / originals | Never modify any original photograph |
-| EXIF capture fields | Never modify camera-capture metadata |
-| Editable develop property | Only `crs:Exposure2012` in MVP |
-| XMP writes | Backup → temp file → validate → atomic replace |
-| AI output | Never trust; schema-validate, clamp, and require confidence |
-| Export | Manual only in MVP |
-| Delete / reject | Suggestions only in MVP; no automated deletion |
-| IPC | File handoff + one-shot CLI (no HTTP server) |
-
-## Project Layout
-
-```
-src/lr_ai_exposure/   — Python package (src layout)
-    __init__.py
-    config.py         — settings loader + validator
-    models.py        — data models only
-    main.py          — CLI entry point (modes, artifact orchestration)
-    analysis_result.py — canonical ai-decisions/analysis-evidence writers
-config/settings.json — default configuration
-docs/               — architecture, safety, and contract documents
-runtime/            — jobs, logs, temp (gitignored)
-tests/              — pytest suite
+```text
+Lightroom selected folder photos
+→ PREPARE_JOB
+→ read-only Lightroom preview-cache snapshot
+→ extracted JPEG previews + ordered manifest
+→ durable prepared job folder
+→ external file-capable vision AI
+→ job-scoped decision JSON files
+→ PROCESS_SAVED_JOB validation
+→ explicit APPLY_SAVED_JOB authorization
+→ guarded per-image XMP transactions
+→ Lightroom metadata refresh
 ```
 
-## Configuration Validation
+The canonical runtime is asynchronous and file-based. Lightroom prepares a job
+once and stops. AI analysis happens outside Lightroom. Apply reopens the same
+job and never extracts previews again.
 
-`load_config()` reads `config/settings.json`, validates all required fields and types, resolves runtime paths relative to project root, and allows safe environment variable overrides for secret-bearing fields (without printing their values).
+## Operations
 
-## Rationale for Choices
+| Operation | Inputs | Output | XMP mutation |
+|---|---|---|---|
+| `--prepare-job` | Lightroom `selection.json`, `.lrdata` path | durable job, previews, manifest, AI task | never |
+| `--process-job JOB_ID` | saved job decisions | validated analysis artifacts | never |
+| `--apply-job JOB_ID --authorize-apply JOB_ID` | same saved job | apply evidence and result | guarded |
+| legacy `--analyze-only` / `--apply` | one-shot compatibility | legacy artifacts | legacy rules |
 
-- **One-shot CLI over HTTP server**: reduces complexity for MVP; avoids session management and port conflicts.
-- **File handoff over plugin direct integration**: keeps Lightroom and Python processes independent; preview files are the only shared artifact.
-- **XMP sidecar modification over catalog write**: uses Lightroom's self-describing metadata format; non-destructive and reversible.
-- **`dry_run: true` default**: safe default — produces plans without mutating user files.
+## Component ownership
+
+| Component | Responsibility |
+|---|---|
+| Lightroom plug-in | selection identity, prepare invocation, explicit apply invocation, metadata refresh |
+| `handoff.py` / cache extractor | read-only DB snapshots, preview extraction, manifest creation |
+| `job_lifecycle.py` | prepared-job state, AI task/schema, saved-job resolution, job-scoped provider settings |
+| external AI | inspect previews and write decision JSON only |
+| `manual_app` provider | exact-set decision import and preview identity verification |
+| `apply.py` | identity gates, per-image policy, checkpoint/resume |
+| `apply_transaction.py` / `xmp.py` | backup, atomic Exposure2012 write, verification, rollback |
+
+## Key boundaries
+
+- The preview cache may be read only through SQLite snapshots. It is never
+  modified.
+- Lightroom catalog files are never opened or modified.
+- External AI never receives authority to write XMP.
+- Decision files are scoped to `runtime/jobs/<job-id>/decisions/`; no global
+  response directory is canonical.
+- Apply uses the prepared job's exact source folder as the containment root.
+- Only `crs:Exposure2012` may be changed.
+- Every XMP mutation is sequential, backed up, verified, and checkpointed.
+
+## Rationale
+
+- Prepare-once avoids repeated cache extraction and duplicate jobs.
+- External file handoff allows any vision AI app without API coupling.
+- Job-scoped decisions prevent stale or unrelated responses from contaminating
+  a new batch.
+- Saved-job apply preserves identity from preview through XMP.
+- No resident server or file watcher is required.
