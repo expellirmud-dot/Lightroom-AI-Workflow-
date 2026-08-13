@@ -1,104 +1,60 @@
 # Documentation Index
 
-This file is the canonical index of maintained project documentation.
+This is the canonical index of maintained project authority.
 
-Its purpose is to tell coding agents and maintainers:
-
-- Which documents are authoritative
-- What each document governs
-- When each document must be read
-- What changes require that document to be reviewed
-- Which documents are historical or superseded
-
-## Authority Order
+## Authority order
 
 1. Active Work Order
 2. `AGENTS.md`
 3. Safety contracts
-4. Architecture and data contracts
-5. Architecture decisions
+4. Canonical workflow and architecture
+5. AI/data contracts and accepted decisions
 6. Tests and implementation
-7. User-facing documentation
+7. User documentation
 
-When two documents at the same authority level conflict, stop and report
-the conflict rather than choosing silently.
+## Required read set
 
-## Required Read Set
+Every coding task reads `AGENTS.md`, this index,
+`Work-Order/CURRENT_WORK_ORDER.md`, the active Work Order, and every document
+whose trigger matches the task.
 
-Every coding task must read:
+## Maintained documents
 
-1. `AGENTS.md`
-2. `docs/INDEX.md`
-3. `Work-Order/CURRENT_WORK_ORDER.md`
-4. The active Work Order
-5. Documents marked as required by the active Work Order
-6. Documents in the table below whose review triggers match the task
+| Document | Purpose | Read/update trigger |
+|---|---|---|
+| `AGENTS.md` | repository-wide governance and runtime invariants | every task; governance or workflow change |
+| `docs/FOLDER_JOB_WORKFLOW.md` | authoritative user/runtime lifecycle | workflow, plugin, job, AI handoff, or apply change |
+| `docs/ARCHITECTURE.md` | components, ownership, data flow, IPC | architecture or integration change |
+| `docs/XMP_SAFETY.md` | allowed mutation and transaction contract | any XMP-related change |
+| `docs/AI_JUDGE_CONTRACT.md` | external AI inputs, decision schema, validation | AI, schema, skill, batching, or confidence change |
+| `docs/DECISIONS.md` | accepted durable design decisions | material design accepted or superseded |
+| `docs/CAPABILITY_MATRIX.md` | capability maturity truth | capability status change |
+| `docs/VALIDATION_REGISTER.md` | executed validation evidence | new validation |
+| `docs/PROJECT_STATUS.md` | current phase, risks, next gate | phase or risk change |
+| `README.md` | user setup and operation | user workflow or command change |
+| `Work-Order/CURRENT_WORK_ORDER.md` | pointer to the only active Work Order | task transition |
+| `Work-Order/WO-*.md` | bounded implementation authority and evidence | its own task |
+| `.agents/skills/exposure-judgment/SKILL.md` | subject-aware exposure judgment | exposure rules change |
+| `.agents/skills/batch-consistency-review/SKILL.md` | grouping and reference consistency | batch consistency change |
+| `.agents/skills/image-relevance-triage/SKILL.md` | relevance/test-shot/accidental triage | relevance rules change |
+| `.agents/skills/visual-quality-safety/SKILL.md` | blur/focus/highlight safety | quality rules change |
+| `.agents/skills/project-read-first/SKILL.md` | repository preflight and authority resolution | every implementation task; preflight protocol change |
 
-## Maintained Documents
+## Placement rules
 
-| Document | Authority / Purpose | Read When | Review or Update When |
-|---|---|---|---|
-| `AGENTS.md` | Repository-wide execution, safety, validation, and closeout rules | Every task | Governance, workflow, authority, or completion rules change |
-| `README.md` | User-facing project purpose, setup, commands, and current capabilities | Setup or user workflow tasks | Installation, commands, capabilities, or usage changes |
-| `docs/ARCHITECTURE.md` | System boundaries, components, ownership, and canonical data flow | Architecture or integration work | Modules, boundaries, data flow, IPC, or responsibilities change |
-| `docs/XMP_SAFETY.md` | XMP mutation boundary and safe-write contract | Any XMP-related task | Editable properties, backup, parsing, validation, or write behavior changes |
-| `docs/AI_JUDGE_CONTRACT.md` | Vision AI input, output, validation, and exposure objective | AI analysis tasks | Prompt contract, schema, batching, confidence, or decision rules change |
-| `docs/DECISIONS.md` | Accepted architecture decisions and rationale | Design decisions or disputed approaches | A material decision is accepted, replaced, or superseded |
-| `docs/INDEX.md` | This file — canonical documentation index | Every task | Any document added or removed from this index |
-| `.agents/skills/project-read-first/SKILL.md` | Repository preflight skill: resolve Git root, verify Serena/CodeGraph, read authority docs, produce bounded decision | Every implementation or debugging task | Preflight protocol, document read policy, or decision values change |
-| `Work-Order/CURRENT_WORK_ORDER.md` | Pointer to the only authorized current Work Order | Every task | Work starts, completes, blocks, or transitions |
-| `Work-Order/WO-*.md` | Bounded implementation authority and completion evidence | Its own task | Scope, acceptance criteria, status, evidence, or closeout changes |
+- Runtime workflow → `docs/FOLDER_JOB_WORKFLOW.md`
+- Component boundaries → `docs/ARCHITECTURE.md`
+- XMP safety → `docs/XMP_SAFETY.md`
+- AI schema and judgment → `docs/AI_JUDGE_CONTRACT.md`
+- Durable rationale → `docs/DECISIONS.md`
+- Task scope/evidence → active Work Order
 
-## Documentation Placement Rules
+Do not create duplicate status or authority documents.
 
-Store information in the narrowest canonical location:
+## Closeout checklist
 
-- Repository-wide execution rules → `AGENTS.md`
-- User setup and usage → `README.md`
-- Components and system flow → `docs/ARCHITECTURE.md`
-- XMP invariants and write safety → `docs/XMP_SAFETY.md`
-- AI request/response behavior → `docs/AI_JUDGE_CONTRACT.md`
-- Durable design decisions and rationale → `docs/DECISIONS.md`
-- Task-specific scope and evidence → active Work Order
-
-Do not create duplicate status summaries when an existing canonical file
-can be updated.
-
-## Documentation Lifecycle
-
-Documents must be classified as one of:
-
-- `ACTIVE` — current authority
-- `HISTORICAL` — retained as evidence but not current authority
-- `SUPERSEDED` — replaced by another named document
-- `DRAFT` — not authoritative
-
-A superseded document must identify its replacement.
-Historical and draft documents must not be used as current implementation
-authority.
-
-## New Canonical Documents (registered by WO-003)
-
-| Document | Authority / Purpose | Read When | Update Trigger |
-|---|---|---|---|
-| `docs/PROJECT_STATUS.md` | Current project phase, risks, and next seam | Setup or integration tasks | Phase change, risks updated, or next seam changes |
-| `docs/CAPABILITY_MATRIX.md` | Capability maturity register and status model | Architecture or capability work | Capability status changes |
-| `docs/VALIDATION_REGISTER.md` | Executed evidence and validation scope | Validation or closeout tasks | New validation executed |
-
-## Closeout Checklist
-
-Before closing every Work Order:
-
-- [ ] Review `README.md`
-- [ ] Review every affected document in this index
-- [ ] Update architecture or contracts when repository truth changed
-- [ ] Record material decisions in `docs/DECISIONS.md`
-- [ ] Record limitations and remaining risks
-- [ ] Update the active Work Order with truthful validation evidence
-- [ ] Reconcile `Work-Order/CURRENT_WORK_ORDER.md`
-- [ ] Confirm this index still lists all canonical documents
-- [ ] Confirm no duplicate or contradictory authority was introduced
-| .agents/skills/exposure-judgment/SKILL.md | AI subject-aware exposure judgment | Exposure tasks | Skill rules change |
-| .agents/skills/batch-consistency-review/SKILL.md | Batch grouping and consistency rules | Exposure tasks | Skill rules change |
-| .agents/skills/image-relevance-triage/SKILL.md | AI image relevance and reject triage | Triage tasks | Skill rules change |
-| .agents/skills/visual-quality-safety/SKILL.md | AI visual quality safety assessment | Triage tasks | Skill rules change |
+- Review `README.md` and all affected documents in this index.
+- Record executed evidence only after commands actually pass.
+- Reconcile capability status, project status, Work Order, and current pointer.
+- Confirm no conflicting authority remains.
+- Confirm runtime artifacts and backups are not tracked.

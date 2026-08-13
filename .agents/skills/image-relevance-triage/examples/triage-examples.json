@@ -1,14 +1,15 @@
 [
   {
     "image_id": "IMG_002",
-    "relevance_class": "SUGGEST_REJECT_ACCIDENTAL",
-    "quality_action": "SKIP",
-    "event_relation": "none",
-    "test_shot_likelihood": "low",
-    "accidental_likelihood": "high",
-    "quality_flags": ["motion_blur"],
-    "duplicate_of": "",
+    "relevance_verdict": "SKIP",
+    "quality_verdict": "SKIP",
+    "delta_ev": 0.0,
     "confidence": 0.95,
-    "reason": "Image is severely blurred with no intended subject."
+    "highlight_risk": false,
+    "shadow_risk": false,
+    "subject_rationale": "No intended subject is readable; the frame is heavily obstructed and motion blurred.",
+    "scene_rationale": "The frame does not preserve useful event or documentary context relative to the batch.",
+    "batch_consistency_group": "accidental-captures",
+    "reason": "Confident accidental capture; suggest skipping exposure processing without deleting or rejecting the photo."
   }
 ]

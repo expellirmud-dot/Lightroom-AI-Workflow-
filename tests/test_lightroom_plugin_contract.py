@@ -3,10 +3,9 @@
 These tests validate the plug-in files without a Lightroom runtime:
 - Info.lua parses as valid Lua when a Lua interpreter is available.
 - Required files exist.
-- Info.lua declares the SDK, identity, menu, and version fields Lightroom needs.
-- RunExposureAssist.lua defines the implementation entry point.
-- Metadata/bootstrap files contain no catalog write, subprocess, network,
-  preview export, or file-mutation behavior.
+- Info.lua declares the SDK, identity, two menu commands, and version fields.
+- Prepare and Apply modules define implementation entry points.
+- Metadata/bootstrap files contain no runtime side effects.
 """
 
 from __future__ import annotations
@@ -24,7 +23,12 @@ PLUGIN_DIR = (
     / "AIExposureAssist.lrplugin"
 )
 
-REQUIRED_FILES = ["Info.lua", "PluginInit.lua", "RunExposureAssist.lua"]
+REQUIRED_FILES = [
+    "Info.lua",
+    "PluginInit.lua",
+    "RunExposureAssist.lua",
+    "ApplyPreparedJob.lua",
+]
 
 
 def _read(name: str) -> str:
@@ -59,6 +63,7 @@ def test_info_metadata_valid() -> None:
         "LrPluginName",
         "LrLibraryMenuItems",
         "RunExposureAssist.lua",
+        "ApplyPreparedJob.lua",
         "VERSION",
     ]
     for token in required_tokens:
@@ -70,18 +75,22 @@ def test_info_metadata_valid() -> None:
     assert "LrPluginInit =" not in src
 
 
-def test_info_declares_library_menu_command() -> None:
+def test_info_declares_folder_prepare_and_saved_apply_commands() -> None:
     src = _read("Info.lua")
-    assert "AI Exposure Assist" in src
-    assert "LrLibraryMenuItems" in src
+    assert "Prepare Current Folder" in src
+    assert "Apply Prepared Job" in src
     assert 'file = "RunExposureAssist.lua"' in src
-    assert 'enabledWhen = "photosSelected"' in src
+    assert 'file = "ApplyPreparedJob.lua"' in src
+    assert "enabledWhen" not in src
 
 
-def test_runexposureassist_has_run_entry() -> None:
-    src = _read("RunExposureAssist.lua")
-    assert re.search(r"function\s+RunExposureAssist\.run", src), "run() missing"
-    assert "return RunExposureAssist" in src, "Module must return itself"
+def test_runtime_modules_have_run_entries() -> None:
+    prepare = _read("RunExposureAssist.lua")
+    apply = _read("ApplyPreparedJob.lua")
+    assert re.search(r"function\s+RunExposureAssist\.run", prepare)
+    assert "return RunExposureAssist" in prepare
+    assert re.search(r"function\s+ApplyPreparedJob\.run", apply)
+    assert "return ApplyPreparedJob" in apply
 
 
 def test_metadata_and_bootstrap_have_no_side_effects() -> None:

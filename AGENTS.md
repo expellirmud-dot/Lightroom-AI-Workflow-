@@ -2,407 +2,284 @@
 
 ## Project Mission
 
-Build a Windows-first Lightroom Classic exposure assistant.
+Build a Windows-first Lightroom Classic exposure assistant whose canonical
+production workflow is:
 
-The user opens a Lightroom folder, selects the intended photos, and runs
-AI Exposure Assist. The system renders Lightroom previews, asks a vision
-model to judge exposure consistency, writes approved exposure changes to
-XMP sidecars, and returns a result report.
+```text
+open exactly one Lightroom folder
+→ enumerate every eligible proprietary-RAW master automatically
+→ prepare all previews once
+→ bundle the canonical visual skills into the job
+→ external vision AI writes job-scoped decisions
+→ validate the same saved job
+→ explicitly apply guarded Exposure2012 changes
+→ refresh Lightroom metadata
+```
 
-The MVP adjusts exposure only.
+The application must remain independent of any single AI vendor or API. The
+MVP adjusts exposure only.
 
-## Required Read Order
-
-Before changing any file, read these files in order:
-
-1. `AGENTS.md`
-2. `docs/ARCHITECTURE.md`
-3. `docs/XMP_SAFETY.md`
-4. `docs/AI_JUDGE_CONTRACT.md`
-5. `work-orders/CURRENT_WORK_ORDER.md`
-6. The active work order referenced by `CURRENT_WORK_ORDER.md`
-
-Do not begin implementation until the active work order is identified.
-
-## Sources of Authority
+## Authority Order and Required Read Set
 
 Authority order:
 
 1. Active Work Order
 2. `AGENTS.md`
 3. `docs/XMP_SAFETY.md`
-4. `docs/ARCHITECTURE.md`
-5. Existing tests
-6. Existing implementation
-7. README
+4. `docs/FOLDER_JOB_WORKFLOW.md`
+5. `docs/ARCHITECTURE.md`
+6. `docs/AI_JUDGE_CONTRACT.md`
+7. `docs/DECISIONS.md`
+8. Existing tests and implementation
+9. `README.md`
 
-When authorities conflict, stop and report the conflict.
+Before any implementation or debugging task:
 
-## MVP Workflow
+1. Invoke `.agents/skills/project-read-first/SKILL.md`.
+2. Read `docs/INDEX.md`.
+3. Read `Work-Order/CURRENT_WORK_ORDER.md`.
+4. Read the active Work Order completely.
+5. Read every canonical document whose update trigger matches the task.
+6. Verify repository root, Git state, Serena context, and CodeGraph context.
 
-The canonical workflow is:
+No active Work Order, conflicting authority, or unexpected dirty files is a
+stop condition.
 
-1. User opens the intended Lightroom Classic folder.
-2. User selects the intended photos.
-3. Lightroom plug-in renders JPEG previews.
-4. Plug-in writes an ordered manifest.
-5. Python CLI validates the job.
-6. Vision AI returns one decision per image.
-7. Python validates and clamps decisions.
-8. Existing XMP files are backed up.
-9. Only `crs:Exposure2012` may be changed.
-10. A result report is written.
-11. User reads metadata back into Lightroom.
-12. User reviews, rejects unwanted photos, and exports manually.
+## Canonical Runtime Lifecycle
+
+1. Lightroom requires exactly one active `LrFolder` and reads every directly
+   contained proprietary-RAW master automatically; no Ctrl+A photo selection is
+   required.
+2. Virtual copies, videos, non-RAW formats, missing paths, and duplicate source
+   paths are excluded and counted because this workflow is sidecar-only.
+3. `PREPARE_JOB` snapshots the preview-cache databases read-only and extracts
+   the complete eligible folder preview set once.
+4. The prepared job owns its manifest, previews, `AI_TASK.md`, bundled
+   `AI_SKILLS.md`, decision schema, decisions, evidence, logs, and XMP backups.
+5. Any vision-capable external AI application may receive only that prepared
+   job folder, read the bundled instructions and skills, and write one JSON
+   decision per FOUND preview.
+6. `PROCESS_SAVED_JOB` validates the decisions without touching XMP.
+7. `APPLY_SAVED_JOB` requires the matching Lightroom source folder to be active,
+   reopens the same job, derives the safe per-image allowlist, and performs
+   guarded XMP transactions.
+8. Lightroom refreshes metadata only for `APPLIED_VERIFIED` images found in the
+   matching active folder.
+
+The apply stage must not repeat cache extraction, create a replacement job, or
+call an AI provider again.
+
+## Runtime Ownership Rules
+
+- Lightroom plug-in owns active-folder enumeration, identity capture, prepare
+  invocation, explicit apply invocation, source-folder confirmation, and
+  metadata refresh.
+- Cache extractor owns read-only SQLite snapshots and JPEG extraction.
+- Job lifecycle owns prepared state, self-contained skill/task/schema artifacts,
+  latest-job pointer, and saved-job resolution.
+- External AI owns visual judgment and decision JSON only.
+- Python owns decision validation, identity reconciliation, authorization,
+  XMP mutation, evidence, checkpoint, and rollback.
+- Decisions belong in `runtime/jobs/<job-id>/decisions/`.
+- One prepared job contains eligible RAW masters from exactly one source folder.
+- Every eligible RAW master receives exactly one terminal settlement record.
 
 ## Non-Negotiable Boundaries
 
-- Do not edit RAW, NEF, JPEG originals, or Lightroom Catalog files.
-- Do not read or write `.lrcat`, `.lrcat-wal`, `.lrcat-shm`, or `.lrdata`
-  directly in the MVP.
-- Do not modify EXIF camera-capture fields.
-- Do not modify White Balance, Contrast, Highlights, Shadows, Crop,
-  Masks, Keywords, Rating, Label, Sharpening, or Noise Reduction.
+- Never open or modify `.lrcat`, `.lrcat-wal`, or `.lrcat-shm`.
+- Never write to `.lrdata`; read only through validated SQLite snapshots.
+- Never modify RAW, NEF, JPEG originals, or EXIF capture fields.
+- DNG, JPEG, TIFF, PSD, video, and virtual-copy inputs are outside the
+  sidecar-only apply boundary and must not be prepared as writable targets.
 - The only editable Lightroom development property is
   `crs:Exposure2012`.
-- Back up every affected XMP before any real write.
-- Default execution mode is `dry_run`.
+- Never modify White Balance, Contrast, Highlights, Shadows, Whites, Blacks,
+  Clarity, Texture, Vibrance, Saturation, Crop, Straighten, Masks, Keywords,
+  Rating, Label, Sharpening, Noise Reduction, or export settings.
 - Never delete or move user photographs.
-- Reject decisions are suggestions only in the MVP.
-- Do not automate final export in the MVP.
-- Never store API keys or secrets in tracked files.
+- Reject outcomes remain suggestions only.
+- Final export remains manual.
+- Never store credentials or API keys in tracked files.
+- Runtime jobs, previews, decisions, logs, XMP backups, and temp files must not
+  be committed.
+
+## Prepared-Job Integrity Rules
+
+- A prepared job is self-contained and must include `selection.json`,
+  `manifest.json`, `job-state.json`, `AI_TASK.md`, `AI_SKILLS.md`,
+  `decision-schema.json`, `previews/`, and `decisions/`.
+- `AI_SKILLS.md` is generated deterministically from all Markdown/JSON files in
+  the four canonical visual skill directories.
+- Missing canonical skill source files make prepare fail closed.
+- Missing task, skill bundle, schema, manifest, state, or selection makes saved
+  processing fail closed.
+- External AI must not modify the task, bundled skills, schema, manifest, or
+  previews.
+- Apply must use the exact prepared job and source folder; a global response
+  directory is not canonical.
 
 ## XMP Rules
 
 - Treat `crs:Exposure2012` as an EV value.
-- New exposure equals existing exposure plus validated AI delta.
-- Preserve all unrelated XML elements, attributes, namespaces,
-  whitespace where practical, and file encoding.
-- Write through a temporary file and replace atomically.
-- A failed write must leave the original XMP intact.
-- Missing, malformed, or ambiguous XMP must stop that image and create
-  a review result. Do not guess.
+- `new_exposure = existing_exposure + validated_delta_ev`.
+- A zero delta must not rewrite XMP.
+- Require exact selection, full manifest, FOUND decision, UUID, RAW path, XMP
+  path, and job identity reconciliation.
+- Require exact source-folder containment for every real target.
+- Missing, malformed, ambiguous, or multi-valued Exposure2012 fails closed for
+  that image.
+- Back up every real write and verify its SHA-256 against the original.
+- Write through a validated temp file and atomic replace.
+- Verify the target value and final hash after replacement.
+- Roll back after post-write validation failure and verify the restored hash.
+- Rollback failure is fatal and halts the batch.
+- Checkpoint after every image; settled images must not be processed twice.
 
 ## AI Decision Rules
 
-- Produce exactly one decision for every manifest image.
-- Never invent filenames or file paths.
-- Preserve manifest order.
-- `delta_ev` must be numeric.
-- Clamp `delta_ev` to the configured maximum.
-- Low-confidence decisions must not be applied automatically.
-- AI output is untrusted input and must be schema validated.
-- The AI never writes files directly.
+Every prepared job must bundle all content from these four skills:
+
+- `.agents/skills/exposure-judgment/`
+- `.agents/skills/batch-consistency-review/`
+- `.agents/skills/image-relevance-triage/`
+- `.agents/skills/visual-quality-safety/`
+
+The AI must:
+
+- read `AI_TASK.md` and `AI_SKILLS.md` completely;
+- inspect the actual preview rather than infer from filenames;
+- identify the intended subject and person priority;
+- classify scene intent and preserve legitimate atmosphere;
+- assess subject/background exposure and highlight/shadow safety;
+- assess focus, blur, obstruction, accidental/test-shot evidence, relevance,
+  duplicate/supporting value, and technical usability;
+- group materially similar images and choose a reliable reference frame;
+- preserve manifest order and return exactly one decision per FOUND image;
+- recommend a bounded finite `delta_ev` and use `0.0` when no change is
+  justified;
+- return grounded KEEP, REVIEW, or SKIP decisions;
+- never invent image IDs, paths, objects, or scene details.
+
+AI output is untrusted input. Schema, exact-set identity, preview byte count,
+and preview SHA-256 validation are mandatory before use.
 
 ## Seven Execution Rules
 
-1. **Task Classification**  
-   Classify the task, scope, risk level, and required evidence before editing.
-
-2. **Define Done First**  
-   Identify acceptance criteria and completion evidence before implementation.
-
-3. **Parallel Evidence Gathering**  
-   Inspect repository truth, relevant files, tests, Git state, and governing
-   documents before choosing a solution.
-
-4. **Single Recommendation**  
-   Once sufficient evidence exists, choose one best bounded approach.
-   Do not delegate routine technical decisions back to the user.
-
-5. **Surgical Change**  
-   Make the smallest correct change. Touch only files and behavior required
-   by the active Work Order.
-
-6. **Verify by Execution**  
-   Prove behavior by running the required tests, commands, or validation.
-   Reading code or relying on a worker report is not sufficient evidence.
-
-7. **Outcome-First Reporting**  
-   Report the implemented outcome, validation evidence, Git scope, and
-   remaining risks. Avoid unnecessary process narration.
+1. **Task Classification** — classify scope, risk level, affected capabilities,
+   allowed files, forbidden files, and required evidence before editing.
+2. **Define Done First** — record acceptance criteria and proof requirements
+   before implementation.
+3. **Parallel Evidence Gathering** — inspect repository truth, authority,
+   tests, Git state, and runtime evidence before choosing a solution.
+4. **Single Recommendation** — select one best bounded design; do not delegate
+   routine technical decisions back to the owner.
+5. **Surgical Change** — make the smallest complete change authorized by the
+   active Work Order.
+6. **Verify by Execution** — run focused, full, integration, syntax, diff, and
+   status validation required by the Work Order. Reports alone are not proof.
+7. **Outcome-First Reporting** — report implemented behavior, executed proof,
+   Git scope, and remaining risk without unnecessary narration.
 
 ## Four Common AI Failure Modes
 
-1. **Memory Over Repository Truth**  
-   Repository files, Git status, current HEAD, and executed evidence always
-   override memory, prior summaries, and stale reports.
+1. **Memory Over Repository Truth** — files, current HEAD, Git status, and
+   executed evidence always override memory or prior summaries.
+2. **Worker Reports Treated as Final Evidence** — inspect actual diffs,
+   validation output, artifacts, and repository state.
+3. **Leaving the Proof Chain Open** — no completion without acceptance,
+   tests, documentation reconciliation, allowed scope, and current-work truth.
+4. **Unauthorized Scope Expansion** — do not add unrelated refactors,
+   frameworks, dependencies, features, or cleanup.
 
-2. **Treating Worker Reports as Final Evidence**  
-   A worker report is a claim. The final reviewer must inspect the actual
-   diff, validation output, and repository state.
-
-3. **Leaving the Proof Chain Open**  
-   Work is not complete until acceptance criteria, tests, diff review,
-   allowed-file scope, and Git status have all been verified.
-
-4. **Unauthorized Scope Expansion**  
-   Do not add refactors, frameworks, features, dependencies, or cleanup
-   outside the active Work Order, even when they appear beneficial.
-
-## Engineering Rules
+## Engineering and Git Rules
 
 - Work on one bounded Work Order at a time.
-- Make the smallest safe change satisfying the Work Order.
-- Do not redesign architecture unless explicitly required.
-- Do not add frameworks without a demonstrated need.
+- Do not redesign architecture outside explicit owner or Work Order authority.
 - Prefer the Python standard library when practical.
 - Add or update tests for every behavior change.
-- Do not use broad staging commands such as `git add .`.
-- Do not commit secrets, runtime jobs, previews, logs, or XMP backups.
-- Do not commit unless the active Work Order explicitly authorizes it.
+- Do not use broad staging such as `git add .`.
+- Workers do not commit or push unless the active Work Order expressly permits
+  it.
+- Never commit runtime artifacts, previews, decisions, logs, XMP backups, or
+  secrets.
+- Do not claim `LIVE_VERIFIED` from code existence, static review, or synthetic
+  tests.
 
 ## Required Preflight
 
-Before editing, report internally:
+Before editing, establish:
 
-- Active Work Order
-- Allowed files
-- Forbidden files
-- Expected behavior change
-- Required validation
-- Current Git status
-- Dry-run or real-write mode
+- active Work Order;
+- affected capability IDs and current evidence level;
+- allowed and forbidden files;
+- expected behavior change;
+- required validation;
+- current Git status and HEAD;
+- dry-run or real-write mode;
+- exact safety boundary.
 
-Unexpected dirty files are a stop condition.
+Unexpected changes, unresolved architecture conflict, unavailable required
+proof, destructive action, credentials, or paid API use without owner approval
+are stop conditions.
 
-## Stop Conditions
+## Documentation and Knowledge Capture
 
-Stop without broad cleanup when:
+`docs/INDEX.md` is the canonical document index. Every Work Order must review
+and truthfully classify affected documents as `UPDATED`,
+`REVIEWED_NO_CHANGE`, `NOT_APPLICABLE`, or `BLOCKED`.
 
-- No active Work Order exists.
-- Work Order scope is ambiguous.
-- Git contains unexpected changes.
-- Lightroom SDK behavior required by the task is unverified.
-- The implementation would need direct Catalog or Preview-cache access.
-- An XMP file cannot be parsed safely.
-- Backup creation fails.
-- AI output does not match the required schema.
-- Tests fail outside the bounded change.
-- A destructive action would be required.
-- Credentials or real API charges require owner authorization.
+Capture durable information needed by a future maintainer:
+
+- behavior and architecture changed;
+- why the selected design was accepted;
+- invariants, ownership, configuration, and schema changes;
+- validation actually executed;
+- known limitations and remaining risks;
+- decisions that must not be reopened without new evidence.
+
+Do not record speculative narration or private reasoning. Prefer an existing
+canonical document over a duplicate summary.
+
+## Status-Truth Rules
+
+- Code existence supports at most `IMPLEMENTED`.
+- Passing focused tests supports at most `TESTED`.
+- Cross-component validation supports `INTEGRATED`.
+- Representative Lightroom Classic operation with real project data is
+  required for `LIVE_VERIFIED`.
+- Worker claims alone never promote capability status.
+- Unknown evidence is recorded as unknown, not guessed.
+- A status downgrade is allowed when evidence does not support the prior level.
 
 ## Completion Gate
 
-A task is complete only when:
+A Work Order closes only when:
 
-- Acceptance criteria are satisfied.
-- Relevant tests pass.
-- Dry-run evidence is produced where applicable.
-- No forbidden file was changed.
-- Git diff contains only task files.
-- Remaining risks are reported.
-- The active Work Order is updated truthfully.
+- acceptance criteria are satisfied;
+- focused, full, and integration validation required by the Work Order pass;
+- syntax/compile checks, `git diff --check`, and Git scope checks pass;
+- forbidden files and runtime artifacts are absent from the diff;
+- documentation impact review is complete;
+- canonical documents match implemented truth;
+- capability matrix, validation register, project status, active Work Order,
+  and current-work pointer are reconciled;
+- remaining risks are explicit;
+- final Git state satisfies the Work Order closeout policy.
 
-## Final Report Format
+Code complete without documentation and evidence reconciliation is not
+complete.
+
+## Final Report
 
 Report only:
 
-- Work Order
-- Files changed
-- Behavior implemented
-- Validation performed
-- Test result
-- Remaining risks or stop condition
+- Work Order;
+- files changed;
+- behavior implemented;
+- validation actually performed and results;
+- documentation reviewed/updated;
+- current Work Order status;
+- remaining risks or stop condition;
+- commit/branch/PR/push state.
 
-Do not claim success without evidence.
-
-## Documentation Authority and Index
-
-`docs/INDEX.md` is the canonical documentation index for this repository.
-
-Before implementation, the coding agent must use `docs/INDEX.md` to identify:
-
-- Documents governing the active Work Order
-- Architecture and safety contracts affected by the task
-- Documents that may require updates before closeout
-- Historical or superseded documents that must not be treated as current authority
-
-A document not listed in `docs/INDEX.md` must not silently become a new
-source of authority. Add it to the index when the active Work Order
-authorizes creation of that document.
-
-Documentation authority does not override the active Work Order.
-The authority order defined in this file remains in effect.
-
-## Documentation Closeout Gate
-
-Every Work Order must leave the repository documentation consistent with
-the implemented repository truth.
-
-Before declaring a Work Order complete, the coding agent must perform a
-documentation impact review.
-
-The review must determine whether the task changed any of the following:
-
-- Architecture or component boundaries
-- Runtime or user workflow
-- Configuration fields or defaults
-- Commands, installation, or operating instructions
-- Data formats, schemas, or API contracts
-- Safety boundaries or forbidden behavior
-- File or directory structure
-- Dependencies or supported environments
-- Known limitations, risks, or unresolved decisions
-- Work Order status and current-work pointer
-
-For every affected item, update the corresponding canonical document in
-the same Work Order when the file is authorized.
-
-At minimum, review:
-
-1. `docs/INDEX.md`
-2. `README.md`
-3. Relevant documents listed in `docs/INDEX.md`
-4. `docs/DECISIONS.md` when an architectural decision changed
-5. The active Work Order closeout record
-6. `Work-Order/CURRENT_WORK_ORDER.md`
-
-## Required Documentation Outcomes
-
-Each completed Work Order must produce exactly one truthful outcome for
-every reviewed document:
-
-- `UPDATED` — the document was changed to match repository truth
-- `REVIEWED_NO_CHANGE` — it was reviewed and remains accurate
-- `NOT_APPLICABLE` — the document is unrelated to the task
-- `BLOCKED` — required documentation could not be updated safely
-
-Do not update documents merely to create activity.
-Do not rewrite unrelated sections.
-Make the smallest documentation change needed to preserve accuracy.
-
-## Required Knowledge Capture
-
-Every Work Order must preserve the information necessary for a future
-agent or maintainer to continue safely without relying on chat history.
-
-Record material information such as:
-
-- What behavior was added or changed
-- Why the selected design was used
-- Important constraints and invariants
-- Configuration or schema changes
-- New files, modules, or ownership boundaries
-- Validation performed and its result
-- Known limitations and remaining risks
-- Decisions that must not be reopened without new evidence
-- Deferred work that is explicitly outside the completed Work Order
-
-Do not record temporary narration, speculative ideas, raw chain-of-thought,
-or information already represented accurately elsewhere.
-
-Prefer updating an existing canonical document over creating another
-summary file.
-
-## Documentation Stop Conditions
-
-Stop closeout and report when:
-
-- Implementation changed behavior but no authorized canonical document
-  can be updated
-- Two canonical documents conflict
-- `docs/INDEX.md` does not identify authority for a material project area
-- The active Work Order status disagrees with repository truth
-- `CURRENT_WORK_ORDER.md` points to a completed, missing, or unauthorized
-  Work Order
-- Documentation would claim behavior not proven by validation
-
-## Extended Completion Gate
-
-A Work Order is complete only when:
-
-- Acceptance criteria are satisfied
-- Required tests and validation pass
-- Git diff contains only authorized task files
-- Documentation impact review is complete
-- Canonical documents match implemented repository truth
-- Important decisions, constraints, and risks are preserved
-- `docs/INDEX.md` is accurate
-- Work Order status is truthful
-- `CURRENT_WORK_ORDER.md` is reconciled
-- Final Git status satisfies the Work Order closeout policy
-
-Code complete without documentation reconciliation is not Work Order
-complete.
-
-## Final Report Documentation Section
-
-Every final report must include:
-
-- `DOCUMENTATION_REVIEWED`
-- `DOCUMENTATION_UPDATED`
-- `DOCUMENTATION_REVIEWED_NO_CHANGE`
-- `KNOWLEDGE_CAPTURED`
-- `CURRENT_WORK_ORDER_STATUS`
-
-Do not claim documentation closeout without inspecting the actual files.
-
-## Project Traceability
-
-Every material Work Order must maintain traceability from project
-objective through capability, work order, files, validation, commit,
-and current status to the next required gate.
-
-### Before Implementation
-
-The coding agent must identify:
-
-1. Affected capability IDs from `docs/CAPABILITY_MATRIX.md`
-2. Current status of each affected capability
-3. Target status after this Work Order
-4. The exact evidence required for the target status
-5. Whether existing evidence already supports the target status
-
-### Before Closeout
-
-The coding agent must reconcile target versus actual status and update:
-
-1. `docs/CAPABILITY_MATRIX.md` — update affected capability rows
-2. `docs/VALIDATION_REGISTER.md` — add executed evidence rows
-3. `docs/PROJECT_STATUS.md` — update status table and known risks
-4. This section of `AGENTS.md` — record status-truth rules
-
-### Status-Truth Rules
-
-- A capability's status must never exceed what repository evidence
-  proves.
-- `TESTED` requires passing automated or bounded test evidence.
-- `INTEGRATED` requires successful cross-component workflow validation.
-- `LIVE_VERIFIED` requires representative use with Lightroom Classic
-  and real project data.
-- Code existence alone supports at most `IMPLEMENTED`.
-- Focused automated tests alone support at most `TESTED`.
-- Planned or expected work must not be recorded as completed work.
-- A status downgrade (e.g., `INTEGRATED` → `TESTED`) is allowed when
-  evidence shows the higher status is not yet justified.
-- Unknown or unverifiable status must be `NOT_STARTED`, not guessed.
-
-### Status-Truth Stop Conditions
-
-Stop closeout and report when:
-
-- A capability would need to be promoted beyond its evidence level.
-- The register contains invented validation evidence.
-- `CURRENT_WORK_ORDER.md` points to a completed Work Order after
-  closeout.
-
-## Read-First Invocation Rule
-
-Every coding task must invoke the `project-read-first` skill before
-implementation begins. This skill:
-
-1. Resolves the canonical Git repository root.
-2. Verifies Serena and CodeGraph project context.
-3. Reads four mandatory authority documents completely.
-4. Reads additional documents selectively based on the active Work
-   Order's scope.
-5. Produces a deterministic preflight report with exactly one terminal
-   decision: `READY` or a `BLOCKED_*` reason.
-
-The active Work Order's Required Read Order section defines the
-mandatory read set; the Read-First skill defines the verification that
-those reads completed correctly.
-
-Do not skip the preflight even for small or obvious changes. The
-preflight decision `READY` is required before any file modification.
+Do not claim success without executed evidence.
