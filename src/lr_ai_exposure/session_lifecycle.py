@@ -30,7 +30,6 @@ from lr_ai_exposure.job_lifecycle import (
 from lr_ai_exposure.render_barrier import validate_render_barrier
 from lr_ai_exposure.session import (
     SessionError,
-    SessionState,
     create_session,
     load_session,
     resolve_session_dir,
@@ -464,6 +463,12 @@ def apply_session_pass(
         "decision_results": convergence_summary["results"],
     }
     plan_path = _atomic_write_json(pass_dir / "catalog-apply-plan.json", plan)
+    planned_ids = [str(item["image_id"]) for item in items]
+    next_pass = None if proposed_state.is_converged else pass_number + 1
+
+    # Canonical main.py historically labels these fields as applied/apply_evidence.
+    # In the iterative Catalog route they deliberately mean "planned" until
+    # Lightroom verifies the mutation and catalog_confirm commits session state.
     return {
         "session_id": session_id,
         "pass_number": pass_number,
@@ -471,8 +476,13 @@ def apply_session_pass(
         "planned_count": len(items),
         "catalog_apply_plan": str(plan_path),
         "requires_catalog_apply": bool(items),
+        "applied_count": len(items),
+        "applied_image_ids": planned_ids,
+        "apply_evidence": str(plan_path),
         "pass_count": convergence_summary["pass"],
         "review_count": convergence_summary["review"],
+        "is_converged": proposed_state.is_converged,
+        "next_pass_number": next_pass,
     }
 
 
@@ -545,7 +555,6 @@ def confirm_session_apply(
         if verified:
             entry = manifest_by_id.get(image_id)
             if entry and entry.preview_sha256:
-                # This is the pre-apply render hash. Pass N+1 must differ from it.
                 session_state.images[image_id].last_preview_sha256 = entry.preview_sha256
             applied_image_ids.append(image_id)
         else:
