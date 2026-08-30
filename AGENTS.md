@@ -30,6 +30,17 @@ Authority order:
 4. `docs/FOLDER_JOB_WORKFLOW.md`
 5. `docs/ARCHITECTURE.md`
 6. `docs/AI_JUDGE_CONTRACT.md`
+
+## Authority Order and Required Read Set
+
+Authority order:
+
+1. Active Work Order
+2. `AGENTS.md`
+3. `docs/XMP_SAFETY.md`
+4. `docs/FOLDER_JOB_WORKFLOW.md`
+5. `docs/ARCHITECTURE.md`
+6. `docs/AI_JUDGE_CONTRACT.md`
 7. `docs/DECISIONS.md`
 8. Existing tests and implementation
 9. `README.md`
@@ -41,7 +52,7 @@ Before any implementation or debugging task:
 3. Read `Work-Order/CURRENT_WORK_ORDER.md`.
 4. Read the active Work Order completely.
 5. Read every canonical document whose update trigger matches the task.
-6. Verify repository root, Git state, Serena context, and CodeGraph context.
+6. Verify repository root and Git state.
 
 No active Work Order or conflicting authority is a stop condition. Dirty files
 are classified by material risk under **Dirty Worktree Classification** below;
@@ -279,7 +290,7 @@ A completed read-first/preflight in the same thread may be reused when HEAD,
 active Work Order pointer, relevant authority files, and task context are
 unchanged and remain available. Before each subsequent implementation step,
 check only Git status/classification, HEAD, active Work Order pointer,
-relevant-file status/hash, and Serena/CodeGraph availability when required.
+and relevant-file status/hash.
 
 Repeat full reads only when HEAD, active Work Order, a relevant file, tool
 context, or available conversation context changed, or when repository policy

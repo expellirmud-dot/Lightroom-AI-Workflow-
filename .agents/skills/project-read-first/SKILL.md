@@ -21,11 +21,9 @@ Reuse a completed preflight when all of these remain true:
 - `Work-Order/CURRENT_WORK_ORDER.md` points to the same active Work Order;
 - relevant authority/task files have unchanged status and SHA-256;
 - task scope has not materially changed beyond the active Work Order;
-- Serena/CodeGraph context remains available when the next step requires it.
 
 For reuse, run only delta preflight: Git status, HEAD, active Work Order
-pointer, relevant-file status/hash, and Serena/CodeGraph availability when
-required. Repeat full reads only when one of these fingerprints changed,
+pointer, and relevant-file status/hash. Repeat full reads only when one of these fingerprints changed,
 context is unavailable, or repository policy explicitly requires it.
 
 ## 1. Resolve Git Repository Root
@@ -67,36 +65,20 @@ Git status alone is not a stop condition. Never edit, restore, stash, stage,
 commit, or discard a pre-existing owner/local change without explicit owner
 authority.
 
-## 3. Activate or Verify Serena for the Exact Repository Root
+## 3. Optional: Activate or Verify Serena
 
-Activate Serena using the canonical Git root:
+If codebase exploration requires Serena, activate it using the canonical Git root:
 
 ```python
 mcp__serena__activate_project(project="D:\\ai-tools\\lightroom-ai-exposure")
 ```
 
-Then verify Serena is active:
+This step is optional and should only be performed if deep symbol lookup is necessary.
 
-```python
-config = mcp__serena__get_current_config()
-```
+## 4. Optional: Verify CodeGraph
 
-Confirm the active project path matches the canonical Git root from
-step 1. If it does not match, use the correct project name from
-`config.projects` or pass the absolute root path to `activate_project`.
-
-Reject a parent, sibling, historical, or previously active project.
-
-## 4. Verify CodeGraph for the Same Root When Required
-
-Run CodeGraph diagnostics or an introspection query to confirm the
-indexed path equals the canonical Git root and that the index is
-recent enough for the current task.
-
-If source/dependency reasoning requires CodeGraph and it cannot be verified for
-the exact root, the terminal decision is `BLOCKED_CODEGRAPH`. A documentation-
-only step may record CodeGraph as not required when no source claim depends on
-it.
+If dependency reasoning requires CodeGraph, run CodeGraph diagnostics or an introspection query.
+This step is optional and should only be performed if dependency resolution is necessary.
 
 ## 5. Read Mandatory Authority Documents (Full Read)
 
@@ -160,12 +142,6 @@ CAPABILITY_IDS: <comma-separated capability IDs from matrix>
 ALLOWED_FILES: <count of allowed files listed in Work Order>
 FORBIDDEN_FILES: <count of forbidden paths listed in Work Order>
 
-SERENA_PROJECT: <project name or path used>
-SERENA_STATUS: <active verified>
-CODEGRAPH_PROJECT: <project name or path verified>
-CODEGRAPH_STATUS: <index verified>
-CODEGRAPH_SYNC: <yes/no>
-
 FULL_DOCUMENTS_READ: <comma-separated list of files fully read or reused>
 TARGETED_DOCUMENTS_READ: <comma-separated list of targeted reads>
 SOURCE_SYMBOLS_INSPECTED: <comma-separated list of symbols inspected>
@@ -180,7 +156,6 @@ DOCUMENTATION_IMPACT: <yes/no and which docs affected>
 COMMIT_AUTHORIZATION: <yes if Work Order explicitly authorizes, no otherwise>
 
 PREFLIGHT_DECISION: READY | BLOCKED_DIRTY_WORKTREE |
-  BLOCKED_PROJECT_MISMATCH | BLOCKED_SERENA | BLOCKED_CODEGRAPH |
   BLOCKED_MISSING_AUTHORITY | BLOCKED_SCOPE_CONFLICT |
   BLOCKED_OWNER_DECISION
 
@@ -195,9 +170,6 @@ The skill must produce exactly one of:
 |---|---|
 | `READY` | Required checks passed; work may begin, including explicitly excluded non-blocking owner changes |
 | `BLOCKED_DIRTY_WORKTREE` | Dirty state is classified BLOCKING or CRITICAL |
-| `BLOCKED_PROJECT_MISMATCH` | Serena or CodeGraph project does not match Git root |
-| `BLOCKED_SERENA` | Serena cannot be activated or verified for the exact root |
-| `BLOCKED_CODEGRAPH` | CodeGraph cannot be verified for the exact root |
 | `BLOCKED_MISSING_AUTHORITY` | Mandatory authority document is missing |
 | `BLOCKED_SCOPE_CONFLICT` | Active Work Order scope is ambiguous |
 | `BLOCKED_OWNER_DECISION` | Action requires owner authority |

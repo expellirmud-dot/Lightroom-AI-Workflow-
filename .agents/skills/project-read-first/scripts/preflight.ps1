@@ -38,8 +38,6 @@ $validDecisions = @(
     "READY",
     "BLOCKED_DIRTY_WORKTREE",
     "BLOCKED_PROJECT_MISMATCH",
-    "BLOCKED_SERENA",
-    "BLOCKED_CODEGRAPH",
     "BLOCKED_MISSING_AUTHORITY",
     "BLOCKED_SCOPE_CONFLICT",
     "BLOCKED_OWNER_DECISION"
@@ -107,23 +105,7 @@ if ($dirtyClassification -eq "BLOCKING") {
     exit 1
 }
 
-# Serena verification
-$serenaProject = "NOT_VERIFIED"
-$serenaStatus = "NOT_VERIFIED"
-if (Get-Command "serena" -ErrorAction SilentlyContinue) {
-    $serenaProject = $root
-    $serenaStatus = "AVAILABLE"
-}
 
-# CodeGraph verification
-$codegraphProject = "NOT_VERIFIED"
-$codegraphStatus = "NOT_VERIFIED"
-$codegraphSync = "UNKNOWN"
-if (Test-Path (Join-Path $root ".codegraph")) {
-    $codegraphProject = $root
-    $codegraphStatus = "AVAILABLE"
-    $codegraphSync = "yes"
-}
 
 # Work Order read status (placeholder until active Work Order is identified)
 $activeWorkOrder = "PENDING_READ"
@@ -155,19 +137,6 @@ $commitAuthorization = "PENDING_WORK_ORDER"
 $expectedChange = "PENDING_TASK_DEFINITION"
 $requiredValidation = "PENDING_WORK_ORDER"
 
-# Serena project info
-$serenaProjectOut = $serenaProject
-if ($serenaProject -eq "NOT_VERIFIED") {
-    $serenaStatus = "NOT_VERIFIED"
-} else {
-    $serenaStatus = "AVAILABLE"
-}
-
-# CodeGraph sync status
-if ($codegraphSync -eq "UNKNOWN") {
-    $codegraphSync = "not_checked"
-}
-
 # Emit output contract
 Write-Output "READ_FIRST_PREFLIGHT"
 Write-Output ""
@@ -184,12 +153,6 @@ Write-Output "WORK_ORDER_STATUS=$workOrderStatus"
 Write-Output "CAPABILITY_IDS=$capabilityIds"
 Write-Output "ALLOWED_FILES=$allowedFiles"
 Write-Output "FORBIDDEN_FILES=$forbiddenFiles"
-Write-Output ""
-Write-Output "SERENA_PROJECT=$serenaProjectOut"
-Write-Output "SERENA_STATUS=$serenaStatus"
-Write-Output "CODEGRAPH_PROJECT=$codegraphProject"
-Write-Output "CODEGRAPH_STATUS=$codegraphStatus"
-Write-Output "CODEGRAPH_SYNC=$codegraphSync"
 Write-Output ""
 Write-Output "FULL_DOCUMENTS_READ=AGENTS.md,docs/INDEX.md,Work-Order/CURRENT_WORK_ORDER.md,ACTIVE_WORK_ORDER"
 Write-Output "TARGETED_DOCUMENTS_READ=PENDING_WORK_ORDER_SCOPE"
