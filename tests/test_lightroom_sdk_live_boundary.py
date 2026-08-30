@@ -163,6 +163,8 @@ def test_operational_plugins_do_not_wrap_known_sdk_calls_in_plain_pcall() -> Non
         "getPhotos",
         "getRawMetadata",
         "readMetadata",
+        "getDevelopSettings",
+        "applyDevelopSettings",
     )
     for name in (
         "DiagnoseCurrentFolder.lua",
@@ -177,6 +179,22 @@ def test_operational_plugins_do_not_wrap_known_sdk_calls_in_plain_pcall() -> Non
                 f"{name} wraps Lightroom SDK call {call} in standard Lua pcall; "
                 "use LrTasks.pcall or execute directly inside an LrTasks async/protected task"
             )
+
+
+def test_iterative_session_uses_catalog_exposure_only() -> None:
+    src = _read("IterativeSession.lua")
+    assert "photo:getDevelopSettings()" in src
+    assert "catalog_exposure2012" in src
+    assert "photo:applyDevelopSettings({ Exposure2012 = target })" in src
+    assert 'catalog:withWriteAccessDo("AI Exposure Assist — Exposure2012"' in src
+    assert "expected_before_exposure2012" in src
+    assert "observed_after_exposure2012" in src
+    assert "CATALOG_DRIFT" in src
+    assert "APPLIED_VERIFIED" in src
+    assert "lr_ai_exposure.catalog_confirm" in src
+    assert "readMetadata" not in src
+    assert "crs:Exposure2012=" not in src
+    assert "writeXmp" not in src
 
 
 def test_diagnostic_remains_read_only_while_probing_live_boundaries() -> None:
