@@ -1,8 +1,9 @@
 # Lightroom Folder Diagnostic Contract
 
 `DIAGNOSE_CURRENT_FOLDER` is the first implementation seam for the approved
-Exposure Session architecture. This document defines target behavior only; the
-operation is not implemented at the current source head.
+Exposure Session architecture. WO-031 implements the read-only plug-in, CLI,
+bridge, cache probe, XMP-readiness probe, and report path. Automated evidence
+is green; a real Lightroom owner run remains pending.
 
 ## Purpose
 
@@ -12,9 +13,9 @@ to photographs, XMP, Lightroom catalog, and live preview cache.
 
 ## Outputs
 
-Every invocation writes both:
+Every completed invocation writes both:
 
-- `diagnostic.json` for deterministic processing;
+- `preflight.json` for deterministic processing;
 - `diagnostic.txt` for owner review.
 
 The plug-in dialog shows a bounded summary and the report path. Reports must be
@@ -96,3 +97,17 @@ severity and stage. It distinguishes:
 
 Diagnostic success means the report completed truthfully. It does not mean the
 folder is ready, and it never authorizes AI or XMP mutation.
+
+## Implemented boundary
+
+- The plug-in writes only its diagnostic request/result staging files and does
+  not call Prepare, Apply, AI, metadata refresh, or XMP mutation paths.
+- Python opens preview-cache SQLite files with `mode=ro`, performs a bounded
+  `quick_check(1)`, validates required tables/columns, and reads bounded JPEG
+  header/byte-count evidence without extracting files.
+- XMP readiness uses the existing strict Exposure2012 parser without backup,
+  temp, replace, or rollback operations.
+- Metadata synchronization is reported as `UNPROVEN` until a supported
+  Lightroom evidence seam exists. This fails closed for later mutation but
+  does not instruct the owner to Save Metadata without evidence.
+- The current automated boundary is `INTEGRATED`, not `LIVE_VERIFIED`.

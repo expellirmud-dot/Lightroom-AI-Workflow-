@@ -2,7 +2,7 @@
 
 ## Status
 
-ACTIVE - IMPLEMENTATION AUTHORIZED
+COMPLETED - AUTOMATED VALIDATION GREEN; OWNER LIGHTROOM TEST PENDING
 
 ## Owner decision
 
@@ -131,3 +131,41 @@ The owner should need to sync `main`, reload the Lightroom plug-in if required,
 open the same problem folder, run exactly one diagnostic command/menu action,
 and return the generated summary/artifact. No real Apply is authorized by this
 Work Order.
+
+## Implemented behavior
+
+- Added plug-in version 1.1.0 build 3 menu command **AI Exposure Assist -
+  Diagnose Current Folder** without changing Prepare or Apply behavior.
+- Added bounded Lightroom evidence collection for active sources, direct
+  photos, observed `fileFormat` values/types, exclusions, eligible identities,
+  and category samples. Zero eligible RAW does not terminate collection.
+- Added `--diagnose-current-folder` plus `--diagnostic-input` CLI handling and
+  authoritative bridge-result validation.
+- Added deterministic stage aggregation and `preflight.json` plus
+  `diagnostic.txt` artifacts under the authorized runtime diagnostics path.
+- Added read-only SQLite cache/table/identity/JPEG evidence and strict read-only
+  XMP Exposure2012 readiness. Metadata sync remains explicitly `UNPROVEN` and
+  fails closed without requiring an unsupported Save Metadata action.
+- No session/pass, AI/provider, metadata refresh, XMP apply, backup, rollback,
+  RAW, catalog, or preview-cache mutation path was added.
+
+## Executed automated evidence
+
+- Focused diagnostic, plug-in, CLI, Prepare/Apply, XMP, and transaction suite:
+  `61 passed, 1 skipped`. The skip is the optional Lua parser because no Lua
+  interpreter is installed on this host.
+- Full suite: `218 passed, 2 skipped`. The second skip is the pre-existing
+  legacy integration marker.
+- Python source diagnostics for the new module: no findings.
+- Compile, diff, and final scope evidence are recorded in
+  `docs/VALIDATION_REGISTER.md` after execution.
+
+## Documentation impact
+
+- `UPDATED`: `docs/DIAGNOSTIC_PREFLIGHT.md`, `docs/CAPABILITY_MATRIX.md`,
+  `docs/VALIDATION_REGISTER.md`, `docs/PROJECT_STATUS.md`, this Work Order, and
+  `Work-Order/CURRENT_WORK_ORDER.md`.
+- `REVIEWED_NO_CHANGE`: `README.md`, `docs/FOLDER_JOB_WORKFLOW.md`,
+  `docs/ARCHITECTURE.md`, `docs/XMP_SAFETY.md`, `docs/AI_JUDGE_CONTRACT.md`, and
+  `docs/DECISIONS.md`.
+- `NOT_APPLICABLE`: visual AI skill documents because WO-031 invokes no AI.

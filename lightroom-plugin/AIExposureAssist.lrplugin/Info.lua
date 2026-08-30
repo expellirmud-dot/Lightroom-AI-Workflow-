@@ -9,6 +9,10 @@ return {
 
     LrLibraryMenuItems = {
         {
+            title = "AI Exposure Assist — Diagnose Current Folder",
+            file = "DiagnoseCurrentFolder.lua",
+        },
+        {
             title = "AI Exposure Assist — Prepare Current Folder",
             file = "RunExposureAssist.lua",
         },
@@ -22,6 +26,6 @@ return {
         major = 1,
         minor = 1,
         revision = 0,
-        build = 2,
+        build = 3,
     },
 }

@@ -61,7 +61,7 @@ required for `LIVE_VERIFIED`.
 | CAP-040 | Separate Lightroom Prepare/Apply commands | LIVE_VERIFIED | WO-029 | owner observed plug-in 1.1.0 build 2 load with both menu commands | preserve during replacement |
 | CAP-041 | Automatic active-folder RAW enumeration | BLOCKED | WO-029 | owner real Prepare attempt returned zero eligible RAW; diagnostic evidence absent | implement diagnostic-first enumeration proof |
 | CAP-042 | Self-contained canonical visual skill bundle | INTEGRATED | WO-029 | job bundle contains all four skills/references/examples; missing source/bundle fails closed | external AI receives job folder only |
-| CAP-043 | Diagnostic-first current-folder report | PLANNED | WO-030 | target contract in `docs/DIAGNOSTIC_PREFLIGHT.md` | implementation Work Order |
+| CAP-043 | Diagnostic-first current-folder report | INTEGRATED | WO-030, WO-031 | read-only Lua request + deterministic CLI aggregation; 61 focused tests and 218-test full suite green | one owner Lightroom diagnostic run |
 | CAP-044 | Exposure Session and immutable pass lineage | PLANNED | WO-030 | approved session/pass documentation | implementation Work Order |
 | CAP-045 | Lightroom render-generation freshness barrier | PLANNED | WO-030 | expected Exposure2012 + generation identity + preview evidence contract | implementation Work Order and live rerender proof |
 | CAP-046 | Deterministic convergence and oscillation controller | PLANNED | WO-030 | pilot-policy and safe-stop contract | implementation and representative calibration |

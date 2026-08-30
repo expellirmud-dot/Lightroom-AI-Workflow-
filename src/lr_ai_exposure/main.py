@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from lr_ai_exposure.config import load_config, ConfigError
+from lr_ai_exposure.diagnostics import run_diagnostic
 from lr_ai_exposure.job import read_manifest
 from lr_ai_exposure.handoff import handoff_job
 from lr_ai_exposure.ai_judge import analyze_job_single_pass
@@ -58,6 +59,33 @@ def _write_bridge_result(out_path: Path | None, payload: dict[str, Any]) -> None
         print(f"ERROR writing bridge result: {exc}", file=sys.stderr)
 
 
+def _diagnostic_settings_fallback(root: Path, error: ConfigError) -> dict[str, Any]:
+    """Recover only non-secret diagnostic paths when canonical config is invalid."""
+    runtime_directory = root / "runtime"
+    preview_cache_path = ""
+    try:
+        raw = json.loads((root / "config" / "settings.json").read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            runtime_value = raw.get("runtime_directory")
+            if isinstance(runtime_value, str) and runtime_value:
+                runtime_candidate = Path(runtime_value)
+                runtime_directory = (
+                    runtime_candidate
+                    if runtime_candidate.is_absolute()
+                    else root / runtime_candidate
+                )
+            preview_value = raw.get("preview_cache_path")
+            if isinstance(preview_value, str):
+                preview_cache_path = preview_value
+    except (OSError, ValueError, TypeError):
+        pass
+    return {
+        "runtime_directory": str(runtime_directory),
+        "preview_cache_path": preview_cache_path,
+        "_diagnostic_config_error": str(error),
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lr-ai-exposure",
@@ -72,6 +100,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--prepare-job",
         action="store_true",
         help="Extract selected previews once and create an external-AI job bundle.",
+    )
+    parser.add_argument(
+        "--diagnose-current-folder",
+        action="store_true",
+        help="Aggregate read-only Lightroom folder, cache, CLI, bridge, and XMP readiness.",
+    )
+    parser.add_argument(
+        "--diagnostic-input",
+        type=Path,
+        help="Path to the diagnostic request JSON written by the Lightroom plug-in.",
     )
     parser.add_argument(
         "--process-job",
@@ -130,18 +168,21 @@ def _select_mode(args: argparse.Namespace) -> str:
 
 def _select_operation(args: argparse.Namespace) -> str:
     prepared_ops = [
+        bool(args.diagnose_current_folder),
         bool(args.prepare_job),
         bool(args.process_job),
         bool(args.apply_job),
     ]
     if sum(prepared_ops) > 1:
         raise ConfigError(
-            "--prepare-job, --process-job, and --apply-job are mutually exclusive"
+            "--diagnose-current-folder, --prepare-job, --process-job, and --apply-job are mutually exclusive"
         )
     if any(prepared_ops) and (args.analyze_only or args.apply):
         raise ConfigError(
             "Prepared-job operations cannot be combined with legacy --analyze-only/--apply"
         )
+    if args.diagnose_current_folder:
+        return "DIAGNOSE_CURRENT_FOLDER"
     if args.prepare_job:
         return "PREPARE"
     if args.process_job:
@@ -271,6 +312,8 @@ def main(argv: list[str] | None = None) -> int:
     applied_count = 0
     skipped_count = 0
     error_count = 0
+    if args.diagnose_current_folder:
+        mode = "DIAGNOSE_CURRENT_FOLDER"
 
     def _result_payload(status: str, error: str | None = None, **extra: Any) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -296,11 +339,18 @@ def main(argv: list[str] | None = None) -> int:
         _write_bridge_result(args.bridge_result, _result_payload("error", msg))
         return 1
 
+    try:
+        operation = _select_operation(args)
+    except ConfigError as exc:
+        return _fail(str(exc))
+
     root = Path.cwd()
     try:
         settings = load_config(root)
     except ConfigError as exc:
-        return _fail(str(exc))
+        if operation != "DIAGNOSE_CURRENT_FOLDER":
+            return _fail(str(exc))
+        settings = _diagnostic_settings_fallback(root, exc)
 
     if args.check_config:
         summary = {
@@ -315,10 +365,37 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(summary, indent=2))
         return 0
 
-    try:
-        operation = _select_operation(args)
-    except ConfigError as exc:
-        return _fail(str(exc))
+    if operation == "DIAGNOSE_CURRENT_FOLDER":
+        mode = operation
+        if not args.diagnostic_input:
+            return _fail("--diagnostic-input is required for current-folder diagnostics")
+        try:
+            diagnostic_input = args.diagnostic_input.resolve()
+            if not diagnostic_input.is_file():
+                raise FileNotFoundError(
+                    f"Diagnostic input file not found at {diagnostic_input}"
+                )
+            request = json.loads(diagnostic_input.read_text(encoding="utf-8"))
+            if not isinstance(request, dict):
+                raise ValueError("Diagnostic input must contain one JSON object")
+            request_id = request.get("diagnostic_id")
+            if isinstance(request_id, str) and request_id:
+                job_id = request_id
+            report = run_diagnostic(request, settings, root)
+        except Exception as exc:
+            return _fail(f"Current-folder diagnostic failed: {exc}")
+
+        result = _result_payload(
+            "ok",
+            diagnostic_completed=True,
+            overall_readiness=report["overall_readiness"],
+            issue_count=len(report["issues"]),
+            preflight_json=report["artifacts"]["preflight_json"],
+            diagnostic_txt=report["artifacts"]["diagnostic_txt"],
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
 
     if operation == "PREPARE":
         mode = "PREPARE"

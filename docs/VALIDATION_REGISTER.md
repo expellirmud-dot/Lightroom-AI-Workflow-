@@ -105,3 +105,15 @@ behavior.
 - Real apply requires an existing XMP sidecar containing one unambiguous finite `crs:Exposure2012` value.
 - DNG/JPEG/TIFF/PSD/video/virtual-copy inputs are intentionally excluded from the sidecar-only writable target set.
 - The legacy Google API provider remains compatibility code, but it is not the canonical production route and its quota is not a WO-029 blocker.
+
+## WO-031 - Diagnose Current Folder
+
+| ID | Date | Evidence | Result | Scope |
+|---|---|---|---|---|
+| VLD-122 | 2026-08-30 | Focused diagnostic, plug-in, CLI, prepared-job, XMP, and transaction tests | 61 passed, 1 skipped because no Lua interpreter is installed | zero-eligible completion, multi-issue aggregation, invalid-config aggregation, fileFormat/sample preservation, independent cache stages, read-only XMP, Prepare/Apply regression guards |
+| VLD-123 | 2026-08-30 | Full pytest suite | 218 passed, 2 skipped | complete automated repository regression; skips were the pre-existing legacy integration marker and optional Lua parser |
+| VLD-124 | 2026-08-30 | Config smoke, Python compileall for source/tests, Serena diagnostics, `git diff --check`, and Git scope inspection | passed; no diagnostics in the new Python module; line-ending normalization warnings only | CLI/config readiness, syntax, tracked diff hygiene, allowed WO-031 scope, `.serena/project.yml` preserved and excluded |
+
+These rows support `INTEGRATED` for CAP-043 only. They do not prove the
+Lightroom-hosted Lua path, the current problem folder, metadata synchronization,
+or any real XMP mutation.

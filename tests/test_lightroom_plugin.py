@@ -77,8 +77,30 @@ def test_plugin_never_implements_ai_or_xmp_writes() -> None:
 
 def test_info_registers_prepare_and_apply_menu_items_without_selection_gate() -> None:
     src = _read("Info.lua")
+    assert "Diagnose Current Folder" in src
     assert "Prepare Current Folder" in src
     assert "Apply Prepared Job" in src
     assert "RunExposureAssist.lua" in src
     assert "ApplyPreparedJob.lua" in src
     assert "enabledWhen" not in src
+
+
+def test_diagnostic_command_aggregates_without_xmp_or_apply() -> None:
+    src = _read("DiagnoseCurrentFolder.lua")
+    assert re.search(r"function\s+DiagnoseCurrentFolder\.run", src)
+    assert "catalog:getActiveSources()" in src
+    assert "activeFolder:getPhotos(false)" in src
+    assert 'safeMetadata(photo, "fileFormat")' in src
+    assert 'type(metadata.fileFormat)' in src
+    assert "observed_file_formats" in src
+    assert "eligible_photos" in src
+    assert "offline_paths" in src
+    assert "duplicate_paths" in src
+    assert "--diagnose-current-folder" in src
+    assert "--diagnostic-input" in src
+    assert "preflight_json" in src
+    assert "diagnostic_txt" in src
+    assert "--apply" not in src
+    assert "writeMetadata" not in src
+    assert "readMetadata" not in src
+    assert "Exposure2012" not in src
