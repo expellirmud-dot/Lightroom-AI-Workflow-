@@ -117,7 +117,7 @@ def test_session_lifecycle_catalog_apply_and_frozen_decisions(tmp_path: Path) ->
     pass1_dir = Path(pass1_info["pass_dir"])
     decisions_dir = pass1_dir / "decisions"
     (decisions_dir / "1.json").write_text(_decision("1", Action.PASS, 0.0, True).model_dump_json(indent=2), encoding="utf-8")
-    (decisions_dir / "2.json").write_text(_decision("2", Action.ADJUST, 0.123).model_dump_json(indent=2), encoding="utf-8")
+    (decisions_dir / "2.json").write_text(_decision("2", Action.ADJUST, 0.126).model_dump_json(indent=2), encoding="utf-8")
 
     settings = {
         "dry_run": False,
@@ -148,10 +148,9 @@ def test_session_lifecycle_catalog_apply_and_frozen_decisions(tmp_path: Path) ->
     item = plan["items"][0]
     assert item["image_id"] == "2"
     assert item["expected_before_exposure2012"] == 0.70
-    assert item["delta_ev"] == 0.10
-    assert item["target_exposure2012"] == 0.80
+    assert item["delta_ev"] == 0.15
+    assert item["target_exposure2012"] == 0.85
 
-    # Planning is non-mutating and iterative route never writes XMP.
     state_before_confirm = load_session(runtime_dir / "sessions" / "sess-test-01")
     assert state_before_confirm.images["2"].expected_exposure2012 == 0.70
     assert state_before_confirm.images["2"].history == []
@@ -167,7 +166,7 @@ def test_session_lifecycle_catalog_apply_and_frozen_decisions(tmp_path: Path) ->
                 "image_id": "2",
                 "status": "APPLIED_VERIFIED",
                 "observed_before_exposure2012": 0.70,
-                "observed_after_exposure2012": 0.80,
+                "observed_after_exposure2012": 0.85,
             }
         ],
     }
@@ -178,15 +177,14 @@ def test_session_lifecycle_catalog_apply_and_frozen_decisions(tmp_path: Path) ->
     assert confirmed["next_pass_number"] == 2
 
     state = load_session(runtime_dir / "sessions" / "sess-test-01")
-    assert state.images["2"].expected_exposure2012 == 0.80
-    assert state.images["2"].cumulative_delta_ev == 0.10
+    assert state.images["2"].expected_exposure2012 == 0.85
+    assert state.images["2"].cumulative_delta_ev == 0.15
     assert len(state.images["2"].history) == 1
     assert read_exposure_2012(xmp2) == -1.0
 
-    # Simulate Lightroom rerender and a fresh Catalog selection snapshot.
     jpeg_rerender_2 = b"\xFF\xD8\xFF\xE0RERENDERED_2" + b"\x00" * 200 + b"\xFF\xD9"
     _make_dummy_preview_db(lrdata_dir, [(1, uuid1, jpeg_initial_1), (2, uuid2, jpeg_rerender_2)])
-    selection["photos"][1]["catalog_exposure2012"] = 0.80
+    selection["photos"][1]["catalog_exposure2012"] = 0.85
     selection_path.write_text(json.dumps(selection), encoding="utf-8")
 
     pass2_info = prepare_session_pass(
@@ -200,6 +198,7 @@ def test_session_lifecycle_catalog_apply_and_frozen_decisions(tmp_path: Path) ->
     assert pass2_info["render_barrier"].get("2") == "FRESH"
 
     pass2_dir = Path(pass2_info["pass_dir"])
+    (pass2_dir / "decisions" / "1.json").write_text(_decision("1", Action.PASS, 0.0, True).model_dump_json(indent=2), encoding="utf-8")
     (pass2_dir / "decisions" / "2.json").write_text(_decision("2", Action.PASS, 0.0).model_dump_json(indent=2), encoding="utf-8")
     analyze_session_pass(runtime_dir, "sess-test-01", 2, settings)
     plan2 = apply_session_pass(runtime_dir, "sess-test-01", 2, "sess-test-01", settings)
