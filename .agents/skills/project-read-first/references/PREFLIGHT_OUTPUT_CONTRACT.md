@@ -34,6 +34,10 @@ FULL_DOCUMENTS_READ:
 TARGETED_DOCUMENTS_READ:
 SOURCE_SYMBOLS_INSPECTED:
 
+PREFLIGHT_REUSE: yes | no
+DIRTY_CLASSIFICATION: CLEAN | NON_BLOCKING | BLOCKING | CRITICAL
+NON_BLOCKING_EXCLUSIONS:
+
 EXPECTED_CHANGE:
 REQUIRED_VALIDATION:
 DOCUMENTATION_IMPACT:
@@ -71,6 +75,9 @@ BLOCK_REASON:
 | `FULL_DOCUMENTS_READ` | List of files fully read |
 | `TARGETED_DOCUMENTS_READ` | List of files read with targeted sections |
 | `SOURCE_SYMBOLS_INSPECTED` | List of symbols inspected via Serena/CodeGraph |
+| `PREFLIGHT_REUSE` | Whether a completed same-thread full preflight was reused |
+| `DIRTY_CLASSIFICATION` | Material-risk classification of current Git dirty state |
+| `NON_BLOCKING_EXCLUSIONS` | Explicit owner/local paths preserved outside task scope |
 | `EXPECTED_CHANGE` | Brief description of what the task will do |
 | `REQUIRED_VALIDATION` | Validation commands from Work Order |
 | `DOCUMENTATION_IMPACT` | `yes` or `no`, list of docs affected |
@@ -82,8 +89,8 @@ BLOCK_REASON:
 
 | Decision | Meaning |
 |---|---|
-| `READY` | All preflight checks passed; implementation may begin |
-| `BLOCKED_DIRTY_WORKTREE` | Unexpected dirty or untracked files |
+| `READY` | Required checks passed; explicitly excluded NON_BLOCKING dirty state is permitted |
+| `BLOCKED_DIRTY_WORKTREE` | Dirty state is BLOCKING or CRITICAL |
 | `BLOCKED_PROJECT_MISMATCH` | Serena/CodeGraph project does not match Git root |
 | `BLOCKED_SERENA` | Serena cannot be activated or verified |
 | `BLOCKED_CODEGRAPH` | CodeGraph cannot be verified |

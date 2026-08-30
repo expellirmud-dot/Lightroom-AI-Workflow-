@@ -1,5 +1,7 @@
 param(
-    [string]$StartPath = "."
+    [string]$StartPath = ".",
+    [string[]]$NonBlockingDirtyPath = @(),
+    [string[]]$CriticalDirtyPath = @()
 )
 
 Set-StrictMode -Version Latest
@@ -53,9 +55,9 @@ try {
 
 $branch = try { git branch --show-current 2>$null } catch { "" }
 $head = try { git rev-parse HEAD 2>$null } catch { "" }
-$upstream = try { git rev-parse --abbrev-ref HEAD@{upstream} 2>$null } catch { "" }
+$upstream = try { git rev-parse --abbrev-ref 'HEAD@{upstream}' 2>$null } catch { "" }
 $origin = try { git remote get-url origin 2>$null } catch { "" }
-$gitStatus = try { git status --short 2>$null } catch { "" }
+$gitStatus = try { @(git status --short 2>$null) } catch { @() }
 
 # Check mandatory authority files exist
 $mandatoryFiles = @(
@@ -70,9 +72,22 @@ foreach ($f in $mandatoryFiles) {
     }
 }
 
-$hasDirty = $false
-if ($gitStatus -and $gitStatus.Trim()) {
-    $hasDirty = $true
+$dirtyPaths = @(
+    foreach ($line in $gitStatus) {
+        if ($line -and $line.Length -ge 4) {
+            $line.Substring(3).Trim()
+        }
+    }
+)
+$unexpectedDirty = @($dirtyPaths | Where-Object { $_ -notin $NonBlockingDirtyPath })
+$criticalDirty = @($dirtyPaths | Where-Object { $_ -in $CriticalDirtyPath })
+$dirtyClassification = "CLEAN"
+if ($criticalDirty.Count -gt 0) {
+    $dirtyClassification = "CRITICAL"
+} elseif ($unexpectedDirty.Count -gt 0) {
+    $dirtyClassification = "BLOCKING"
+} elseif ($dirtyPaths.Count -gt 0) {
+    $dirtyClassification = "NON_BLOCKING"
 }
 
 if ($missingFiles.Count -gt 0) {
@@ -80,21 +95,17 @@ if ($missingFiles.Count -gt 0) {
     exit 1
 }
 
-if ($hasDirty) {
-    Write-Decision -Decision "BLOCKED_DIRTY_WORKTREE" -Reason "Working tree has uncommitted changes"
+if ($dirtyClassification -eq "CRITICAL") {
+    Write-Output "DIRTY_CLASSIFICATION=CRITICAL"
+    Write-Decision -Decision "BLOCKED_DIRTY_WORKTREE" -Reason "Critical dirty paths: $($criticalDirty -join ', ')"
     exit 1
 }
 
-Write-Output "READ_FIRST_PREFLIGHT"
-Write-Output ""
-Write-Output "REPOSITORY_ROOT=$root"
-Write-Output "CURRENT_DIRECTORY=$currentDir"
-Write-Output "BRANCH=$branch"
-Write-Output "HEAD=$head"
-Write-Output "UPSTREAM=$upstream"
-Write-Output "ORIGIN=$origin"
-Write-Output "GIT_STATUS=$gitStatus"
-Write-Output ""
+if ($dirtyClassification -eq "BLOCKING") {
+    Write-Output "DIRTY_CLASSIFICATION=BLOCKING"
+    Write-Decision -Decision "BLOCKED_DIRTY_WORKTREE" -Reason "Dirty paths require classification or overlap task scope: $($unexpectedDirty -join ', ')"
+    exit 1
+}
 
 # Serena verification
 $serenaProject = "NOT_VERIFIED"
@@ -125,8 +136,8 @@ $forbiddenFiles = "PENDING_READ"
 $currentWoPath = Join-Path $root "Work-Order" "CURRENT_WORK_ORDER.md"
 if (Test-Path $currentWoPath) {
     $woContent = Get-Content -Path $currentWoPath -Raw -ErrorAction SilentlyContinue
-    if ($woContent -match 'WORK_ORDER:\s*`(.+?)`') {
-        $activeWorkOrder = $Matches[1]
+    if ($woContent -match 'ACTIVE_WORK_ORDER:\s*([^\r\n]+)') {
+        $activeWorkOrder = $Matches[1].Trim()
     }
     if ($woContent -match 'STATUS:\s*(\w+)') {
         $workOrderStatus = $Matches[1]
@@ -184,9 +195,15 @@ Write-Output "FULL_DOCUMENTS_READ=AGENTS.md,docs/INDEX.md,Work-Order/CURRENT_WOR
 Write-Output "TARGETED_DOCUMENTS_READ=PENDING_WORK_ORDER_SCOPE"
 Write-Output "SOURCE_SYMBOLS_INSPECTED=PENDING_TASK"
 Write-Output ""
+Write-Output "PREFLIGHT_REUSE=no"
+Write-Output "DIRTY_CLASSIFICATION=$dirtyClassification"
+$nonBlockingOut = if ($dirtyClassification -eq "NON_BLOCKING") { $dirtyPaths -join ',' } else { "NONE" }
+Write-Output "NON_BLOCKING_EXCLUSIONS=$nonBlockingOut"
+Write-Output ""
 Write-Output "EXPECTED_CHANGE=$expectedChange"
 Write-Output "REQUIRED_VALIDATION=$requiredValidation"
 Write-Output "DOCUMENTATION_IMPACT=$documentationImpact"
 Write-Output "COMMIT_AUTHORIZATION=$commitAuthorization"
 Write-Output ""
-Write-Decision -Decision "GIT_READY"
+# GIT_READY was the historical label; READY is the canonical terminal value.
+Write-Decision -Decision "READY"

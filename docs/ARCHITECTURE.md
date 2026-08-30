@@ -1,88 +1,107 @@
-# Architecture — Lightroom AI Exposure Assist
+# Architecture - Provider-Agnostic Exposure Sessions
 
-## Canonical flow
+## Status boundary
+
+The Exposure Session architecture is the approved target and is `PLANNED`.
+Current source at `main` still implements WO-029's prepared-folder single-pass
+workflow. Documentation must not use target existence as implementation proof.
+
+## Canonical target flow
 
 ```text
-current Lightroom folder
-→ enumerate every eligible proprietary-RAW master
-→ PREPARE_JOB
-→ read-only Lightroom preview-cache snapshot
-→ extracted JPEG previews + ordered manifest
-→ durable self-contained job folder
-→ external file-capable vision AI reads AI_TASK.md + AI_SKILLS.md
-→ job-scoped decision JSON files
-→ PROCESS_SAVED_JOB validation
-→ explicit APPLY_SAVED_JOB authorization
-→ guarded per-image XMP transactions
-→ Lightroom metadata refresh
+Lightroom active folder
+-> DIAGNOSE_CURRENT_FOLDER
+-> immutable session identity
+-> read-only Lightroom cache snapshot for pass N
+-> Lightroom-rendered preview manifest + render evidence
+-> provider-neutral external vision decision files
+-> deterministic pass/convergence validation
+-> guarded ADJUST-only XMP transactions
+-> Lightroom metadata refresh
+-> render freshness barrier
+-> next immutable pass or terminal PASS/REVIEW
 ```
-
-The canonical runtime is asynchronous and file-based. Lightroom prepares one
-complete active-folder job and stops. AI analysis happens outside Lightroom.
-Apply reopens the same job and never extracts previews or invokes AI again.
-
-## Operations
-
-| Operation | Inputs | Output | XMP mutation |
-|---|---|---|---|
-| `--prepare-job` | folder-derived `selection.json`, `.lrdata` path | durable job, previews, manifest, AI task, bundled skills, schema | never |
-| `--process-job JOB_ID` | saved job decisions | validated analysis artifacts | never |
-| `--apply-job JOB_ID --authorize-apply JOB_ID` | same saved job | apply evidence and result | guarded |
-| legacy `--analyze-only` / `--apply` | one-shot compatibility | legacy artifacts | legacy rules |
 
 ## Component ownership
 
-| Component | Responsibility |
+| Component | Target responsibility |
 |---|---|
-| Lightroom plug-in | active-folder enumeration, identity capture, prepare invocation, source-folder apply confirmation, metadata refresh |
-| `handoff.py` / cache extractor | read-only DB snapshots, preview extraction, manifest creation |
-| `job_lifecycle.py` | prepared-job state, bundled skills, AI task/schema, saved-job resolution, job-scoped provider settings |
-| external AI | inspect the self-contained job and write decision JSON only |
-| `manual_app` provider | exact-set decision import and preview identity verification |
-| `apply.py` | identity gates, per-image policy, checkpoint/resume |
-| `apply_transaction.py` / `xmp.py` | backup, atomic Exposure2012 write, verification, rollback |
+| Lightroom plug-in | folder diagnostics, Lightroom identity, thin session coordination, explicit apply request, metadata refresh, render-generation coordination |
+| Diagnostic controller | aggregate Lightroom, eligibility, cache, XMP-readiness, runtime, CLI, and bridge evidence without fail-fast suppression |
+| Cache extractor | read-only SQLite snapshots, ID-to-preview mapping, JPEG extraction, byte/hash and generation evidence |
+| Session controller | immutable selection, pass lineage, group ledger, policy snapshot, state transitions, safe resume |
+| External vision AI | actual visual inspection, scene/event grouping, references, intent, outlier judgment, PASS/ADJUST/REVIEW output only |
+| Optional adapters | translate local/free/API model execution into the same file contract; no XMP authority |
+| Deterministic Python | schema/exact-set validation, render freshness, convergence, oscillation, bounds, authorization, evidence |
+| XMP transaction layer | backup, SHA-256 verification, temporary write, atomic Exposure2012 replace, post-write verification, rollback |
+| Lightroom | authoritative rendering and final catalog-visible image state |
 
-## Prepared-job boundary
+## Provider boundary
 
-A prepared job is a durable local handoff package. It contains:
+The canonical boundary is a filesystem pass package, not an in-process
+provider interface. A producer declares informational model/adapter metadata
+but receives no additional authority. Credentials and network behavior belong
+only to optional adapters and are never required by the core, plug-in, session,
+or XMP layers.
 
-- the exact selection/manifest identity chain;
-- extracted previews and preview hashes;
-- `AI_TASK.md`;
-- `AI_SKILLS.md`, generated deterministically from all Markdown/JSON content in
-  the four canonical visual skill directories;
-- strict decision schema;
-- job-scoped decision, evidence, backup, and log locations.
+## Session and pass model
 
-Missing task, skill bundle, or schema invalidates saved-job processing. This
-makes the handoff usable by an AI application that has access only to the job
-folder and not to the repository.
+One session maps to one active source folder and one frozen ordered eligible
+set. Passes are append-only children. Each pass records `session_id`,
+`pass_id`, `pass_number`, `parent_pass_id`, input artifact hashes, policy hash,
+captured previews, render evidence, decisions, and terminal outcomes.
 
-## Key boundaries
+Pass 1 sees the complete analyzable folder. Later passes see unresolved images
+plus their stable group references. Groups persist unless deterministic
+evidence records a safe split or the affected images move to REVIEW.
 
-- The preview cache may be read only through SQLite snapshots. It is never
-  modified.
-- Lightroom catalog files are never opened or modified.
-- Only proprietary-RAW master photos are prepared; formats whose metadata is
-  normally embedded in the source image are excluded from this sidecar-only
-  workflow.
-- External AI never receives authority to write XMP.
-- Decision files are scoped to `runtime/jobs/<job-id>/decisions/`; no global
-  response directory is canonical.
-- Apply requires the same Lightroom source folder to be active and uses the
-  prepared job's exact source folder as the containment root.
-- Only `crs:Exposure2012` may be changed.
-- Every XMP mutation is sequential, backed up, verified, and checkpointed.
+## Render freshness barrier
 
-## Rationale
+An adjusted image cannot enter the next AI judgment merely because a JPEG hash
+changed. The controller must reconcile:
 
-- Active-folder enumeration avoids manual Ctrl+A selection and accidental
-  partial jobs.
-- Prepare-once avoids repeated cache extraction and duplicate jobs.
-- A bundled skill contract prevents external AI tools from silently omitting
-  the project's visual judgment rules.
-- External file handoff allows any vision AI app without API coupling.
-- Job-scoped decisions prevent stale or unrelated responses from contaminating
-  a new batch.
-- Saved-job apply preserves identity from preview through XMP.
-- No resident server or file watcher is required.
+1. the expected XMP Exposure2012 and prior apply evidence;
+2. a new pass/render generation identity linked to the prior pass;
+3. refreshed preview byte/hash evidence captured from that generation.
+
+Failure is `REVIEW_RENDER_UNPROVEN` or a dependent-pass stop. Stale previews
+must never create a second automatic correction.
+
+## Metadata synchronization boundary
+
+The transaction layer can prove that it changed only Exposure2012 bytes in the
+sidecar, but Lightroom `readMetadata()` may import other sidecar fields if the
+catalog and sidecar were not synchronized. Preflight must therefore prove sync
+safety with available evidence or fail closed. It must require an owner Save
+Metadata action only when evidence shows that action is needed.
+
+## Preserved architecture
+
+- exactly one active Lightroom folder and direct-photo scope;
+- proprietary-RAW sidecar-only boundary;
+- read-only preview-cache snapshots and identity mapping;
+- ordered manifests and preview byte/SHA verification;
+- provider-neutral external file handoff principle;
+- exact identity/path containment and two-key apply authorization;
+- sequential transactional XMP backup/write/verify/rollback/checkpoint;
+- final export remains manual.
+
+## Superseded target assumptions
+
+- prepare once and never recapture previews;
+- one decision/apply settlement for the lifetime of a job;
+- `SinglePassDecision` as the canonical schema;
+- global latest-prepared-job pointer as session authority;
+- provider selection and API credentials in the canonical core path;
+- preview hash alone as sufficient rerender evidence;
+- Git dirty status alone as a repository stop condition.
+
+Legacy source may retain these paths for compatibility until a later Work Order
+implements and validates the target architecture.
+
+## No resident AI requirement
+
+The iterative lifecycle is stateful but asynchronous and file-based. The
+plug-in must not host an AI process, resident server, or network client. Each
+pass can pause safely for an external producer and resume only after exact
+decision and lineage validation.

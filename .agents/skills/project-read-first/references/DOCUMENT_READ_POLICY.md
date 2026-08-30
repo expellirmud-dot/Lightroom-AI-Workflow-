@@ -3,7 +3,7 @@
 This reference document defines how the project-read-first skill
 selects and reads documents during preflight.
 
-## Mandatory Full Reads
+## Mandatory Full Reads or Valid Same-Thread Reuse
 
 The skill must require complete reads of:
 
@@ -12,8 +12,14 @@ The skill must require complete reads of:
 3. `Work-Order/CURRENT_WORK_ORDER.md` — pointer to the active Work Order
 4. The active Work Order file itself (as pointed to by step 3)
 
-These four files define authority and scope and must not be
-replaced by summaries.
+These four files define authority and scope and must not be replaced by
+summaries. Their completed full reads may be reused in the same thread when
+HEAD, the active Work Order pointer, relevant-file status/hash, task context,
+and available conversation context remain unchanged.
+
+Before every subsequent implementation step, use delta preflight. Repeat a
+full read only when its file or authority fingerprint changed, context is no
+longer available, or repository policy explicitly requires it.
 
 ## Targeted Read Policy
 
@@ -59,5 +65,7 @@ When two documents at the same authority level (per `docs/INDEX.md`) conflict:
 After completing reads, the skill must confirm:
 
 - Each file in the mandatory full-read list was successfully opened and non-empty.
+- Reused reads identify the prior completed preflight and confirm unchanged
+  fingerprints.
 - Any targeted reads were scoped to the correct section (no unrelated sections absorbed).
 - No forbidden documents (real photos, catalogs, preview caches) were read.

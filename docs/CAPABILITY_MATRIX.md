@@ -58,14 +58,22 @@ required for `LIVE_VERIFIED`.
 | CAP-037 | Apply existing saved job without cache/AI rerun | INTEGRATED | WO-029 | saved-job CLI test performs transactional XMP apply with no handoff | real Lightroom apply |
 | CAP-038 | Non-analyzable preview failure isolation | INTEGRATED | WO-029 | terminal skip plus unrelated-image continuation test | real folder with unavailable preview |
 | CAP-039 | Zero-delta no-mutation settlement | INTEGRATED | WO-029 | byte-identical XMP and `SKIPPED_NO_CHANGE` test | real zero-delta image |
-| CAP-040 | Separate Lightroom Prepare/Apply commands | TESTED | WO-029 | static Lua/menu/command contract green | Lightroom-hosted two-command certification |
-| CAP-041 | Automatic active-folder RAW enumeration | TESTED | WO-029 | static contract requires one active LrFolder, `getPhotos(false)`, RAW-only exclusions | real Lightroom folder enumeration |
+| CAP-040 | Separate Lightroom Prepare/Apply commands | LIVE_VERIFIED | WO-029 | owner observed plug-in 1.1.0 build 2 load with both menu commands | preserve during replacement |
+| CAP-041 | Automatic active-folder RAW enumeration | BLOCKED | WO-029 | owner real Prepare attempt returned zero eligible RAW; diagnostic evidence absent | implement diagnostic-first enumeration proof |
 | CAP-042 | Self-contained canonical visual skill bundle | INTEGRATED | WO-029 | job bundle contains all four skills/references/examples; missing source/bundle fails closed | external AI receives job folder only |
+| CAP-043 | Diagnostic-first current-folder report | PLANNED | WO-030 | target contract in `docs/DIAGNOSTIC_PREFLIGHT.md` | implementation Work Order |
+| CAP-044 | Exposure Session and immutable pass lineage | PLANNED | WO-030 | approved session/pass documentation | implementation Work Order |
+| CAP-045 | Lightroom render-generation freshness barrier | PLANNED | WO-030 | expected Exposure2012 + generation identity + preview evidence contract | implementation Work Order and live rerender proof |
+| CAP-046 | Deterministic convergence and oscillation controller | PLANNED | WO-030 | pilot-policy and safe-stop contract | implementation and representative calibration |
+| CAP-047 | Persistent scene groups with safe split/REVIEW | PLANNED | WO-030 | AI/group persistence contract | implementation and representative folder review |
+| CAP-048 | Provider-neutral pass file contract | PLANNED | WO-030 | filesystem boundary and target schema documented | implementation with file agent and optional adapter |
+| CAP-049 | Metadata synchronization safety barrier | PLANNED | WO-030 | evidence-based SYNC_PROVEN/REQUIRED/UNPROVEN contract | Lightroom SDK/runtime proof |
+| CAP-050 | Risk-classified dirty state and delta preflight | TESTED | WO-030 | 8 focused governance tests plus real script self-test returned NON_BLOCKING/READY with explicit exclusions | maintain and use in next Work Order |
 
-## WO-029 evidence
+## Current evidence boundary
 
-GitHub Actions run `30412526981` at
-`451011ff08dbe540b0dc20fffc7c9b22ee6d4664` concluded success for both Windows
-Python 3.12 and 3.13. Focused, full, config, integration, compile, diff, and
-clean-tree steps passed. New Lightroom-hosted capabilities remain below
-`LIVE_VERIFIED` until the real folder Prepare/Apply certification completes.
+WO-029 automated evidence remains valid for the implemented prepared-job
+Python path. PR #1 is merged at `main` head `68a020a`. The owner-observed real
+Prepare failure blocks CAP-041 and proves neither cache/CLI readiness nor the
+approved session/pass target. CAP-043 through CAP-049 remain `PLANNED` until a
+separate Work Order implements and executes the required proof.

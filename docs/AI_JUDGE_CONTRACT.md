@@ -1,57 +1,102 @@
-# AI Judge Contract — External File Workflow
+# Vision Judgment Contract - Exposure Session Passes
 
-## Input
+## Status
 
-The AI receives one self-contained prepared job folder containing:
+This is the approved target contract and is not implemented at the current
+source head. Existing `SinglePassDecision` files remain legacy-compatible
+inputs only until a separate implementation Work Order replaces them.
 
-- `AI_TASK.md` — exact operating instructions for this job;
-- `AI_SKILLS.md` — the complete bundled contents of all four canonical visual skills, including references and examples;
-- `manifest.json` — ordered Lightroom identity and preview records;
-- `decision-schema.json` — strict output schema;
-- Lightroom-rendered JPEG previews.
+## Provider-neutral input
 
-Only manifest entries with `extraction_status: FOUND` require decisions. The AI may be any local or connected vision-capable application. No network API provider is required by the Lightroom application, and the AI does not need separate repository access.
+The vision producer receives one immutable pass package containing the pass
+task, bundled visual skills, ordered manifest, decision schema, session/group
+context, reference images, render evidence, and Lightroom-rendered JPEGs.
+
+The producer may be a file-capable agent, local/free vision model adapter, or
+optional API adapter. Provider identity is evidence metadata, not authority.
+The producer never receives XMP, catalog, cache, or apply permission.
 
 ## Required judgment
 
-The AI must read `AI_SKILLS.md` completely and apply its exposure, batch consistency, relevance, and visual-quality rules. It must inspect the actual preview bytes and must not infer decisions from filenames alone.
+The producer must inspect actual preview bytes and judge:
 
-The judgment covers intended subject/person priority, subject and background exposure, scene intent, highlight/shadow safety, focus, blur, obstruction, accidental/test-shot evidence, relevance, duplicate/supporting value, visual grouping, reference-frame choice, batch consistency, bounded EV correction, and KEEP/REVIEW/SKIP disposition.
+- intended subject and person priority;
+- scene/event intent and legitimate atmosphere;
+- persistent scene group and reference-frame relationship;
+- subject/background exposure and meaningful outlier status;
+- highlight/shadow safety, focus, blur, obstruction, and technical usability;
+- residual exposure correction for the current rendered generation;
+- whether evidence supports PASS, ADJUST, or REVIEW.
 
-## Decision file
+Filename-only inference, invented content, unsupported precision, and silent
+group reassignment are forbidden.
 
-Write one UTF-8 JSON object per FOUND image to `runtime/jobs/<job-id>/decisions/<image_id>.json`:
+## Target decision object
+
+One strict JSON object is required per in-scope FOUND preview:
 
 ```json
 {
+  "session_id": "session-...",
+  "pass_id": "pass-...",
+  "pass_number": 2,
+  "parent_pass_id": "pass-...",
   "image_id": "4042206",
-  "relevance_verdict": "KEEP",
-  "quality_verdict": "KEEP",
-  "delta_ev": 0.25,
+  "group_id": "indoor-stage-01",
+  "reference_image_ids": ["4042198", "4042201"],
+  "action": "PASS | ADJUST | REVIEW",
+  "delta_ev": 0.0,
   "confidence": 0.92,
   "highlight_risk": false,
   "shadow_risk": false,
-  "subject_rationale": "The primary face is slightly dark but retains detail.",
-  "scene_rationale": "Indoor event lighting should remain warm and believable.",
-  "batch_consistency_group": "indoor-stage-01",
-  "reason": "A modest positive correction matches the reference frames."
+  "group_conflict": false,
+  "suggested_split_key": null,
+  "subject_rationale": "grounded subject observation",
+  "scene_rationale": "grounded scene/reference observation",
+  "reason_codes": ["WITHIN_GROUP_TOLERANCE"]
 }
 ```
 
-Use `delta_ev: 0.0` when no exposure correction is justified. Do not invent precision, objects, scene details, identities, or paths.
+Pass 1 uses `parent_pass_id: null`. PASS and REVIEW require `delta_ev: 0.0`.
+ADJUST requires a finite non-zero delta. Extra fields are rejected.
 
-## Validation
+## Group persistence and split
 
-- Exactly one response must exist for every FOUND manifest ID.
-- Unknown, duplicate, missing, malformed, or escaping response files reject the batch before partial processing.
-- `image_id` must match the manifest exactly.
-- Extra fields are rejected.
-- `delta_ev` must be finite and within configured bounds.
-- `confidence` must be within `[0, 1]`.
-- Low confidence or any risk flag downgrades automatic action to REVIEW.
-- Manifest order is preserved in canonical analysis artifacts.
-- Preview byte count and SHA-256 are verified before importing each response.
-- Preparation records SHA-256 for `selection.json`, `manifest.json`, `AI_TASK.md`, `AI_SKILLS.md`, and `decision-schema.json`.
-- Saved-job process/apply recalculates every immutable artifact hash before reading decisions. A missing or altered artifact invalidates the job and fails closed.
+Pass 1 establishes group membership and references. Later passes inherit them.
+When new visual evidence contradicts the group, AI sets `group_conflict: true`
+and returns REVIEW or proposes a bounded split key. Python alone validates and
+records a split with parent group, affected IDs, evidence, and effective pass.
+AI cannot silently rewrite `groups.json`.
 
-The AI never writes RAW, XMP, catalog, cache, selection, manifest, task, skill, schema, or preview files. Its only writable output is the job-scoped `decisions/` directory.
+## Pilot decision policy
+
+The policy snapshot may initially use `0.10 EV` meaningful tolerance,
+`0.05 EV` quantization, `+/-1.0 EV` per-pass limit, `+/-2.0 EV` cumulative
+limit, and four passes. These are **PILOT DEFAULTS**, not model instructions or
+production constants. The producer reports judgment; deterministic Python
+enforces the actual validated policy.
+
+## Deterministic validation
+
+Before any apply, Python verifies:
+
+- exact session/pass/parent lineage and exact in-scope image set;
+- immutable task, skills, schema, group context, manifest, and preview hashes;
+- preview byte/SHA evidence and render-generation readiness;
+- action/delta consistency, finite values, confidence, risk flags, and bounds;
+- references belong to the declared persistent group;
+- prior/cumulative exposure history and oscillation/no-progress rules;
+- unknown, missing, duplicate, malformed, escaping, or identity-mismatched
+  decision files reject the affected pass before mutation.
+
+## Safe outcomes
+
+- PASS is terminal unless later session-wide evidence explicitly reopens the
+  image through a new immutable pass.
+- ADJUST is only a proposal until deterministic authorization succeeds.
+- REVIEW is non-mutating and records the reason for owner inspection.
+- Low confidence, risk, group conflict, stale/unproven render, oscillation,
+  no-progress, or pilot-limit exhaustion cannot be auto-applied.
+
+The AI writes only to the current pass decision output directory and must not
+modify captured inputs or any prior pass.

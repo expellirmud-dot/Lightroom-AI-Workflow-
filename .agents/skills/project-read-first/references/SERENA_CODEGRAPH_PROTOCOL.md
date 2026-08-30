@@ -30,7 +30,8 @@ config = mcp__serena__get_current_config()
    Git root. Do not use a parent, sibling, historical, or previously active project.
 2. If `activate_project` fails or reports a mismatched project, stop with
    `BLOCKED_PROJECT_MISMATCH`.
-3. If Serena is not installed, stop with `BLOCKED_SERENA`.
+3. If source/symbol reasoning requires Serena and it is unavailable, stop with
+   `BLOCKED_SERENA`. A documentation-only step may record it as not required.
 4. Symbol extraction via Serena only applies to code files in active languages.
    Markdown docs (README, AGENTS.md, Work Orders) must be read with `read_file`
    directly — do not route them through Serena symbol tools.
@@ -51,10 +52,8 @@ config = mcp__serena__get_current_config()
 
 1. Confirm the indexed repository path equals the canonical Git root.
 2. Confirm the index exists and is recent (compared to file modification times).
-3. If the index is stale (files modified after last index run), synchronize:
-   ```bash
-   codegraph init --path <canonical-git-root>
-   ```
+3. If the index is stale, report the stale scope. Do not rebuild or mutate an
+   index during read-first without task authority.
 4. Use CodeGraph for dependency queries, caller/callee analysis, and
    architecture impact assessments.
 
@@ -77,7 +76,9 @@ config = mcp__serena__get_current_config()
 
 ## Combined Protocol
 
-Both Serena and CodeGraph must be verified before implementation begins.
+Serena and CodeGraph must be verified before source implementation or a step
+whose correctness depends on their results. Documentation-only steps may reuse
+prior verified context or record a tool as not required.
 The preflight produces one terminal decision:
 
 - `READY` — both verified, mandatory documents read

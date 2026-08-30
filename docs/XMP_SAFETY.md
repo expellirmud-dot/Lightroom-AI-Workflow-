@@ -1,77 +1,107 @@
-# XMP Safety Rules — Lightroom AI Exposure Assist
+# XMP Safety Rules - Exposure Session Target
 
-## Allowed property
+## Status and preserved boundary
 
-The only Lightroom development property the program may modify is:
+The existing transactional XMP implementation remains the safety foundation.
+Session/pass lineage and rerender rules in this document are approved target
+contracts and remain `PLANNED` until implemented and validated.
 
-- `crs:Exposure2012` — exposure compensation in EV.
+The only property the program may modify is `crs:Exposure2012`:
 
 ```text
 new_exposure = existing_exposure + validated_delta_ev
 ```
 
-A validated delta of `0.0` must produce `SKIPPED_NO_CHANGE`; the XMP must remain byte-identical and no backup or replace operation is needed.
+PASS, REVIEW, and zero delta never write XMP. RAW/JPEG/DNG/TIFF/PSD originals,
+Lightroom catalogs, live preview caches, EXIF, and every non-Exposure2012 field
+remain immutable to this application.
 
-## Forbidden fields and sources
+## Session and pass gate
 
-The program must never modify camera-capture EXIF, White Balance, Contrast, Highlights, Shadows, Whites, Blacks, Clarity, Texture, Vibrance, Saturation, Color Grade, Sharpening, Noise Reduction, Crop, Straighten, Masks, Keywords, Rating, Label, Photoshop metadata, descriptive metadata, or timestamps owned by Lightroom.
+Before a pass reaches mutation, reconcile:
 
-RAW/NEF/JPEG/DNG/TIFF/PSD originals and Lightroom catalog files are immutable. Preview-cache databases may be read only through validated snapshots and are never written.
+- exact session ID, pass ID, pass number, and `parent_pass_id`;
+- frozen eligible selection and exact current pass manifest/decision sets;
+- Lightroom local ID, UUID, canonical RAW/XMP paths, and source containment;
+- immutable task, skill, schema, group, policy, manifest, render, and preview
+  artifact hashes;
+- current XMP Exposure2012 and SHA-256 against the prior pass's expected final
+  evidence or the session baseline;
+- ADJUST action, confidence, risk, per-pass/cumulative policy, oscillation, and
+  explicit two-key authorization.
 
-## Immutable prepared-job gate
+Any material mismatch fails closed before XMP transaction code is reached.
 
-Before saved-job validation or any XMP mutation, the program must verify the SHA-256 values recorded at prepare time for:
+## Pilot policy
 
-- `selection.json`;
-- `manifest.json`;
-- `AI_TASK.md`;
-- `AI_SKILLS.md`;
-- `decision-schema.json`.
+Initial design values of `0.10 EV` tolerance, `+/-1.0 EV` per pass,
+`+/-2.0 EV` cumulative, and `maximum_passes = 4` are **PILOT DEFAULTS**.
+They must be session policy data, not hard-coded production safety truth.
 
-A missing or altered immutable artifact invalidates the job and fails closed before decisions are trusted or XMP code is reached. The external AI may write only inside the job-scoped `decisions/` directory.
-
-## Saved-job identity gate
-
-Before any XMP mutation, the application must reconcile:
-
-- exact job ID;
-- complete selection IDs against complete manifest IDs;
-- decision IDs against only production manifest entries whose preview status is `FOUND`;
-- Lightroom `id_local` and UUID;
-- exact canonical RAW path;
-- exact canonical XMP path;
-- prepared source-folder containment;
-- decision confidence, verdicts, risk flags, and delta bounds.
-
-A missing preview receives a terminal skip record and must not block unrelated safe FOUND images. An immutable-artifact mismatch, identity mismatch, path mismatch, corrupted checkpoint, unexpected mutation, or rollback failure fails closed according to batch severity.
-
-## Authorization
-
-Real mutation is reachable only through the explicit Apply Prepared Job operation and an exact `--authorize-apply <job-id>` token. The per-image allowlist is derived from validated decisions that are KEEP/KEEP, meet the confidence threshold, have no risk flags, and have a finite non-zero delta.
-
-The AI never receives XMP write authority.
+Absolute Exposure2012 bounds remain independently validated. Representative
+Lightroom evidence is required before production calibration.
 
 ## Transaction procedure
 
-Every authorized non-zero XMP write must follow this sequence:
+Every authorized non-zero write preserves the established procedure:
 
-1. Parse the existing XMP and require one unambiguous finite Exposure2012 value.
-2. Read and hash the original bytes.
-3. Create a byte-preserving backup inside the prepared job's `xmp_backups/`.
-4. Verify the backup SHA-256 equals the original SHA-256.
-5. Surgically replace only the Exposure2012 serialization in a temporary file beside the target.
-6. Parse the temporary XMP and verify the intended value.
-7. Atomically replace the original XMP.
-8. Parse the target again, verify the exact expected value, and record its SHA-256.
-9. If post-replace validation fails, restore the verified backup and prove the restored SHA-256.
-10. If rollback fails, record `ROLLBACK_FAILED_FATAL` and halt the batch.
+1. Parse the existing sidecar and require one unambiguous finite
+   Exposure2012 value.
+2. Verify current value/hash against expected session/pass evidence.
+3. Read and hash the original bytes.
+4. Create a pass-attributed byte-preserving backup and prove its SHA-256.
+5. Surgically change only the Exposure2012 serialization in a validated
+   temporary file beside the target.
+6. Atomically replace the original.
+7. Parse the target, verify the exact expected value, and record final SHA-256.
+8. Roll back from the verified backup after post-replace failure and prove the
+   restored hash.
+9. Halt the batch/session on rollback failure.
+10. Atomically checkpoint after every image.
 
-Apply evidence must include image ID, target XMP path, backup path, old exposure, delta, new exposure, original hash, backup hash, final hash, status, and error/rollback information when applicable.
+Evidence includes session/pass/image IDs, target and backup paths, old/delta/new
+exposure, cumulative delta, original/backup/final hashes, status, and rollback
+information.
 
-## Checkpoint and resume
+Settled records are immutable within one pass. The same image may be adjusted
+in a later pass only through new lineage, fresh render proof, and reconciliation
+against the previous pass's verified final XMP evidence.
 
-`apply-evidence.json` is written atomically after every image. Each eligible image receives exactly one terminal record. Reopening a saved job must not repeat a settled image.
+## Metadata synchronization barrier
 
-## Analysis boundary
+Changing only Exposure2012 bytes does not by itself prove that importing an XMP
+sidecar into Lightroom will leave all other catalog develop state unchanged.
+Before session/apply, the coordinator must classify synchronization safety as:
 
-`--process-job` never imports or calls the apply layer. Prepared-job real apply uses explicit two-key authorization rather than a persistent global `apply_authorized` toggle.
+- `SYNC_PROVEN` - evidence shows catalog/sidecar state is safe;
+- `SYNC_REQUIRED` - evidence shows an owner metadata-save/readiness action is
+  necessary;
+- `SYNC_UNPROVEN` - available evidence cannot prove safety.
+
+Only `SYNC_PROVEN` may proceed automatically. `SYNC_REQUIRED` explains the
+specific evidence and required bounded owner action. `SYNC_UNPROVEN` fails
+closed without assuming that Save Metadata is always necessary.
+
+## Lightroom render freshness barrier
+
+After `APPLIED_VERIFIED`, Lightroom refreshes metadata and becomes responsible
+for the next rendered preview. An adjusted image may re-enter AI analysis only
+when all of these match:
+
+1. XMP/read-back evidence equals expected Exposure2012;
+2. the next preview capture has a new pass/render generation identity linked
+   to the applied pass;
+3. refreshed preview evidence, including bytes and SHA-256, is valid for that
+   generation.
+
+Preview hash alone is insufficient. Missing, stale, unchanged, ambiguous, or
+unlinked evidence produces REVIEW or a dependent-pass stop. The system must
+never compound a correction using an unproven render.
+
+## Convergence and oscillation safety
+
+Python, not AI or the plug-in, enforces cumulative history. A meaningful sign
+reversal, revisit of a prior exposure state, repeated no-progress residual, or
+pilot-limit exhaustion removes automatic write authority and settles the image
+as REVIEW. Independent safe groups may continue unless a session-wide identity,
+authorization, checkpoint, or rollback invariant failed.

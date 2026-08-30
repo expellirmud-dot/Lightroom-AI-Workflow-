@@ -1,16 +1,32 @@
 ---
 name: project-read-first
 description: >
-  Establish repository truth before coding by resolving the exact Git
-  root, verifying Serena and CodeGraph project context, reading mandatory
-  authority documents, selecting task-relevant references, and producing
-  a bounded preflight decision before any file modification.
+  Establish or reuse repository truth before work, classify dirty state by
+  material risk, and use delta preflight while HEAD, authority, relevant files,
+  and task context remain unchanged.
 ---
 
 # Project Read-First Skill
 
-Use this skill at the start of every coding task to establish exact
-project truth before reading implementation files or making changes.
+Use this skill at the start of every task that may change repository files.
+Establish exact project truth once, then reuse that same-thread preflight with
+bounded delta checks while its fingerprints remain unchanged.
+
+## 0. Reuse a Same-Thread Preflight When Valid
+
+Reuse a completed preflight when all of these remain true:
+
+- conversation context still contains the full preflight and required reads;
+- Git HEAD is unchanged;
+- `Work-Order/CURRENT_WORK_ORDER.md` points to the same active Work Order;
+- relevant authority/task files have unchanged status and SHA-256;
+- task scope has not materially changed beyond the active Work Order;
+- Serena/CodeGraph context remains available when the next step requires it.
+
+For reuse, run only delta preflight: Git status, HEAD, active Work Order
+pointer, relevant-file status/hash, and Serena/CodeGraph availability when
+required. Repeat full reads only when one of these fingerprints changed,
+context is unavailable, or repository policy explicitly requires it.
 
 ## 1. Resolve Git Repository Root
 
@@ -35,11 +51,23 @@ From the canonical Git root, capture:
 - Origin URL (`git remote get-url origin`)
 - Git status (`git status --short`)
 
-If the working tree is dirty with untracked or modified files that are
-not part of the active Work Order's allowed changes, stop and report
-`BLOCKED_DIRTY_WORKTREE`.
+Classify every dirty path before choosing a terminal decision:
 
-## 3. Activate Serena for the Exact Repository Root
+- `NON_BLOCKING` — an explicitly identified pre-existing owner/local change is
+  unrelated to task files and proof and can remain untouched and excluded.
+  Continue with `READY` and record the exclusion.
+- `BLOCKING` — the dirty path overlaps task scope, authority, validation input,
+  expected output, or result attribution. Stop with
+  `BLOCKED_DIRTY_WORKTREE`.
+- `CRITICAL` — the dirty state creates a secrets, destructive-action,
+  authorization, safety-evidence, catalog/cache/photo/XMP, or preservation
+  risk. Stop with `BLOCKED_DIRTY_WORKTREE` and identify the critical reason.
+
+Git status alone is not a stop condition. Never edit, restore, stash, stage,
+commit, or discard a pre-existing owner/local change without explicit owner
+authority.
+
+## 3. Activate or Verify Serena for the Exact Repository Root
 
 Activate Serena using the canonical Git root:
 
@@ -59,18 +87,21 @@ step 1. If it does not match, use the correct project name from
 
 Reject a parent, sibling, historical, or previously active project.
 
-## 4. Verify CodeGraph Is Indexed for the Same Root
+## 4. Verify CodeGraph for the Same Root When Required
 
 Run CodeGraph diagnostics or an introspection query to confirm the
 indexed path equals the canonical Git root and that the index is
 recent enough for the current task.
 
-If CodeGraph cannot be verified for the exact root, the terminal
-preflight decision must be `BLOCKED_CODEGRAPH`.
+If source/dependency reasoning requires CodeGraph and it cannot be verified for
+the exact root, the terminal decision is `BLOCKED_CODEGRAPH`. A documentation-
+only step may record CodeGraph as not required when no source claim depends on
+it.
 
 ## 5. Read Mandatory Authority Documents (Full Read)
 
-Read these documents completely before any other task work:
+Read these documents completely before the first task step, or reuse their
+completed same-thread reads under section 0:
 
 1. `AGENTS.md`
 2. `docs/INDEX.md`
@@ -135,9 +166,13 @@ CODEGRAPH_PROJECT: <project name or path verified>
 CODEGRAPH_STATUS: <index verified>
 CODEGRAPH_SYNC: <yes/no>
 
-FULL_DOCUMENTS_READ: <comma-separated list of files fully read>
+FULL_DOCUMENTS_READ: <comma-separated list of files fully read or reused>
 TARGETED_DOCUMENTS_READ: <comma-separated list of targeted reads>
 SOURCE_SYMBOLS_INSPECTED: <comma-separated list of symbols inspected>
+
+PREFLIGHT_REUSE: yes/no
+DIRTY_CLASSIFICATION: CLEAN | NON_BLOCKING | BLOCKING | CRITICAL
+NON_BLOCKING_EXCLUSIONS: <paths or NONE>
 
 EXPECTED_CHANGE: <brief description of what the task will do>
 REQUIRED_VALIDATION: <commands from Work Order validation section>
@@ -158,8 +193,8 @@ The skill must produce exactly one of:
 
 | Decision | Meaning |
 |---|---|
-| `READY` | All checks passed; implementation may begin |
-| `BLOCKED_DIRTY_WORKTREE` | Unexpected dirty or untracked files exist |
+| `READY` | Required checks passed; work may begin, including explicitly excluded non-blocking owner changes |
+| `BLOCKED_DIRTY_WORKTREE` | Dirty state is classified BLOCKING or CRITICAL |
 | `BLOCKED_PROJECT_MISMATCH` | Serena or CodeGraph project does not match Git root |
 | `BLOCKED_SERENA` | Serena cannot be activated or verified for the exact root |
 | `BLOCKED_CODEGRAPH` | CodeGraph cannot be verified for the exact root |
@@ -167,11 +202,12 @@ The skill must produce exactly one of:
 | `BLOCKED_SCOPE_CONFLICT` | Active Work Order scope is ambiguous |
 | `BLOCKED_OWNER_DECISION` | Action requires owner authority |
 
-Implementation may begin only after `READY`.
+Implementation may begin only after `READY`. `NON_BLOCKING` dirty state is
+compatible with `READY` only when its paths and preservation rules are explicit.
 
 ## Safety Rules
 
-- Do not modify the repository root or Git state during preflight.
+- Do not modify repository files or Git state during preflight.
 - Do not edit files during preflight; only read.
 - Do not access Lightroom catalogs, preview caches, photographs, RAW
   files, or XMP files during preflight (unless the active Work Order
@@ -182,7 +218,8 @@ Implementation may begin only after `READY`.
 
 ## Read-First Invocation Rule
 
-Every coding task must invoke this skill before implementation begins.
-The active Work Order's Required Read Order section defines the
-mandatory read set; this skill defines the verification that those
-reads completed correctly.
+Every repository-changing task must invoke this skill before implementation
+begins. A valid same-thread invocation may be reused through delta preflight;
+invocation does not imply repeated full reads. The active Work Order defines
+the required read set and this skill verifies either completed reads or their
+valid reuse.

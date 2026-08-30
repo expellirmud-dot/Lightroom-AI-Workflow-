@@ -68,7 +68,13 @@ Automated evidence applies to branch `wo-029-folder-job-lifecycle` at head `4fd5
 
 Both Windows matrix jobs concluded `success`. Focused, full, config, integration, compile, diff, and clean-tree steps all concluded `success`.
 
-## WO-029 live gates still required
+### Post-merge real Lightroom observation
+
+| ID | Date | Evidence | Result | Scope |
+|---|---|---|---|---|
+| VLD-118 | 2026-08-30 | Owner-operated Lightroom plug-in 1.1.0 build 2 | both Prepare/Apply menu commands loaded; Prepare stopped with `The active Lightroom folder contains no eligible proprietary-RAW master photos.` | proves menu availability and live eligibility failure only; Python/cache/CLI/apply not reached |
+
+## WO-029 unresolved live gates at supersession
 
 - Open exactly one real Lightroom folder and run **Prepare Current Folder**.
 - Confirm the plug-in enumerates all eligible proprietary-RAW masters without manual photo selection.
@@ -77,7 +83,21 @@ Both Windows matrix jobs concluded `success`. Focused, full, config, integration
 - Run **Apply Prepared Job** against the matching active folder.
 - Confirm backup paths/hashes, old/delta/new exposure, terminal settlement for every eligible image, rollback safety, and Lightroom metadata refresh.
 
-Until those live gates pass, WO-029 remains ACTIVE and its new Lightroom folder commands are not `LIVE_VERIFIED`.
+These gates did not pass before PR #1 merged. WO-029 is now superseded rather
+than active. Its missing proof must not be inherited by the target Exposure
+Session architecture.
+
+## WO-030 documentation evidence
+
+WO-030 defines target documentation and governance only. No row in this section
+claims session/pass, diagnostic, rerender, metadata-sync, or real XMP runtime
+behavior.
+
+| ID | Date | Evidence | Result | Scope |
+|---|---|---|---|---|
+| VLD-119 | 2026-08-30 | `tests/test_project_read_first_skill.py` and live preflight-script self-test | 8 passed; script returned `DIRTY_CLASSIFICATION=NON_BLOCKING`, explicit exclusions, correct `origin/main`, and `PREFLIGHT_DECISION=READY` | governance/read-first behavior only |
+| VLD-120 | 2026-08-30 | focused current-runtime regression guards | 18 passed | static Lightroom plug-in, prepared-job lifecycle, saved-job CLI compatibility |
+| VLD-121 | 2026-08-30 | source/test compile and documentation diff hygiene | compileall passed for source/tests; `git diff --check` passed with line-ending normalization warnings only | syntax and diff hygiene; no runtime execution |
 
 ## Current limitations
 

@@ -2,22 +2,23 @@
 
 ## Project Mission
 
-Build a Windows-first Lightroom Classic exposure assistant whose canonical
-production workflow is:
+Build a Windows-first Lightroom Classic exposure assistant whose approved
+target workflow is:
 
 ```text
-open exactly one Lightroom folder
-→ enumerate every eligible proprietary-RAW master automatically
-→ prepare all previews once
-→ bundle the canonical visual skills into the job
-→ external vision AI writes job-scoped decisions
-→ validate the same saved job
+diagnose exactly one Lightroom folder
+→ start one provider-agnostic Exposure Session
+→ capture an immutable Lightroom-rendered preview pass
+→ external vision AI judges scene groups and exposure outliers
+→ deterministic Python validates PASS / ADJUST / REVIEW decisions
 → explicitly apply guarded Exposure2012 changes
-→ refresh Lightroom metadata
+→ refresh Lightroom metadata and prove a new render generation
+→ capture the next immutable pass and recheck unresolved images
+→ stop at convergence, safe REVIEW, or another explicit stop condition
 ```
 
-The application must remain independent of any single AI vendor or API. The
-MVP adjusts exposure only.
+The application must remain independent of any single AI vendor or API.
+Lightroom is the authoritative renderer. The MVP adjusts exposure only.
 
 ## Authority Order and Required Read Set
 
@@ -42,47 +43,59 @@ Before any implementation or debugging task:
 5. Read every canonical document whose update trigger matches the task.
 6. Verify repository root, Git state, Serena context, and CodeGraph context.
 
-No active Work Order, conflicting authority, or unexpected dirty files is a
-stop condition.
+No active Work Order or conflicting authority is a stop condition. Dirty files
+are classified by material risk under **Dirty Worktree Classification** below;
+Git status alone is not a stop condition.
 
-## Canonical Runtime Lifecycle
+## Canonical Target Lifecycle
 
-1. Lightroom requires exactly one active `LrFolder` and reads every directly
-   contained proprietary-RAW master automatically; no Ctrl+A photo selection is
-   required.
-2. Virtual copies, videos, non-RAW formats, missing paths, and duplicate source
-   paths are excluded and counted because this workflow is sidecar-only.
-3. `PREPARE_JOB` snapshots the preview-cache databases read-only and extracts
-   the complete eligible folder preview set once.
-4. The prepared job owns its manifest, previews, `AI_TASK.md`, bundled
-   `AI_SKILLS.md`, decision schema, decisions, evidence, logs, and XMP backups.
-5. Any vision-capable external AI application may receive only that prepared
-   job folder, read the bundled instructions and skills, and write one JSON
-   decision per FOUND preview.
-6. `PROCESS_SAVED_JOB` validates the decisions without touching XMP.
-7. `APPLY_SAVED_JOB` requires the matching Lightroom source folder to be active,
-   reopens the same job, derives the safe per-image allowlist, and performs
-   guarded XMP transactions.
-8. Lightroom refreshes metadata only for `APPLIED_VERIFIED` images found in the
-   matching active folder.
+1. `DIAGNOSE_CURRENT_FOLDER` gathers independent Lightroom, eligibility,
+   cache, runtime, CLI, bridge, and XMP-readiness evidence before creating a
+   session. Diagnostics aggregate all discoverable issues rather than failing
+   at the first independent check.
+2. Lightroom requires exactly one active `LrFolder` and reads every directly
+   contained proprietary-RAW master automatically; no Ctrl+A photo selection
+   is required.
+3. One Exposure Session freezes source-folder and image identity. Each analysis
+   round is an immutable pass with monotonic `pass_number`, unique `pass_id`,
+   and `parent_pass_id` pointing to the preceding pass or `null` for pass 1.
+4. Each pass snapshots the preview cache read-only and records Lightroom-rendered
+   preview identity, generation evidence, byte count, and SHA-256.
+5. External vision AI judges intended subject, persistent scene groups,
+   reference frames, outliers, and PASS / ADJUST / REVIEW. The canonical
+   boundary is a provider-neutral file contract; optional adapters may use
+   local models or APIs outside the core application.
+6. Python validates identity, pass lineage, schema, confidence, pilot bounds,
+   cumulative exposure, convergence, oscillation, and XMP authorization.
+7. ADJUST applies only `crs:Exposure2012` through the existing guarded
+   transaction. PASS and REVIEW never mutate XMP.
+8. Lightroom refreshes metadata for `APPLIED_VERIFIED` images and remains the
+   only authoritative renderer.
+9. A subsequent pass is analyzable only after render freshness reconciles the
+   expected Exposure2012, a new pass/generation identity, and refreshed preview
+   evidence/hash. Preview hash alone is insufficient.
+10. The session stops when no meaningful ADJUST remains, every unresolved image
+    is REVIEW, a pilot limit is reached, or a safety condition fails closed.
 
-The apply stage must not repeat cache extraction, create a replacement job, or
-call an AI provider again.
+The current source and plug-in still implement the WO-029 prepared-folder
+single-pass lifecycle. Target documentation must label session/pass behavior
+`PLANNED` until a separate implementation Work Order proves it.
 
 ## Runtime Ownership Rules
 
-- Lightroom plug-in owns active-folder enumeration, identity capture, prepare
-  invocation, explicit apply invocation, source-folder confirmation, and
-  metadata refresh.
+- Lightroom plug-in owns active-folder diagnostics, identity capture, session
+  coordination, explicit apply invocation, source-folder confirmation,
+  metadata refresh, and render-generation coordination.
 - Cache extractor owns read-only SQLite snapshots and JPEG extraction.
-- Job lifecycle owns prepared state, self-contained skill/task/schema artifacts,
-  latest-job pointer, and saved-job resolution.
+- Session lifecycle owns immutable selection, pass lineage, self-contained
+  skill/task/schema artifacts, generation evidence, and safe resume.
 - External AI owns visual judgment and decision JSON only.
 - Python owns decision validation, identity reconciliation, authorization,
   XMP mutation, evidence, checkpoint, and rollback.
-- Decisions belong in `runtime/jobs/<job-id>/decisions/`.
-- One prepared job contains eligible RAW masters from exactly one source folder.
-- Every eligible RAW master receives exactly one terminal settlement record.
+- Decisions belong to one immutable pass beneath one session.
+- One session contains eligible RAW masters from exactly one source folder.
+- Every eligible RAW master receives exactly one settlement record per pass in
+  which it is in scope and one terminal session outcome.
 
 ## Non-Negotiable Boundaries
 
@@ -103,20 +116,24 @@ call an AI provider again.
 - Runtime jobs, previews, decisions, logs, XMP backups, and temp files must not
   be committed.
 
-## Prepared-Job Integrity Rules
+## Session and Pass Integrity Rules
 
-- A prepared job is self-contained and must include `selection.json`,
-  `manifest.json`, `job-state.json`, `AI_TASK.md`, `AI_SKILLS.md`,
-  `decision-schema.json`, `previews/`, and `decisions/`.
+- A session freezes its source folder, eligible image identities, initial XMP
+  evidence, and ordered group ledger.
+- Every pass is self-contained and immutable after capture. It owns its
+  manifest, Lightroom-rendered previews, task, bundled skills, decision schema,
+  decisions, generation evidence, results, and apply evidence.
 - `AI_SKILLS.md` is generated deterministically from all Markdown/JSON files in
   the four canonical visual skill directories.
-- Missing canonical skill source files make prepare fail closed.
-- Missing task, skill bundle, schema, manifest, state, or selection makes saved
-  processing fail closed.
-- External AI must not modify the task, bundled skills, schema, manifest, or
-  previews.
-- Apply must use the exact prepared job and source folder; a global response
-  directory is not canonical.
+- Missing canonical skill source files, task, schema, manifest, state,
+  generation evidence, or session identity make processing fail closed.
+- External AI may write only the pass-scoped decision output authorized by the
+  file contract. It must not modify captured inputs.
+- Apply must use the exact session/pass/source-folder lineage. A global response
+  directory or mutable replacement pass is not canonical.
+- Scene groups persist across passes by default. Conflicting evidence may move
+  an image to REVIEW or create a provenance-recorded split; silent regrouping
+  is forbidden.
 
 ## XMP Rules
 
@@ -134,10 +151,20 @@ call an AI provider again.
 - Roll back after post-write validation failure and verify the restored hash.
 - Rollback failure is fatal and halts the batch.
 - Checkpoint after every image; settled images must not be processed twice.
+- Before a later-pass write, reconcile the current XMP value and hash against
+  the prior pass's verified final evidence.
+- Metadata synchronization must fail closed when safe catalog/sidecar
+  reconciliation cannot be proven. Do not require the owner to save metadata
+  without evidence that synchronization is necessary.
+- Numeric convergence and exposure bounds in target documents are pilot
+  defaults, not production constants, until representative Lightroom evidence
+  calibrates them.
 
 ## AI Decision Rules
 
-Every prepared job must bundle all content from these four skills:
+Every captured target pass must bundle all content from these four skills.
+Until session/pass implementation replaces WO-029, current prepared jobs retain
+the same complete bundle requirement:
 
 - `.agents/skills/exposure-judgment/`
 - `.agents/skills/batch-consistency-review/`
@@ -154,14 +181,16 @@ The AI must:
 - assess focus, blur, obstruction, accidental/test-shot evidence, relevance,
   duplicate/supporting value, and technical usability;
 - group materially similar images and choose a reliable reference frame;
-- preserve manifest order and return exactly one decision per FOUND image;
+- preserve manifest order and return exactly one decision per in-scope FOUND
+  image for the current pass;
 - recommend a bounded finite `delta_ev` and use `0.0` when no change is
   justified;
-- return grounded KEEP, REVIEW, or SKIP decisions;
+- return grounded PASS, ADJUST, or REVIEW decisions under the target contract;
 - never invent image IDs, paths, objects, or scene details.
 
-AI output is untrusted input. Schema, exact-set identity, preview byte count,
-and preview SHA-256 validation are mandatory before use.
+AI output is untrusted input. Schema, exact-set identity, session/pass lineage,
+render-generation evidence, preview byte count, and preview SHA-256 validation
+are mandatory before use.
 
 ## Seven Execution Rules
 
@@ -169,8 +198,10 @@ and preview SHA-256 validation are mandatory before use.
    allowed files, forbidden files, and required evidence before editing.
 2. **Define Done First** — record acceptance criteria and proof requirements
    before implementation.
-3. **Parallel Evidence Gathering** — inspect repository truth, authority,
-   tests, Git state, and runtime evidence before choosing a solution.
+3. **Bounded Evidence Gathering** — reuse a completed same-thread read-first
+   preflight while its repository-truth fingerprints remain unchanged. After
+   that, use delta preflight for HEAD, authority pointer, Git classification,
+   and relevant-file status/hash.
 4. **Single Recommendation** — select one best bounded design; do not delegate
    routine technical decisions back to the owner.
 5. **Surgical Change** — make the smallest complete change authorized by the
@@ -214,13 +245,47 @@ Before editing, establish:
 - allowed and forbidden files;
 - expected behavior change;
 - required validation;
-- current Git status and HEAD;
+- current Git status, dirty classification, and HEAD;
 - dry-run or real-write mode;
 - exact safety boundary.
 
-Unexpected changes, unresolved architecture conflict, unavailable required
-proof, destructive action, credentials, or paid API use without owner approval
-are stop conditions.
+Unresolved architecture conflict, unavailable required proof, destructive
+action, credentials, or paid API use without owner approval are stop
+conditions. Dirty state is handled by the classification below.
+
+## Dirty Worktree Classification
+
+Classify every dirty path before deciding whether work may continue:
+
+- `NON_BLOCKING` — a pre-existing owner/local change is explicitly identified,
+  unrelated to task files and proof, and can be preserved without edit,
+  restore, stash, stage, commit, or accidental inclusion. Continue with an
+  explicit exclusion.
+- `BLOCKING` — a dirty path overlaps allowed task files, authority, generated
+  proof, validation inputs, or the expected diff such that ownership or result
+  attribution is ambiguous. Stop until resolved or the owner supplies a safe
+  scoped decision.
+- `CRITICAL` — dirty state indicates secrets, destructive or unauthorized
+  mutation, corrupted safety evidence, catalog/cache/photo/XMP risk, or a state
+  that cannot be preserved safely. Stop immediately.
+
+Git status containing `M`, `A`, `D`, or `??` is evidence to classify, not by
+itself a stop condition. Never overwrite, discard, stash, stage, or commit an
+owner change without explicit authority.
+
+## Read-First Reuse and Delta Preflight
+
+A completed read-first/preflight in the same thread may be reused when HEAD,
+active Work Order pointer, relevant authority files, and task context are
+unchanged and remain available. Before each subsequent implementation step,
+check only Git status/classification, HEAD, active Work Order pointer,
+relevant-file status/hash, and Serena/CodeGraph availability when required.
+
+Repeat full reads only when HEAD, active Work Order, a relevant file, tool
+context, or available conversation context changed, or when repository policy
+explicitly requires a fresh read. A material safety, correctness,
+authorization, or proof risk is a stop condition; repeated reading without a
+truth change is not.
 
 ## Documentation and Knowledge Capture
 

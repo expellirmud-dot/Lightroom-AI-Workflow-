@@ -14,17 +14,19 @@ This is the canonical index of maintained project authority.
 
 ## Required read set
 
-Every coding task reads `AGENTS.md`, this index,
-`Work-Order/CURRENT_WORK_ORDER.md`, the active Work Order, and every document
-whose trigger matches the task.
+Every repository-changing task completes or validly reuses a read-first
+preflight for `AGENTS.md`, this index, `Work-Order/CURRENT_WORK_ORDER.md`, the
+active Work Order, and every document whose trigger matches the task. Use delta
+preflight while repository-truth fingerprints remain unchanged.
 
 ## Maintained documents
 
 | Document | Purpose | Read/update trigger |
 |---|---|---|
 | `AGENTS.md` | repository-wide governance and runtime invariants | every task; governance or workflow change |
-| `docs/FOLDER_JOB_WORKFLOW.md` | authoritative user/runtime lifecycle | workflow, plugin, job, AI handoff, or apply change |
+| `docs/FOLDER_JOB_WORKFLOW.md` | approved Exposure Session/pass target lifecycle and current-runtime boundary | workflow, plugin, session, pass, AI handoff, render loop, or apply change |
 | `docs/ARCHITECTURE.md` | components, ownership, data flow, IPC | architecture or integration change |
+| `docs/DIAGNOSTIC_PREFLIGHT.md` | diagnostic-first Lightroom folder readiness contract | diagnostics, eligibility, cache, CLI, bridge, or metadata-readiness change |
 | `docs/XMP_SAFETY.md` | allowed mutation and transaction contract | any XMP-related change |
 | `docs/AI_JUDGE_CONTRACT.md` | external AI inputs, decision schema, validation | AI, schema, skill, batching, or confidence change |
 | `docs/DECISIONS.md` | accepted durable design decisions | material design accepted or superseded |
@@ -38,12 +40,13 @@ whose trigger matches the task.
 | `.agents/skills/batch-consistency-review/SKILL.md` | grouping and reference consistency | batch consistency change |
 | `.agents/skills/image-relevance-triage/SKILL.md` | relevance/test-shot/accidental triage | relevance rules change |
 | `.agents/skills/visual-quality-safety/SKILL.md` | blur/focus/highlight safety | quality rules change |
-| `.agents/skills/project-read-first/SKILL.md` | repository preflight and authority resolution | every implementation task; preflight protocol change |
+| `.agents/skills/project-read-first/SKILL.md` | repository preflight, reuse, delta checks, and dirty classification | every repository-changing task; preflight protocol change |
 
 ## Placement rules
 
-- Runtime workflow → `docs/FOLDER_JOB_WORKFLOW.md`
+- Runtime/session workflow → `docs/FOLDER_JOB_WORKFLOW.md`
 - Component boundaries → `docs/ARCHITECTURE.md`
+- Diagnostic readiness → `docs/DIAGNOSTIC_PREFLIGHT.md`
 - XMP safety → `docs/XMP_SAFETY.md`
 - AI schema and judgment → `docs/AI_JUDGE_CONTRACT.md`
 - Durable rationale → `docs/DECISIONS.md`

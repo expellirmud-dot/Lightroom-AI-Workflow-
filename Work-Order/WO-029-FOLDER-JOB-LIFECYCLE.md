@@ -2,7 +2,26 @@
 
 ## Status
 
-ACTIVE — AUTOMATED CERTIFIED; REAL LIGHTROOM CERTIFICATION PENDING
+SUPERSEDED - MERGED AUTOMATED IMPLEMENTATION; LIVE FOLDER GATE FAILED
+
+## Post-merge outcome
+
+PR #1 was merged to `main` at
+`68a020a313ab1e0ea6fcf7f7bc6da9f907ee713c` on 2026-08-13 despite this Work
+Order's original draft-PR/live-certification closeout policy.
+
+The owner subsequently verified that plug-in version 1.1.0 build 2 loads and
+shows both WO-029 menu commands. The first real **Prepare Current Folder** run
+failed before Python/cache/CLI execution with:
+
+```text
+The active Lightroom folder contains no eligible proprietary-RAW master photos.
+```
+
+WO-029 therefore did not pass its real full-folder acceptance gate. Its
+implementation and automated evidence remain historical truth, but its
+prepare-once/single-pass architecture is superseded as the canonical target by
+the owner-approved Exposure Session design documented under WO-030.
 
 ## Owner decision
 
@@ -115,3 +134,7 @@ git status --short
 ## Closeout policy
 
 Do not mark COMPLETED or merge to `main` until the real Lightroom prepared-folder certification is recorded. Keep the pull request in draft while live certification is pending.
+
+Historical outcome: the merge occurred before this gate passed. The policy
+text is retained for audit; it is not a current instruction to recreate or
+reopen PR #1. WO-029 is superseded, not completed.

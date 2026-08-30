@@ -1,147 +1,162 @@
-# Canonical Folder Job Workflow
+# Canonical Exposure Session Workflow
 
-This document is the authoritative user and runtime workflow for Lightroom AI Exposure Assist.
+This document defines the approved target workflow. The current source and
+Lightroom plug-in still implement the WO-029 prepared-folder single-pass flow;
+the session/pass lifecycle below is `PLANNED`, not implemented or live verified.
 
 ## Goal
 
-Prepare every eligible proprietary-RAW master photo in the current Lightroom folder once, let any file-capable vision AI analyze the exported job folder, save structured decisions, and then apply only validated `crs:Exposure2012` changes to the original XMP sidecars.
+Use Lightroom Classic as the authoritative renderer, analyze exposure in
+scene/event context, apply only guarded `crs:Exposure2012` changes, render again
+through Lightroom, and recheck until no meaningful automatic correction
+remains or difficult images are settled as REVIEW.
 
-The application does not require a Gemini API call. The AI may be AGY, Gemini CLI, Codex, another desktop app, or any other model that can read local JPEGs and write JSON files.
+The workflow is provider-agnostic. A file-capable agent, a free/local vision
+model adapter, or an optional API adapter may produce the same untrusted pass
+decision files. No paid API or named provider is required by the core system.
 
-## Canonical lifecycle
-
-```text
-open exactly one Lightroom folder
-→ Prepare Current Folder
-→ read every eligible RAW master photo in that folder
-→ read-only cache snapshot and preview extraction once
-→ durable runtime/jobs/<job-id>/ bundle
-→ external AI reads AI_TASK.md + AI_SKILLS.md + previews
-→ external AI writes decisions/<image_id>.json
-→ Process Prepared Job (optional validation-only)
-→ Apply Prepared Job (explicit authorization)
-→ backup each XMP
-→ update only crs:Exposure2012
-→ verify or rollback each file
-→ Lightroom reads metadata from successful XMP files
-```
-
-No Ctrl+A photo selection is required for preparation.
-
-## Phase 1 — Prepare once
-
-The Lightroom command **AI Exposure Assist — Prepare Current Folder**:
-
-1. Reads `catalog:getActiveSources()` and requires exactly one active `LrFolder`.
-2. Calls `folder:getPhotos(false)` to read every photo directly contained in that folder; child folders are not included.
-3. Includes proprietary-RAW master photos only. Virtual copies, videos, DNG/JPEG/TIFF/PSD and other non-RAW formats, missing source paths, and duplicate source paths are excluded. This is required because the project is sidecar-only and must never write metadata into source image files.
-4. Writes `selection.json` with source folder, Lightroom `image_id`, RAW path, UUID, and exclusion counts.
-5. Snapshots `previews.db` and `root-pixels.db` read-only.
-6. Extracts one current-rendered JPEG preview per eligible RAW master where available.
-7. Copies the complete four-skill visual judgment policy into `AI_SKILLS.md`, writes `AI_TASK.md`, and writes the strict decision schema.
-8. Records SHA-256 for `selection.json`, `manifest.json`, `AI_TASK.md`, `AI_SKILLS.md`, and `decision-schema.json` in `job-state.json`.
-9. Writes the durable job state and latest-job pointer.
-10. Stops without calling AI and without touching XMP.
-
-Prepared job layout:
+## Target lifecycle
 
 ```text
-runtime/jobs/<job-id>/
-├── selection.json
-├── manifest.json
-├── job-state.json
-├── AI_TASK.md
-├── AI_SKILLS.md
-├── decision-schema.json
-├── previews/
-├── decisions/
-├── xmp_backups/
-├── results/
-└── logs/
+DIAGNOSE_CURRENT_FOLDER
+-> START_EXPOSURE_SESSION
+-> CAPTURE_PASS_1_FROM_LIGHTROOM_CACHE
+-> VISION_GROUP_AND_JUDGE
+-> VALIDATE_PASS_DECISIONS
+-> APPLY_ADJUST_ONLY
+-> LIGHTROOM_METADATA_REFRESH
+-> PROVE_NEW_RENDER_GENERATION
+-> CAPTURE_NEXT_IMMUTABLE_PASS
+-> RECHECK_UNRESOLVED_IMAGES_WITH_GROUP_REFERENCES
+-> CONVERGED | REVIEW_REQUIRED | SAFE_STOP
 ```
 
-A prepared job must contain photos from exactly one source folder. The plug-in prepares the complete eligible folder in one cache handoff. If representative runtime limits later require chunking, chunks must be derived from this one prepared job rather than repeating Lightroom cache extraction.
+No Ctrl+A selection is required. One session contains directly contained
+eligible proprietary-RAW masters from exactly one active `LrFolder`.
 
-## Phase 2 — External AI review
+## Phase 0 - Diagnostic-first preflight
 
-The prepared job is self-contained. The AI does not need repository access. It must read `AI_TASK.md`, `AI_SKILLS.md`, `manifest.json`, and every FOUND preview. `AI_SKILLS.md` contains the complete current contents of all four canonical project skills and their Markdown/JSON references and examples:
+`DIAGNOSE_CURRENT_FOLDER` is the first implementation seam. It must gather all
+independent evidence that can be obtained safely in one Lightroom run and must
+write machine-readable and human-readable reports even when eligible RAW count
+is zero. Its detailed contract is in `docs/DIAGNOSTIC_PREFLIGHT.md`.
 
-- `exposure-judgment`
-- `batch-consistency-review`
-- `image-relevance-triage`
-- `visual-quality-safety`
+Diagnostics never create an exposure session, invoke AI, modify XMP, refresh
+metadata, or write to the Lightroom catalog or live preview cache.
 
-The AI evaluates:
+## Exposure Session
 
-- intended subject and person priority;
-- subject and background exposure;
-- scene intent and atmosphere;
-- highlight and shadow safety;
-- focus, blur, obstruction, accidental/test-shot evidence, and usability;
-- event/narrative relevance and duplicate/supporting value;
-- grouping, reference-frame choice, and consistency across similar images;
-- a bounded exposure delta;
-- KEEP, REVIEW, or SKIP outcomes.
+A session freezes session/source-folder identity, ordered eligible Lightroom
+IDs/UUIDs/RAW/XMP paths, eligibility evidence, initial XMP value/hash evidence,
+the scene-group ledger, pass lineage, and the pilot policy snapshot.
 
-The AI writes exactly one JSON file for every FOUND manifest entry to:
+Target layout:
 
 ```text
-runtime/jobs/<job-id>/decisions/<image_id>.json
+runtime/sessions/<session-id>/
+|-- session.json
+|-- selection.json
+|-- groups.json
+|-- policy.json
+|-- passes/
+|   |-- 0001-<pass-id>/
+|   |   |-- pass-state.json
+|   |   |-- manifest.json
+|   |   |-- render-evidence.json
+|   |   |-- AI_TASK.md
+|   |   |-- AI_SKILLS.md
+|   |   |-- decision-schema.json
+|   |   |-- previews/
+|   |   |-- decisions/
+|   |   |-- results/
+|   |   `-- apply-evidence.json
+|   `-- 0002-<pass-id>/
+`-- xmp_backups/
 ```
 
-The AI never edits RAW, XMP, Lightroom catalog, preview cache, manifest, `AI_TASK.md`, `AI_SKILLS.md`, schema, or preview files. Only files under `decisions/` are writable AI output.
+Each pass has a unique `pass_id`, monotonic `pass_number`, and
+`parent_pass_id`. Pass 1 uses `parent_pass_id: null`; every later pass points to
+the immediately preceding pass. Captured pass inputs are immutable.
 
-## Phase 3 — Validate saved decisions
+## Pass 1 and scene groups
 
-`lr-ai-exposure --process-job <job-id>` reopens the existing job. It does not read the Lightroom cache and does not create a new job.
+Pass 1 captures every available current Lightroom-rendered preview. External
+vision AI inspects the whole folder, identifies intended subjects, creates
+scene/event groups, chooses reliable reference frames, and returns one
+PASS/ADJUST/REVIEW decision per in-scope FOUND preview.
 
-Before reading decisions, the program recalculates and verifies the SHA-256 of all immutable prepared-job inputs. Any alteration or deletion of `selection.json`, `manifest.json`, `AI_TASK.md`, `AI_SKILLS.md`, or `decision-schema.json` invalidates the job and fails closed.
+Scene groups persist across passes by default. If later evidence conflicts
+with a group, the image becomes REVIEW or the controller records a deterministic
+group split with parent group, reason, evidence, affected IDs, and effective
+pass. Silent regrouping is forbidden.
 
-Validation then rejects the whole analysis batch before apply when decision files are missing, unknown, duplicated, malformed, outside the job directory, or identity-mismatched. It also verifies preview byte size and SHA-256 before importing each response. Validated decisions are written to `ai-decisions.json`, `analysis-records.json`, and `analysis-evidence.json`.
+## Decision meanings
 
-## Phase 4 — Apply saved decisions
+- `PASS` - exposure is meaningfully consistent with scene intent and group
+  references. Delta is exactly `0.0`; XMP is not written.
+- `ADJUST` - a finite bounded delta is justified and all automatic safety gates
+  pass. Only this state may reach XMP authorization.
+- `REVIEW` - automatic action is unsafe or unresolved. Delta is exactly `0.0`;
+  XMP is not written.
 
-The Lightroom command **AI Exposure Assist — Apply Prepared Job** requires the same source folder to be active, then invokes:
+Unavailable/stale previews, low confidence, contradictory scene evidence,
+highlight/shadow risk, oscillation, identity mismatch, and unverifiable
+metadata/render state settle as REVIEW or a stricter session stop.
 
-```text
-lr-ai-exposure --apply-job <job-id> --authorize-apply <job-id>
-```
+## Pilot convergence policy
 
-This explicit operation and exact job-ID token are the two authorization keys. The application derives the per-image allowlist only from decisions that are:
+These are **PILOT DEFAULTS**, not production constants:
 
-- relevance `KEEP`;
-- quality `KEEP`;
-- at or above the configured confidence threshold;
-- free of highlight/shadow risk flags;
-- finite and within configured EV bounds;
-- non-zero delta.
+- meaningful correction tolerance: `0.10 EV`;
+- quantization: `0.05 EV`;
+- maximum automatic delta per pass: `+/-1.0 EV`;
+- maximum cumulative automatic delta per image: `+/-2.0 EV`;
+- `maximum_passes = 4`;
+- passes 1-3 may authorize ADJUST; pass 4 is verification-only.
 
-`REVIEW`, `SKIP`, low-confidence, risky, missing-preview, and zero-delta images receive terminal skip records and are not mutated.
+Representative Lightroom evidence must calibrate production policy. Python
+loads the policy snapshot, validates it, and records the exact values used.
 
-## XMP transaction
+## Apply and metadata synchronization
 
-For every authorized image:
+Before apply, Python reconciles session/pass identity, exact image sets, source
+containment, prior XMP value/hash, decision state, confidence, risk, pass and
+cumulative bounds, and explicit authorization. It then reuses the existing
+transactional XMP procedure.
 
-1. Reconcile selection, manifest, UUID, RAW path, XMP path, and decision ID.
-2. Confirm the target remains inside the prepared source folder.
-3. Read the existing `crs:Exposure2012` value.
-4. Create a byte-preserving backup and verify SHA-256.
-5. Write a validated temporary XMP.
-6. Atomically replace the original XMP.
-7. Verify the new value and final SHA-256.
-8. Roll back from the verified backup if post-write validation fails.
-9. Stop the batch immediately if rollback itself fails.
+Metadata synchronization fails closed only when safe catalog/sidecar state
+cannot be proven. The system must not require the owner to Save Metadata on
+every run without evidence that synchronization is necessary.
 
-Only `crs:Exposure2012` may change. RAW files, JPEG originals, Lightroom catalogs, and preview caches are never mutated.
+## Lightroom render barrier
 
-## Resume and evidence
+After `APPLIED_VERIFIED`, the plug-in refreshes Lightroom metadata for those
+images. A later pass may judge an adjusted image only when all three render
+freshness dimensions reconcile:
 
-`apply-evidence.json` is checkpointed after every image. Settled images are not processed twice. Every eligible RAW master receives one terminal record, including images whose previews could not be extracted.
+1. XMP/read-back evidence equals the expected `Exposure2012`;
+2. the capture belongs to a new pass/render generation linked to the applied
+   pass;
+3. refreshed preview evidence, including byte/hash evidence, is present and
+   consistent with that generation.
 
-The latest prepared job pointer is:
+A changed preview hash alone is insufficient. If freshness cannot be proven
+within a bounded wait, settle the image as `REVIEW_RENDER_UNPROVEN` or stop the
+dependent pass; never apply another correction from a stale preview.
 
-```text
-runtime/staging/latest-prepared-job.json
-```
+## Later passes and safe stop
 
-Runtime jobs, previews, decisions, logs, and XMP backups are untracked runtime artifacts and must not be committed.
+Later passes capture unresolved images plus stable group references. AI judges
+the residual correction against the persisted group. Python detects sign
+reversal, exposure-state revisit, cumulative bounds, no-progress, and maximum
+passes. Oscillating or non-improving images become REVIEW without blocking safe
+independent groups unless a session-wide invariant failed.
+
+The session stops successfully when no ADJUST remains and every image is PASS
+or REVIEW. It stops safely on maximum passes, render-generation failure,
+metadata-sync uncertainty, active-folder/identity mismatch, immutable artifact
+change, XMP divergence, authorization failure, corrupted checkpoint, or fatal
+rollback failure.
+
+Runtime artifacts, previews, decisions, evidence, logs, and backups remain
+untracked and must never be committed.
