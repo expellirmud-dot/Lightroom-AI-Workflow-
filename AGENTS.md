@@ -264,6 +264,27 @@ Unresolved architecture conflict, unavailable required proof, destructive
 action, credentials, or paid API use without owner approval are stop
 conditions. Dirty state is handled by the classification below.
 
+## On-Demand Repository Intelligence
+
+Serena and CodeGraph remain available as on-demand aids; neither is a default
+preflight or orientation requirement. Documentation-only work and ordinary
+bounded implementation proceed without either MCP when targeted search and
+bounded reads answer the concrete question.
+
+- Use the smallest sufficient tool: targeted search, then bounded reads or
+  ordinary symbol lookup, then Serena for material semantic navigation, and
+  CodeGraph for material dependency/caller/callee impact questions.
+- Record an unused Serena or CodeGraph capability as `NOT_REQUIRED`, never as
+  failed or unverified.
+- `BLOCKED_SERENA` or `BLOCKED_CODEGRAPH` is valid only when the concrete task
+  genuinely requires that capability, no smaller authoritative method can
+  answer the question safely, and continuing would materially risk correctness.
+- Never retrieve the same unchanged source body through multiple mechanisms
+  without a concrete reason. Stop retrieval once sufficient evidence exists.
+- Do not repeat `initial_instructions`, project activation, configuration
+  reads, or broad graph exploration when project identity and relevant truth
+  are already established.
+
 ## Dirty Worktree Classification
 
 Classify every dirty path before deciding whether work may continue:

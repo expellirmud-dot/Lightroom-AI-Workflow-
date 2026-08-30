@@ -1,5 +1,5 @@
 STATUS: COMPLETED
-ACTIVE_WORK_ORDER: Work-Order/WO-032-WHOLE-FOLDER-BATCH.md
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-032-WHOLE-FOLDER-BATCH.md
+ACTIVE_WORK_ORDER: Work-Order/WO-033-ON-DEMAND-REPOSITORY-INTELLIGENCE.md
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-033-ON-DEMAND-REPOSITORY-INTELLIGENCE.md
 BLOCK_REASON: NONE
-NOTE: Whole-folder analysis implementation is complete. All recursive collection, batch schema, and iterative pass foundation models are implemented. All 218 tests pass.
+NOTE: Serena and CodeGraph are now on-demand aids; default preflight reports NOT_REQUIRED. Governance and full regression validation passed without Lightroom runtime changes.

@@ -1,89 +1,95 @@
-# Serena and CodeGraph Protocol
+# Serena and CodeGraph On-Demand Protocol
 
-This reference document defines the exact protocol for activating,
-verifying, and using Serena and CodeGraph during the project-read-first
-preflight.
+This reference defines when Serena or CodeGraph materially improves a concrete
+repository question. Both capabilities remain available, but neither is a
+default preflight or orientation requirement.
+
+## Default State
+
+- Serena = `ON_DEMAND`.
+- CodeGraph = `ON_DEMAND`.
+- Documentation-only work and ordinary bounded implementation use targeted
+  search and bounded reads without invoking either MCP when those methods are
+  sufficient.
+- An MCP capability that the task does not need is `NOT_REQUIRED`, not failed,
+  unavailable, or unverified.
+
+Use the smallest sufficient tool in this order for ordinary source work:
+
+1. targeted search;
+2. bounded line or file reads;
+3. ordinary symbol lookup when useful;
+4. Serena when semantic symbol/navigation reasoning materially helps;
+5. CodeGraph when dependency/caller/callee impact reasoning materially helps.
 
 ## Serena Protocol
 
-### Activation
+Use Serena only for a concrete symbol, source, or navigation question where it
+materially improves correctness or efficiency.
 
-The canonical project root must be resolved first using `git rev-parse
---show-toplevel`. Serena is then activated using that exact path:
+When Serena is required:
 
-```python
-mcp__serena__activate_project(project="<canonical-git-root>")
-```
+1. Resolve the canonical project root with `git rev-parse --show-toplevel`.
+2. Activate that exact root only when it is not already the established active
+   project.
+3. Call `get_current_config` only when active-project ambiguity materially
+   affects correctness.
+4. Use symbol bodies only when names/locations are insufficient.
+5. Treat Serena memory as supplementary context, never authority over Git files.
 
-### Verification
-
-After activation, verify Serena reports the correct project:
-
-```python
-config = mcp__serena__get_current_config()
-# assert config.active_project == canonical_git_root or config.projects includes canonical_git_root
-```
-
-### Rules
-
-1. The project path used with `activate_project` must equal the canonical
-   Git root. Do not use a parent, sibling, historical, or previously active project.
-2. If `activate_project` fails or reports a mismatched project, stop with
-   `BLOCKED_PROJECT_MISMATCH`.
-3. If source/symbol reasoning requires Serena and it is unavailable, stop with
-   `BLOCKED_SERENA`. A documentation-only step may record it as not required.
-4. Symbol extraction via Serena only applies to code files in active languages.
-   Markdown docs (README, AGENTS.md, Work Orders) must be read with `read_file`
-   directly — do not route them through Serena symbol tools.
-5. Serena memory is supplementary context only. Do not treat it as authority
-   over Git files.
-
-### Common Failure Modes
-
-| Symptom | Cause | Resolution |
-|---|---|---|
-| Serena returns no symbols for a file | File not in active languages | Use `read_file` directly for docs |
-| `activate_project` fails with unknown project | Project not registered | Check global `serena_config.yml` or use path directly |
-| Tool calls timeout | Serena process not responding | Restart Serena MCP connection |
+Do not call `initial_instructions` repeatedly. Do not repeat `activate_project`
+or `get_current_config` merely to prove availability when the same-thread
+project identity is already established. Markdown authority documents are read
+directly, not through Serena symbol tools.
 
 ## CodeGraph Protocol
 
-### Verification
+Use CodeGraph only for a concrete dependency, caller/callee, or architecture
+impact question that targeted search or ordinary symbol lookup does not answer
+safely.
 
-1. Confirm the indexed repository path equals the canonical Git root.
-2. Confirm the index exists and is recent (compared to file modification times).
-3. If the index is stale, report the stale scope. Do not rebuild or mutate an
-   index during read-first without task authority.
-4. Use CodeGraph for dependency queries, caller/callee analysis, and
-   architecture impact assessments.
+When CodeGraph is required:
 
-### Rules
+1. Verify that the indexed repository path equals the canonical Git root.
+2. Confirm index availability and relevant freshness without rebuilding or
+   mutating an index during read-first unless the task authorizes it.
+3. Use narrow graph queries and normally cap results to three to five relevant
+   files unless the dependency question genuinely requires more.
+4. Request edges or names without source bodies when bodies are unnecessary.
+5. Cross-check material graph results against repository source truth.
 
-1. The indexed path must equal the canonical Git root. Do not index a parent
-   directory that encompasses unrelated repositories.
-2. Cross-check material CodeGraph results against repository source truth.
-   CodeGraph provides hints, not proof.
-3. If CodeGraph cannot be verified for the exact root, the terminal preflight
-   decision must be `BLOCKED_CODEGRAPH`.
+Do not use broad graph exploration as routine orientation. Do not use
+CodeGraph merely to read ordinary source.
 
-### Common Failure Modes
+## Conditional Blocking
 
-| Symptom | Cause | Resolution |
-|---|---|---|
-| CodeGraph returns [] for a file | Index missing or stale | Re-run `codegraph init` |
-| Symbol not found | File not in indexed languages or symbol name wrong | Verify file extension and symbol name |
-| Index corruption | Partial index from interrupted run | Delete `.codegraph/` and re-index |
+`BLOCKED_SERENA` or `BLOCKED_CODEGRAPH` may be emitted only when all three
+conditions hold:
 
-## Combined Protocol
+1. the concrete task genuinely requires that capability;
+2. the necessary question cannot be answered safely through a smaller
+   authoritative method; and
+3. continuing without the capability would materially risk correctness.
 
-Serena and CodeGraph must be verified before source implementation or a step
-whose correctness depends on their results. Documentation-only steps may reuse
-prior verified context or record a tool as not required.
-The preflight produces one terminal decision:
+When a required tool is unavailable, record its status as
+`REQUIRED_BUT_UNAVAILABLE` and the exact question it blocks. A mismatch matters
+only after the tool is deliberately invoked for a required question.
 
-- `READY` — both verified, mandatory documents read
-- `BLOCKED_SERENA` — Serena failed verification
-- `BLOCKED_CODEGRAPH` — CodeGraph failed verification
-- `BLOCKED_PROJECT_MISMATCH` — either tool shows a wrong project root
+## Same-Thread Continuity and Anti-Duplication
 
-Do not proceed to implementation if either tool blocks verification.
+Once repository root, HEAD, authority, and relevant scope are established, use
+delta preflight. Repeat full orientation only when HEAD, the active Work Order,
+a relevant file, or project identity materially changes, or when a previously
+unnecessary capability becomes necessary.
+
+Never retrieve the same unchanged source body through multiple mechanisms
+without a concrete reason. Prohibited churn includes:
+
+- CodeGraph source dump followed by Serena body and ordinary file reads;
+- Serena body read followed by a full-file read of unchanged source;
+- repeated `initial_instructions`, `activate_project`, or
+  `get_current_config` calls without project ambiguity.
+
+Reread only when the file changed, prior output was incomplete, or a new
+concrete question requires a different range or symbol. Stop retrieval and
+implement once sufficient evidence exists.

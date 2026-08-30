@@ -65,20 +65,33 @@ Git status alone is not a stop condition. Never edit, restore, stash, stage,
 commit, or discard a pre-existing owner/local change without explicit owner
 authority.
 
-## 3. Optional: Activate or Verify Serena
+## 3. Serena Is On Demand
 
-If codebase exploration requires Serena, activate it using the canonical Git root:
+Serena = `ON_DEMAND`. Invoke it only for a concrete semantic symbol, source,
+or navigation question where it materially improves correctness or efficiency.
+Documentation-only work and ordinary bounded implementation do not require it.
+When unused, report `SERENA_STATUS: NOT_REQUIRED`.
+
+If the task genuinely requires Serena, activate it using the canonical Git root:
 
 ```python
-mcp__serena__activate_project(project="D:\\ai-tools\\lightroom-ai-exposure")
+mcp__serena__activate_project(project="<canonical-git-root>")
 ```
 
-This step is optional and should only be performed if deep symbol lookup is necessary.
+Do not repeat `initial_instructions`, `activate_project`, or
+`get_current_config` when project identity is already established. Read current
+configuration only when active-project ambiguity materially affects the task.
 
-## 4. Optional: Verify CodeGraph
+## 4. CodeGraph Is On Demand
 
-If dependency reasoning requires CodeGraph, run CodeGraph diagnostics or an introspection query.
-This step is optional and should only be performed if dependency resolution is necessary.
+CodeGraph = `ON_DEMAND`. Invoke it only for a concrete dependency,
+caller/callee, or impact question. Use narrow queries with bounded results and
+normally limit exploration to three to five relevant files. Do not use it to
+read ordinary source. When unused, report `CODEGRAPH_STATUS: NOT_REQUIRED`.
+
+`BLOCKED_SERENA` or `BLOCKED_CODEGRAPH` is conditional: the concrete task must
+genuinely require the capability, no smaller authoritative method may answer
+the question safely, and continuing must materially risk correctness.
 
 ## 5. Read Mandatory Authority Documents (Full Read)
 
@@ -109,9 +122,9 @@ Default targeted behavior:
   entries relevant to the active capabilities.
 - `README.md` — read only sections affected by installation,
   configuration, commands, usage, or supported behavior.
-- Source code — prefer Serena symbol overview, exact symbol reads,
-  CodeGraph dependency queries, and targeted line ranges before full
-  file reads.
+- Source code — use the smallest sufficient tool: targeted search, bounded
+  line reads, ordinary symbol lookup when useful, Serena for material semantic
+  navigation, then CodeGraph for material dependency reasoning.
 
 Escalate to a full read when:
 
@@ -120,6 +133,18 @@ Escalate to a full read when:
 - Definitions are distributed across the file.
 - Targeted sections conflict or remain ambiguous.
 - Closeout requires confirming the complete document remains accurate.
+
+## 6.1 Retrieval Continuity and Anti-Duplication
+
+Never retrieve the same unchanged source body through multiple mechanisms
+without a concrete reason. In particular, do not follow a CodeGraph source
+dump with a Serena body read and a file read, or a Serena body read with a
+full-file read, when the first result already answered the question.
+
+Reread only when the file changed, prior output was incomplete, or a new
+concrete question requires a different range or symbol. Once sufficient source
+evidence is available, stop retrieval and implement. Same-thread work continues
+with delta preflight only when material repository truth changes.
 
 ## 7. Produce Preflight Report
 
@@ -141,6 +166,12 @@ WORK_ORDER_STATUS: <status from Work Order file or NONE>
 CAPABILITY_IDS: <comma-separated capability IDs from matrix>
 ALLOWED_FILES: <count of allowed files listed in Work Order>
 FORBIDDEN_FILES: <count of forbidden paths listed in Work Order>
+
+SERENA_PROJECT: <canonical root when checked, otherwise NOT_REQUIRED>
+SERENA_STATUS: NOT_REQUIRED | READY | AVAILABLE | REQUIRED_BUT_UNAVAILABLE
+CODEGRAPH_PROJECT: <indexed root when checked, otherwise NOT_REQUIRED>
+CODEGRAPH_STATUS: NOT_REQUIRED | READY | AVAILABLE | REQUIRED_BUT_UNAVAILABLE
+CODEGRAPH_SYNC: NOT_REQUIRED | yes | no
 
 FULL_DOCUMENTS_READ: <comma-separated list of files fully read or reused>
 TARGETED_DOCUMENTS_READ: <comma-separated list of targeted reads>

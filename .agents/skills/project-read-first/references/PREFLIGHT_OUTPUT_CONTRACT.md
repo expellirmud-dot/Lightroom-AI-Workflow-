@@ -24,11 +24,11 @@ CAPABILITY_IDS:
 ALLOWED_FILES:
 FORBIDDEN_FILES:
 
-SERENA_PROJECT:
-SERENA_STATUS:
-CODEGRAPH_PROJECT:
-CODEGRAPH_STATUS:
-CODEGRAPH_SYNC:
+SERENA_PROJECT: <canonical root when checked> | NOT_REQUIRED
+SERENA_STATUS: NOT_REQUIRED | READY | AVAILABLE | REQUIRED_BUT_UNAVAILABLE
+CODEGRAPH_PROJECT: <indexed root when checked> | NOT_REQUIRED
+CODEGRAPH_STATUS: NOT_REQUIRED | READY | AVAILABLE | REQUIRED_BUT_UNAVAILABLE
+CODEGRAPH_SYNC: NOT_REQUIRED | yes | no
 
 FULL_DOCUMENTS_READ:
 TARGETED_DOCUMENTS_READ:
@@ -67,11 +67,11 @@ BLOCK_REASON:
 | `CAPABILITY_IDS` | Comma-separated capability IDs from CAPABILITY_MATRIX.md |
 | `ALLOWED_FILES` | Count of files in the Work Order Allowed Files list |
 | `FORBIDDEN_FILES` | Count of paths in the Work Order Forbidden Files/Actions list |
-| `SERENA_PROJECT` | Serena project name or path used |
-| `SERENA_STATUS` | `active_verified` or `not_verified` |
-| `CODEGRAPH_PROJECT` | CodeGraph indexed path |
-| `CODEGRAPH_STATUS` | `index_available` or `not_available` |
-| `CODEGRAPH_SYNC` | `yes` (index current) or `no` (stale) |
+| `SERENA_PROJECT` | Canonical root checked when Serena is required; otherwise `NOT_REQUIRED` |
+| `SERENA_STATUS` | `NOT_REQUIRED`, `READY`, `AVAILABLE`, or `REQUIRED_BUT_UNAVAILABLE` |
+| `CODEGRAPH_PROJECT` | Indexed root checked when CodeGraph is required; otherwise `NOT_REQUIRED` |
+| `CODEGRAPH_STATUS` | `NOT_REQUIRED`, `READY`, `AVAILABLE`, or `REQUIRED_BUT_UNAVAILABLE` |
+| `CODEGRAPH_SYNC` | `NOT_REQUIRED`, `yes` (relevant index current), or `no` (relevant index stale) |
 | `FULL_DOCUMENTS_READ` | List of files fully read |
 | `TARGETED_DOCUMENTS_READ` | List of files read with targeted sections |
 | `SOURCE_SYMBOLS_INSPECTED` | List of symbols inspected via Serena/CodeGraph |
@@ -91,9 +91,18 @@ BLOCK_REASON:
 |---|---|
 | `READY` | Required checks passed; explicitly excluded NON_BLOCKING dirty state is permitted |
 | `BLOCKED_DIRTY_WORKTREE` | Dirty state is BLOCKING or CRITICAL |
-| `BLOCKED_PROJECT_MISMATCH` | Serena/CodeGraph project does not match Git root |
-| `BLOCKED_SERENA` | Serena cannot be activated or verified |
-| `BLOCKED_CODEGRAPH` | CodeGraph cannot be verified |
+| `BLOCKED_PROJECT_MISMATCH` | A deliberately invoked, task-required tool reports a project that does not match the Git root |
+| `BLOCKED_SERENA` | The task genuinely requires Serena, no smaller authoritative method is safe, and Serena is unavailable |
+| `BLOCKED_CODEGRAPH` | The task genuinely requires CodeGraph, no smaller authoritative method is safe, and CodeGraph is unavailable |
 | `BLOCKED_MISSING_AUTHORITY` | Mandatory authority document is missing |
 | `BLOCKED_SCOPE_CONFLICT` | Active Work Order scope is ambiguous |
 | `BLOCKED_OWNER_DECISION` | Action requires owner authorization |
+
+## Default MCP Status
+
+Serena and CodeGraph are on-demand capabilities. Default preflight performs no
+MCP activation or graph verification and records both as `NOT_REQUIRED`.
+Documentation-only work and ordinary bounded implementation therefore proceed
+without invoking either tool. `REQUIRED_BUT_UNAVAILABLE` and the corresponding
+blocking decision are valid only for a concrete tool-dependent question that
+cannot be answered safely through a smaller authoritative method.

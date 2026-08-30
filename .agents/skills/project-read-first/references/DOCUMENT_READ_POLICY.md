@@ -34,7 +34,7 @@ reads (offset/limit around the relevant section) as the default.
 | `docs/CAPABILITY_MATRIX.md` | Status definitions plus rows for capability IDs named by the active Work Order |
 | `docs/VALIDATION_REGISTER.md` | Schema/header and the latest entries relevant to the active capabilities |
 | `README.md` | Only sections affected by installation, configuration, commands, usage, or supported behavior |
-| Source code | Prefer Serena symbol overview, exact symbol reads, CodeGraph dependency queries, and targeted line ranges before full-file reads |
+| Source code | Use the smallest sufficient tool: targeted search, bounded line reads, ordinary symbol lookup when useful, Serena for material semantic navigation, then CodeGraph for material dependency reasoning |
 
 ### Escalation Rules
 
@@ -51,6 +51,19 @@ Escalate to a full read when:
 
 - Do not escalate to a full read of user-photo data, RAW files, Lightroom catalogs, or XMP sidecars containing real photography data.
 - Do not escalate reads beyond what the active Work Order's Required Read Order allows.
+
+## On-Demand Tool Selection and Anti-Duplication
+
+Serena = `ON_DEMAND` for concrete semantic symbol/source/navigation questions.
+CodeGraph = `ON_DEMAND` for concrete dependency, caller/callee, or impact
+questions. Documentation-only work and ordinary bounded implementation proceed
+without either MCP when targeted search and bounded reads are sufficient.
+
+Never retrieve the same unchanged source body through multiple mechanisms
+without a concrete reason. Do not repeat orientation, Serena activation or
+configuration reads, broad graph exploration, or full-file reads merely because
+another implementation step began. Reread only after a material file/truth
+change, incomplete prior output, or a new concrete question.
 
 ## Priority Rules
 

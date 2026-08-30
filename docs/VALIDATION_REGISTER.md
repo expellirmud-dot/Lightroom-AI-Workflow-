@@ -117,3 +117,15 @@ behavior.
 These rows support `INTEGRATED` for CAP-043 only. They do not prove the
 Lightroom-hosted Lua path, the current problem folder, metadata synchronization,
 or any real XMP mutation.
+
+## WO-033 - On-Demand Repository Intelligence Governance
+
+| ID | Date | Evidence | Result | Scope |
+|---|---|---|---|---|
+| VLD-125 | 2026-08-30 | TDD RED run for `tests/test_project_read_first_skill.py` | 4 expected governance-contract failures | proved the old policy lacked on-demand, `NOT_REQUIRED`, conditional blocking, and anti-duplication contracts |
+| VLD-126 | 2026-08-30 | Focused governance suite plus preflight script | 12 passed; script emitted both MCP statuses as `NOT_REQUIRED` and `PREFLIGHT_DECISION=READY` | project-read-first policy and default preflight only; neither MCP invoked |
+| VLD-127 | 2026-08-30 | Full pytest suite | 243 passed, 2 skipped, 2 environment/dependency warnings | complete automated repository regression after adding the local `tests` package marker; skips are legacy integration and unavailable Lua interpreter |
+| VLD-128 | 2026-08-30 | `python -m compileall -q src tests` and `git diff --check` | passed; line-ending normalization warnings only | Python syntax and tracked diff hygiene |
+
+WO-033 changes governance and test import resolution only. It does not provide
+new Lightroom-hosted runtime, session, cache, AI, or XMP evidence.

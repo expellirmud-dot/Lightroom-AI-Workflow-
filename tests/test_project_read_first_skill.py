@@ -123,6 +123,77 @@ def test_output_contract_has_all_fields() -> None:
         assert field in content, f"Output contract must contain field '{field}'"
 
 
+def test_serena_and_codegraph_are_on_demand_policy_aids() -> None:
+    """Regression: generic implementation must not require either MCP tool."""
+    root = _repo_root()
+    skill_dir = root / ".agents" / "skills" / "project-read-first"
+    skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+    protocol = (skill_dir / "references" / "SERENA_CODEGRAPH_PROTOCOL.md").read_text(
+        encoding="utf-8"
+    )
+    document_policy = (skill_dir / "references" / "DOCUMENT_READ_POLICY.md").read_text(
+        encoding="utf-8"
+    )
+    combined = "\n".join([skill, protocol, document_policy])
+    normalized = " ".join(combined.split())
+
+    assert "Serena = `ON_DEMAND`" in combined
+    assert "CodeGraph = `ON_DEMAND`" in combined
+    assert "ordinary bounded implementation" in normalized
+    assert "documentation-only" in normalized.lower()
+    assert "Serena and CodeGraph must be verified before source implementation" not in combined
+
+
+def test_preflight_accepts_not_required_mcp_statuses() -> None:
+    """Regression: unused MCP capabilities must be reported without blocking."""
+    root = _repo_root()
+    skill_dir = root / ".agents" / "skills" / "project-read-first"
+    contract = (skill_dir / "references" / "PREFLIGHT_OUTPUT_CONTRACT.md").read_text(
+        encoding="utf-8"
+    )
+    script = (skill_dir / "scripts" / "preflight.ps1").read_text(encoding="utf-8")
+
+    assert "SERENA_STATUS=NOT_REQUIRED" in script
+    assert "CODEGRAPH_STATUS=NOT_REQUIRED" in script
+    assert "NOT_REQUIRED" in contract
+    assert "REQUIRED_BUT_UNAVAILABLE" in contract
+
+
+def test_mcp_blocking_decisions_are_conditional() -> None:
+    """Regression: MCP absence blocks only a genuinely MCP-dependent task."""
+    root = _repo_root()
+    protocol = (
+        root
+        / ".agents"
+        / "skills"
+        / "project-read-first"
+        / "references"
+        / "SERENA_CODEGRAPH_PROTOCOL.md"
+    ).read_text(encoding="utf-8")
+    normalized = " ".join(protocol.split())
+
+    assert "concrete task genuinely requires" in normalized
+    assert "smaller authoritative method" in normalized
+    assert "materially risk correctness" in normalized
+    assert "`BLOCKED_SERENA`" in protocol
+    assert "`BLOCKED_CODEGRAPH`" in protocol
+
+
+def test_policy_requires_smallest_sufficient_nonduplicative_retrieval() -> None:
+    """Regression: unchanged source must not be fetched repeatedly across tools."""
+    root = _repo_root()
+    skill_dir = root / ".agents" / "skills" / "project-read-first"
+    skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+    document_policy = (skill_dir / "references" / "DOCUMENT_READ_POLICY.md").read_text(
+        encoding="utf-8"
+    )
+    combined = "\n".join([skill, document_policy])
+
+    assert "smallest sufficient tool" in combined
+    assert "Never retrieve the same unchanged source body through multiple mechanisms" in combined
+    assert "delta preflight" in combined.lower()
+
+
 def test_repository_paths_not_hardcoded() -> None:
     """Skill and script must not hard-code the example repository path."""
     root = _repo_root()
