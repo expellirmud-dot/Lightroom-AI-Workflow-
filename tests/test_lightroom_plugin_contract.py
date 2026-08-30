@@ -2,8 +2,8 @@
 
 These tests validate the plug-in files without a Lightroom runtime:
 - Info.lua parses as valid Lua when a Lua interpreter is available.
-- Required files exist.
-- Info.lua declares the SDK, identity, workflow commands, and version fields.
+- Required canonical and retained compatibility files exist.
+- Info.lua declares the SDK, identity, decoupled workflow commands, and version.
 - Runtime modules define implementation entry points.
 - Metadata/bootstrap files contain no runtime side effects.
 """
@@ -27,6 +27,11 @@ REQUIRED_FILES = [
     "Info.lua",
     "PluginInit.lua",
     "DiagnoseCurrentFolder.lua",
+    "PrepareAIPackage.lua",
+    "ImportApplyAIResults.lua",
+    "PrepareNextAIPackage.lua",
+    "SessionPackageSupport.lua",
+    # Retained compatibility surfaces.
     "IterativeSession.lua",
     "ResumeIterativeSession.lua",
     "RunExposureAssist.lua",
@@ -67,8 +72,9 @@ def test_info_metadata_valid() -> None:
         "LrPluginName",
         "LrLibraryMenuItems",
         "DiagnoseCurrentFolder.lua",
-        "IterativeSession.lua",
-        "ResumeIterativeSession.lua",
+        "PrepareAIPackage.lua",
+        "ImportApplyAIResults.lua",
+        "PrepareNextAIPackage.lua",
         "RunExposureAssist.lua",
         "ApplyPreparedJob.lua",
         "VERSION",
@@ -82,24 +88,32 @@ def test_info_metadata_valid() -> None:
     assert "LrPluginInit =" not in src
 
 
-def test_info_declares_workflow_and_legacy_commands() -> None:
+def test_info_declares_decoupled_workflow_and_legacy_commands() -> None:
     src = _read("Info.lua")
     assert "Diagnose Current Folder" in src
-    assert "Prepare Whole-Folder Iterative Session" in src
-    assert "Resume Pending Iterative Session" in src
-    assert "Prepare Current Folder" in src
-    assert "Apply Prepared Job" in src
-    assert 'file = "IterativeSession.lua"' in src
-    assert 'file = "ResumeIterativeSession.lua"' in src
+    assert "Prepare AI Package" in src
+    assert "Import / Apply AI Results" in src
+    assert "Prepare Next AI Package" in src
+    assert "Prepare Current Folder (Legacy Single Pass)" in src
+    assert "Apply Prepared Job (Legacy Single Pass)" in src
+    assert 'file = "PrepareAIPackage.lua"' in src
+    assert 'file = "ImportApplyAIResults.lua"' in src
+    assert 'file = "PrepareNextAIPackage.lua"' in src
     assert 'file = "RunExposureAssist.lua"' in src
     assert 'file = "DiagnoseCurrentFolder.lua"' in src
     assert 'file = "ApplyPreparedJob.lua"' in src
+    assert 'file = "IterativeSession.lua"' not in src
+    assert 'file = "ResumeIterativeSession.lua"' not in src
     assert "enabledWhen" not in src
 
 
 def test_runtime_modules_have_run_entries() -> None:
     modules = {
         "DiagnoseCurrentFolder.lua": "DiagnoseCurrentFolder",
+        "PrepareAIPackage.lua": "PrepareAIPackage",
+        "ImportApplyAIResults.lua": "ImportApplyAIResults",
+        "PrepareNextAIPackage.lua": "PrepareNextAIPackage",
+        # Retained compatibility surfaces still must remain loadable.
         "IterativeSession.lua": "IterativeSession",
         "ResumeIterativeSession.lua": "ResumeIterativeSession",
         "RunExposureAssist.lua": "RunExposureAssist",

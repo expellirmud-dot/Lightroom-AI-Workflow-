@@ -2,91 +2,117 @@
 
 ## Approved target architecture
 
-- The canonical target is a provider-agnostic Exposure Session composed of
-  immutable iterative passes.
-- Lightroom Classic is the authoritative renderer. The system does not replace
-  Lightroom's preset, color, or rendering engine.
-- `DIAGNOSE_CURRENT_FOLDER` is the first implementation seam and aggregates all
-  independently discoverable readiness problems in one run.
-- External vision AI owns subject/scene/group/reference/outlier judgment and
-  returns PASS, ADJUST, or REVIEW through an untrusted file contract.
-- Deterministic Python owns identity, pass lineage, schema, render freshness,
-  convergence, oscillation, bounds, authorization, evidence, and XMP safety.
-- The Lightroom plug-in remains a thin coordinator and never hosts AI, writes
-  XMP, or queries SQLite itself.
+- The canonical target is a provider-agnostic Exposure Session composed of immutable iterative passes.
+- Lightroom Classic is the authoritative renderer. The system does not replace Lightroom's preset, color, or rendering engine.
+- External vision AI owns photographic/semantic judgment and writes untrusted decision JSON only.
+- Deterministic Python owns preview-cache extraction, identity/schema validation, pass lineage, render freshness, convergence, bounds and deterministic planning.
+- The Lightroom plug-in owns Lightroom identity capture plus explicit Prepare / Import-Apply / Prepare-Next commands.
+- The durable session/pass directory is the IPC boundary between Lightroom, Python and external AI.
+
+## WO-037 decoupling decision
+
+The Lightroom plug-in must not remain alive waiting for AI and must not own a resident AI connection, polling loop, browser session, provider client or API credential.
+
+Canonical command ownership is:
+
+```text
+Prepare AI Package
+-> save durable pass package
+-> PACKAGE_READY
+-> plug-in exits
+
+External AI Runner
+-> runs later, optionally with Lightroom closed
+-> reads package
+-> writes decisions
+-> exits
+
+Import / Apply AI Results
+-> validate/freeze exact decisions
+-> guarded Exposure2012-only apply + Lightroom verification
+-> SESSION_COMPLETE or RERENDER_REQUIRED
+-> plug-in exits
+
+Prepare Next AI Package
+-> explicit command after rerender
+-> next immutable pass
+-> PACKAGE_READY
+-> plug-in exits
+```
+
+A single generic Resume command is not the canonical user workflow because it mixes result import, mutation, rerender boundary and next-pass capture.
+
+Legacy `IterativeSession.lua` / `ResumeIterativeSession.lua` may remain temporarily for compatibility, but canonical menu routing uses the explicit WO-037 commands.
+
+## Preview-cache decision
+
+- Lightroom plug-in supplies identity and current Catalog `Exposure2012`.
+- Python, not Lua, owns `Previews.lrdata` snapshot/mapping/JPEG extraction.
+- Cache access is read-only through validated snapshots.
+- Python must never infer job scope from cache contents alone; the Lightroom identity handoff is authoritative for which source images belong to the pass.
+- Extracted JPEG previews are Lightroom-rendered evidence for AI, not replacement renderings.
 
 ## Session and pass decisions
 
 - Use `parent_pass_id`, not `parent_job_id`.
-- Pass 1 has `parent_pass_id: null`; later passes point to the immediately
-  preceding immutable pass.
-- Scene groups persist by default. Contradictory evidence causes REVIEW or a
-  provenance-recorded safe split, never silent regrouping.
-- Later passes inspect unresolved images with stable group references.
-- PASS and REVIEW are non-mutating. Only validated ADJUST may be authorized.
-- The session converges when no meaningful ADJUST remains and every image is
-  PASS or REVIEW.
+- Pass 1 is created only by Prepare AI Package.
+- A later pass is created only by Prepare Next AI Package.
+- Import / Apply AI Results never creates another pass implicitly.
+- A confirmed pass is never silently re-applied.
+- PASS and REVIEW are non-mutating. Only validated ADJUST may enter apply planning.
 
-## Pilot defaults
+## Current iterative mutation decision
 
-`0.10 EV` meaningful tolerance, `0.05 EV` quantization, `+/-1.0 EV` per pass,
-`+/-2.0 EV` cumulative, and `maximum_passes = 4` are pilot defaults only.
-They are policy data to calibrate with representative Lightroom evidence, not
-production constants.
+WO-037 does not redesign mutation. It reuses WO-034's Catalog-authoritative iterative safeguards:
 
-## Render and metadata decisions
+- read current Catalog Exposure2012;
+- compare it against the expected pre-apply value;
+- apply only `{ Exposure2012 = target }`;
+- read back the Catalog value;
+- advance state only from Lightroom-observed `APPLIED_VERIFIED` evidence.
 
-- Render freshness requires expected Exposure2012, new pass/generation
-  identity, and refreshed preview evidence/hash. Hash alone is insufficient.
-- The next correction must never use an unproven or stale Lightroom preview.
-- Metadata synchronization fails closed when safe catalog/sidecar state cannot
-  be proven.
-- The owner is asked to Save Metadata only when evidence shows that action is
-  necessary; uncertainty alone does not create an unconditional ritual.
+Legacy transactional XMP capabilities remain preserved outside this orchestration change and are not expanded by WO-037.
+
+## Render decision
+
+- A non-converged confirmed pass ends at `RERENDER_REQUIRED`.
+- The next correction cannot be prepared implicitly from the apply command.
+- Prepare Next AI Package is the explicit render-generation boundary.
+- Python's existing render barrier must reject stale/unproven previews before the next pass advances.
 
 ## Provider decisions
 
 - The canonical AI boundary is a filesystem pass package.
-- File-capable agents, free/local vision models, and optional API adapters write
-  the same schema.
+- File-capable agents, free/local vision models, AI desktop/web apps and optional API adapters may all produce the same decision contract.
 - Provider/model identity is audit metadata, not authority.
-- Credentials and network dependencies belong to optional adapters and are not
-  required by the core workflow.
+- Credentials and network dependencies belong only to optional external adapters.
+- No API key is required by the Lightroom plug-in or package/session core.
 
 ## Preserved decisions
 
-- exactly one active folder and direct proprietary-RAW master scope;
-- sidecar-only mutation and manual final export;
-- read-only Lightroom preview-cache snapshots;
+- exactly one active Lightroom folder and proprietary-RAW master scope;
+- no direct Catalog database access;
+- no `.lrdata` writes;
 - ordered identity manifests and preview byte/SHA verification;
-- exact path containment and explicit two-key apply authorization;
-- sequential transactional backup, temporary write, atomic replace,
-  verification, rollback, and per-image checkpoint;
-- runtime artifacts and secrets are never committed.
+- external AI has no mutation authority;
+- only Exposure2012 is writable in the WO-037 iterative Catalog path;
+- final JPEG export remains manual;
+- runtime artifacts and credentials are never committed.
 
-## Superseded canonical assumptions
+## Deferred decisions
 
-The following remain current implementation/legacy compatibility only and are
-not the approved target:
+WO-037 intentionally does not settle:
 
-- prepare the cache once and never recapture after apply;
-- one-shot/single-pass exposure correction;
-- one lifetime terminal settlement per job/image;
-- `SinglePassDecision` with KEEP/REVIEW/SKIP as the canonical output;
-- global latest-prepared-job pointer as workflow authority;
-- provider/API configuration in the core execution contract;
-- fail-fast Lightroom eligibility with one generic zero-RAW error;
-- preview hash alone as render freshness proof;
-- any dirty Git status automatically blocking unrelated scoped work.
+- AI model/provider quality;
+- image batching/contact-sheet size;
+- candidate/reference retrieval redesign;
+- scene/group architecture redesign;
+- provider-specific transport automation.
+
+Those are independent of the Lightroom/package boundary and must be addressed in later evidence-driven work.
 
 ## Governance decisions
 
-- Dirty paths are classified `NON_BLOCKING`, `BLOCKING`, or `CRITICAL` by
-  material risk to safety, correctness, authorization, scope, or proof.
-- Explicitly identified unrelated owner changes may remain untouched and
-  excluded from task output.
-- A completed same-thread read-first preflight is reusable while HEAD,
-  authority pointer, relevant-file fingerprints, task context, and tool context
-  remain unchanged.
-- Subsequent steps use delta preflight; full rereads occur only after a material
-  repository/context change or an explicit policy requirement.
+- Dirty paths are classified `NON_BLOCKING`, `BLOCKING`, or `CRITICAL` by material risk.
+- A completed same-thread read-first preflight may be reused while authority and relevant repository fingerprints remain unchanged.
+- Serena/CodeGraph are on-demand rather than mandatory preflight gates.

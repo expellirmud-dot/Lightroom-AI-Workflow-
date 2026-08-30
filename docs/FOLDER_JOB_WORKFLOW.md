@@ -1,162 +1,160 @@
 # Canonical Exposure Session Workflow
 
-This document defines the approved target workflow. The current source and
-Lightroom plug-in still implement the WO-029 prepared-folder single-pass flow;
-the session/pass lifecycle below is `PLANNED`, not implemented or live verified.
+## Current evidence boundary
+
+The iterative session/pass runtime exists in source and automated CI evidence
+through WO-034..036, but representative Lightroom Classic end-to-end evidence
+is still pending. WO-037 decouples the Lightroom commands from external AI
+execution without testing any AI provider/model.
 
 ## Goal
 
-Use Lightroom Classic as the authoritative renderer, analyze exposure in
-scene/event context, apply only guarded `crs:Exposure2012` changes, render again
-through Lightroom, and recheck until no meaningful automatic correction
-remains or difficult images are settled as REVIEW.
+Use Lightroom Classic as the authoritative renderer, save a self-contained AI
+package to disk, let an external vision-capable application process that package
+later, and return only structured decisions for guarded `Exposure2012`
+application.
 
-The workflow is provider-agnostic. A file-capable agent, a free/local vision
-model adapter, or an optional API adapter may produce the same untrusted pass
-decision files. No paid API or named provider is required by the core system.
+The Lightroom plug-in must never stay alive waiting for AI.
 
-## Target lifecycle
+## User workflow
 
 ```text
-DIAGNOSE_CURRENT_FOLDER
--> START_EXPOSURE_SESSION
--> CAPTURE_PASS_1_FROM_LIGHTROOM_CACHE
--> VISION_GROUP_AND_JUDGE
--> VALIDATE_PASS_DECISIONS
--> APPLY_ADJUST_ONLY
--> LIGHTROOM_METADATA_REFRESH
--> PROVE_NEW_RENDER_GENERATION
--> CAPTURE_NEXT_IMMUTABLE_PASS
--> RECHECK_UNRESOLVED_IMAGES_WITH_GROUP_REFERENCES
--> CONVERGED | REVIEW_REQUIRED | SAFE_STOP
+1. Lightroom: open exactly one source folder
+2. Apply the desired Lightroom preset / Develop baseline
+3. Lightroom: AI Exposure Assist — Prepare AI Package
+4. Plug-in + Python save one durable pass package and exit (PACKAGE_READY)
+5. Run the external AI application later and point it at that package
+6. AI writes decision JSON into the pass decisions folder and exits
+7. Lightroom: reopen the same source folder if necessary
+8. Lightroom: AI Exposure Assist — Import / Apply AI Results
+9. Plug-in validates and applies only verified Exposure2012 targets
+10. If another pass is required, stop at RERENDER_REQUIRED
+11. After Lightroom rerenders: AI Exposure Assist — Prepare Next AI Package
+12. Repeat steps 5-11 until SESSION_COMPLETE or REVIEW
 ```
 
-No Ctrl+A selection is required. One session contains directly contained
-eligible proprietary-RAW masters from exactly one active `LrFolder`.
+There is no `WAITING_FOR_AI` listener, polling process, or live provider
+connection owned by Lightroom.
 
-## Phase 0 - Diagnostic-first preflight
+## Prepare AI Package
 
-`DIAGNOSE_CURRENT_FOLDER` is the first implementation seam. It must gather all
-independent evidence that can be obtained safely in one Lightroom run and must
-write machine-readable and human-readable reports even when eligible RAW count
-is zero. Its detailed contract is in `docs/DIAGNOSTIC_PREFLIGHT.md`.
+The Prepare command owns only the Lightroom-side capture boundary:
 
-Diagnostics never create an exposure session, invoke AI, modify XMP, refresh
-metadata, or write to the Lightroom catalog or live preview cache.
+- resolve exactly one active `LrFolder`;
+- enumerate eligible proprietary-RAW masters;
+- capture stable Lightroom identity (`id_local`, UUID and source path);
+- capture current Catalog `Exposure2012`;
+- write a selection snapshot;
+- invoke Python preparation with the configured `Previews.lrdata` path;
+- finish after Python returns a durable pass package.
 
-## Exposure Session
+Python then:
 
-A session freezes session/source-folder identity, ordered eligible Lightroom
-IDs/UUIDs/RAW/XMP paths, eligibility evidence, initial XMP value/hash evidence,
-the scene-group ledger, pass lineage, and the pilot policy snapshot.
+- snapshots the preview-cache SQLite databases read-only;
+- maps Lightroom identities to cache previews;
+- extracts and validates Lightroom-rendered JPEG previews;
+- records preview byte count and SHA-256;
+- writes manifest, task, bundled skills, decision schema, pass state and decision
+  directory beneath the session/pass directory.
 
-Target layout:
+At this point the package is `PACKAGE_READY`. No AI provider is called and no
+Develop setting is changed.
+
+## Durable package layout
 
 ```text
 runtime/sessions/<session-id>/
 |-- session.json
 |-- selection.json
-|-- groups.json
-|-- policy.json
-|-- passes/
-|   |-- 0001-<pass-id>/
-|   |   |-- pass-state.json
-|   |   |-- manifest.json
-|   |   |-- render-evidence.json
-|   |   |-- AI_TASK.md
-|   |   |-- AI_SKILLS.md
-|   |   |-- decision-schema.json
-|   |   |-- previews/
-|   |   |-- decisions/
-|   |   |-- results/
-|   |   `-- apply-evidence.json
-|   `-- 0002-<pass-id>/
-`-- xmp_backups/
+`-- passes/
+    |-- 0001-<pass-id>/
+    |   |-- selection.json
+    |   |-- pass-state.json
+    |   |-- manifest.json
+    |   |-- AI_TASK.md
+    |   |-- AI_SKILLS.md
+    |   |-- decision-schema.json
+    |   |-- previews/
+    |   `-- decisions/
+    `-- 0002-<pass-id>/
 ```
 
-Each pass has a unique `pass_id`, monotonic `pass_number`, and
-`parent_pass_id`. Pass 1 uses `parent_pass_id: null`; every later pass points to
-the immediately preceding pass. Captured pass inputs are immutable.
+The pass directory is the IPC contract. Lightroom may be closed after Prepare
+because the external AI receives all pass input from disk.
 
-## Pass 1 and scene groups
+## External AI phase
 
-Pass 1 captures every available current Lightroom-rendered preview. External
-vision AI inspects the whole folder, identifies intended subjects, creates
-scene/event groups, chooses reliable reference frames, and returns one
-PASS/ADJUST/REVIEW decision per in-scope FOUND preview.
+The AI runner is a separate application/process and is not launched by the
+Lightroom plug-in. It must:
 
-Scene groups persist across passes by default. If later evidence conflicts
-with a group, the image becomes REVIEW or the controller records a deterministic
-group split with parent group, reason, evidence, affected IDs, and effective
-pass. Silent regrouping is forbidden.
+- read `AI_TASK.md`, `AI_SKILLS.md` and `manifest.json`;
+- inspect the actual extracted Lightroom previews;
+- write exactly one valid decision per in-scope FOUND preview to `decisions/`;
+- never change manifest, preview, task, schema, session, Catalog, RAW or cache
+  data.
+
+Provider/model/transport choice is outside the Lightroom command lifecycle.
+
+## Import / Apply AI Results
+
+This command does not prepare previews and does not create a new pass.
+
+It:
+
+1. resolves the latest prepared session/pass;
+2. refuses incomplete decisions as `AI_RESULTS_NOT_READY` without mutation;
+3. requires the same active Lightroom source folder;
+4. validates/freezes the exact external decision set through Python;
+5. builds a deterministic Catalog apply plan;
+6. drift-checks the current Catalog Exposure2012 for each target;
+7. applies only `{ Exposure2012 = target }`;
+8. reads the value back and records Lightroom-observed confirmation;
+9. exits at `SESSION_COMPLETE` or `RERENDER_REQUIRED`.
+
+A confirmed pass is never silently re-applied.
+
+## Prepare Next AI Package
+
+A later pass is explicit. It may run only when:
+
+- the current session is not converged;
+- the current pass has verified Catalog apply evidence;
+- the maximum-pass policy is not exhausted;
+- the same Lightroom source folder is active.
+
+The command captures current Catalog Exposure2012 and calls Python's existing
+`--prepare-session-pass` path. Python enforces the render freshness barrier
+before accepting the new preview generation. If freshness is not proven, the
+command fails closed and does not advance the pass.
+
+Successful later-pass preparation ends at `PACKAGE_READY` and exits. External
+AI is again run separately.
 
 ## Decision meanings
 
-- `PASS` - exposure is meaningfully consistent with scene intent and group
-  references. Delta is exactly `0.0`; XMP is not written.
-- `ADJUST` - a finite bounded delta is justified and all automatic safety gates
-  pass. Only this state may reach XMP authorization.
-- `REVIEW` - automatic action is unsafe or unresolved. Delta is exactly `0.0`;
-  XMP is not written.
+- `PASS` — no meaningful exposure change is justified; delta is zero.
+- `ADJUST` — a bounded change is justified and may enter deterministic apply
+  planning.
+- `REVIEW` — automatic action is unsafe or unresolved; no mutation.
 
-Unavailable/stale previews, low confidence, contradictory scene evidence,
-highlight/shadow risk, oscillation, identity mismatch, and unverifiable
-metadata/render state settle as REVIEW or a stricter session stop.
+Relevance/quality/photographic-intent fields remain supporting AI judgment; AI
+output is always untrusted until schema, identity and lineage validation pass.
 
-## Pilot convergence policy
+## Safety invariants
 
-These are **PILOT DEFAULTS**, not production constants:
+- Lightroom remains the authoritative renderer.
+- `.lrdata` is read through validated snapshots only and is never written.
+- Catalog database files are never opened or modified directly.
+- RAW/JPEG originals are never modified.
+- The WO-037 iterative apply bridge can change only Catalog `Exposure2012`.
+- AI has no mutation authority.
+- Import / Apply never captures a next pass automatically.
+- Prepare commands never import/apply AI decisions.
+- Runtime packages, previews, decisions, logs and evidence remain untracked.
 
-- meaningful correction tolerance: `0.10 EV`;
-- quantization: `0.05 EV`;
-- maximum automatic delta per pass: `+/-1.0 EV`;
-- maximum cumulative automatic delta per image: `+/-2.0 EV`;
-- `maximum_passes = 4`;
-- passes 1-3 may authorize ADJUST; pass 4 is verification-only.
+## Deferred work
 
-Representative Lightroom evidence must calibrate production policy. Python
-loads the policy snapshot, validates it, and records the exact values used.
-
-## Apply and metadata synchronization
-
-Before apply, Python reconciles session/pass identity, exact image sets, source
-containment, prior XMP value/hash, decision state, confidence, risk, pass and
-cumulative bounds, and explicit authorization. It then reuses the existing
-transactional XMP procedure.
-
-Metadata synchronization fails closed only when safe catalog/sidecar state
-cannot be proven. The system must not require the owner to Save Metadata on
-every run without evidence that synchronization is necessary.
-
-## Lightroom render barrier
-
-After `APPLIED_VERIFIED`, the plug-in refreshes Lightroom metadata for those
-images. A later pass may judge an adjusted image only when all three render
-freshness dimensions reconcile:
-
-1. XMP/read-back evidence equals the expected `Exposure2012`;
-2. the capture belongs to a new pass/render generation linked to the applied
-   pass;
-3. refreshed preview evidence, including byte/hash evidence, is present and
-   consistent with that generation.
-
-A changed preview hash alone is insufficient. If freshness cannot be proven
-within a bounded wait, settle the image as `REVIEW_RENDER_UNPROVEN` or stop the
-dependent pass; never apply another correction from a stale preview.
-
-## Later passes and safe stop
-
-Later passes capture unresolved images plus stable group references. AI judges
-the residual correction against the persisted group. Python detects sign
-reversal, exposure-state revisit, cumulative bounds, no-progress, and maximum
-passes. Oscillating or non-improving images become REVIEW without blocking safe
-independent groups unless a session-wide invariant failed.
-
-The session stops successfully when no ADJUST remains and every image is PASS
-or REVIEW. It stops safely on maximum passes, render-generation failure,
-metadata-sync uncertainty, active-folder/identity mismatch, immutable artifact
-change, XMP divergence, authorization failure, corrupted checkpoint, or fatal
-rollback failure.
-
-Runtime artifacts, previews, decisions, evidence, logs, and backups remain
-untracked and must never be committed.
+WO-037 deliberately does not decide AI model quality, batching strategy,
+reference-retrieval redesign, contact-sheet policy or provider transport. Those
+can be improved independently because the package contract is now separated
+from Lightroom execution.
