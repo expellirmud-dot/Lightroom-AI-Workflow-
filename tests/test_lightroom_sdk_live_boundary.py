@@ -2,7 +2,7 @@
 
 These tests are intentionally static: CI cannot host Lightroom Classic, so they
 protect the exact integration mistakes that previously passed Python tests but
-failed only inside Lightroom.  A real owner run remains the final LIVE gate.
+failed only inside Lightroom. A real owner run remains the final LIVE gate.
 """
 
 from __future__ import annotations
@@ -20,7 +20,34 @@ PLUGIN_DIR = (
 def _read(name: str) -> str:
     path = PLUGIN_DIR / name
     assert path.is_file(), f"Missing plugin file: {path}"
-    return path.read_text(encoding="utf-8")
+    content = path.read_text(encoding="utf-8")
+    assert content.strip(), f"Plugin file is empty: {path}"
+    return content
+
+
+def test_critical_plugin_modules_exist_and_are_nonempty() -> None:
+    expected = {
+        "ActiveFolderResolver.lua": "return ActiveFolderResolver",
+        "DiagnoseCurrentFolder.lua": "return DiagnoseCurrentFolder",
+        "RunExposureAssist.lua": "return RunExposureAssist",
+        "ApplyPreparedJob.lua": "return ApplyPreparedJob",
+        "IterativeSession.lua": "return IterativeSession",
+    }
+    for name, return_token in expected.items():
+        src = _read(name)
+        assert len(src) > 200, f"Suspiciously small plugin module: {name}"
+        assert return_token in src, f"{name} missing module return contract"
+
+
+def test_info_registers_every_runtime_entrypoint() -> None:
+    info = _read("Info.lua")
+    for name in (
+        "DiagnoseCurrentFolder.lua",
+        "RunExposureAssist.lua",
+        "ApplyPreparedJob.lua",
+        "IterativeSession.lua",
+    ):
+        assert f'file = "{name}"' in info
 
 
 def test_active_folder_resolver_treats_lightroom_type_as_authoritative() -> None:
@@ -33,16 +60,21 @@ def test_active_folder_resolver_treats_lightroom_type_as_authoritative() -> None
     assert "Do not demote a real" in src
 
 
-def test_active_folder_resolver_prefers_yield_safe_sdk_protection() -> None:
+def test_active_folder_resolver_routes_sdk_calls_through_yield_safe_wrapper() -> None:
     src = _read("ActiveFolderResolver.lua")
     assert 'import "LrTasks"' in src
     assert "LrTasks.pcall(func)" in src
-    # Standard pcall is permitted only as the non-Lightroom test fallback / import
-    # bootstrap. Lightroom SDK calls themselves must flow through protectedCall.
-    for method in ("getActiveSources", "getName", "getPath", "type"):
-        assert f"return source:{method}" not in re.sub(
-            r"sdkCall\(function\(\).*?end\)", "", src, flags=re.S
-        ) or method == "getActiveSources"
+    for call in (
+        "catalog:getActiveSources()",
+        "source:getName()",
+        "source:getPath()",
+        "source:type()",
+    ):
+        assert re.search(
+            rf"sdkCall\(function\(\).*?{re.escape(call)}.*?end\)",
+            src,
+            flags=re.S,
+        ), f"SDK call is not routed through sdkCall: {call}"
 
 
 def test_diagnostic_enumeration_uses_lrtasks_pcall_not_lua_pcall() -> None:
@@ -123,7 +155,7 @@ def test_whole_folder_entrypoints_are_recursive() -> None:
 
 
 def test_operational_plugins_do_not_wrap_known_sdk_calls_in_plain_pcall() -> None:
-    """Catch the exact nested Lua-pcall regression that only failed in Lightroom."""
+    """Catch the nested Lua-pcall regression that only failed in Lightroom."""
     sdk_calls = (
         "getActiveSources",
         "getPath",
