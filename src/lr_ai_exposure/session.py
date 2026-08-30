@@ -5,8 +5,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, Action
-
 
 class SessionError(ValueError):
     """Raised when an exposure session is missing, invalid, or corrupted."""
@@ -26,6 +24,7 @@ class SessionImageState:
     raw_path: str
     source_xmp_path: str
     backup_relative_path: str
+    baseline_exposure2012: float = 0.0
     scene_group_id: str = "ungrouped"
     is_reference: bool = False
     status: Literal["PENDING", "PASS", "ADJUST", "REVIEW"] = "PENDING"
@@ -71,11 +70,16 @@ def load_session(session_dir: Path) -> SessionState:
     if not isinstance(raw, dict):
         raise SessionError("session.json must be a JSON object")
 
-    images = {}
+    images: dict[str, SessionImageState] = {}
     for k, v in raw.get("images", {}).items():
         hist = [ExposureHistory(**h) for h in v.get("history", [])]
         v_copy = dict(v)
         v_copy["history"] = hist
+        # Backward-compatible load for sessions created before WO-034.
+        baseline = float(v_copy.get("baseline_exposure2012", v_copy.get("expected_exposure2012") or 0.0))
+        v_copy["baseline_exposure2012"] = baseline
+        if v_copy.get("expected_exposure2012") is None:
+            v_copy["expected_exposure2012"] = baseline
         images[k] = SessionImageState(**v_copy)
 
     return SessionState(
@@ -91,7 +95,7 @@ def load_session(session_dir: Path) -> SessionState:
 def write_session_state(session_dir: Path, state: SessionState) -> Path:
     path = Path(session_dir) / "session.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    images_dict = {}
+    images_dict: dict[str, dict[str, Any]] = {}
     for k, v in state.images.items():
         images_dict[k] = {
             "image_id": v.image_id,
@@ -99,6 +103,7 @@ def write_session_state(session_dir: Path, state: SessionState) -> Path:
             "raw_path": v.raw_path,
             "source_xmp_path": v.source_xmp_path,
             "backup_relative_path": v.backup_relative_path,
+            "baseline_exposure2012": v.baseline_exposure2012,
             "scene_group_id": v.scene_group_id,
             "is_reference": v.is_reference,
             "status": v.status,
@@ -117,7 +122,7 @@ def write_session_state(session_dir: Path, state: SessionState) -> Path:
             ],
         }
     payload = {
-        "protocol_version": "1.0",
+        "protocol_version": "1.1",
         "session_id": state.session_id,
         "source_folder": state.source_folder,
         "images": images_dict,
@@ -129,6 +134,20 @@ def write_session_state(session_dir: Path, state: SessionState) -> Path:
     tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     tmp.replace(path)
     return path
+
+
+def _catalog_exposure_from_selection(item: dict[str, Any]) -> float:
+    raw = item.get("catalog_exposure2012", item.get("exposure2012", 0.0))
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise SessionError(
+            f"Selection image {item.get('id_local')} has invalid catalog_exposure2012: {raw!r}"
+        )
+    value = float(raw)
+    if value != value or value in {float("inf"), float("-inf")}:
+        raise SessionError(
+            f"Selection image {item.get('id_local')} has non-finite catalog_exposure2012"
+        )
+    return value
 
 
 def create_session(
@@ -146,6 +165,7 @@ def create_session(
         "maximum_delta_ev": 1.0,
         "cumulative_delta_ev": 2.0,
         "maximum_passes": 4,
+        "catalog_exposure_tolerance": 0.01,
     }
     if policy:
         default_policy.update(policy)
@@ -159,12 +179,15 @@ def create_session(
         image_id = str(item["id_local"])
         raw_path = str(Path(item["path"]).resolve())
         xmp_path = str(Path(raw_path).with_suffix(".xmp").resolve())
+        baseline = _catalog_exposure_from_selection(item)
         state.images[image_id] = SessionImageState(
             image_id=image_id,
             uuid=item.get("uuid", ""),
             raw_path=raw_path,
             source_xmp_path=xmp_path,
             backup_relative_path=f"xmp_backups/{Path(raw_path).stem}.xmp",
+            baseline_exposure2012=baseline,
+            expected_exposure2012=baseline,
         )
     write_session_state(session_dir, state)
 

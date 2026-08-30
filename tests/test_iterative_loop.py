@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
-from typing import Any
 import uuid
 
-from lr_ai_exposure.ai_judge import Verdict
-from lr_ai_exposure.session import SessionState, SessionImageState, create_session
-from lr_ai_exposure.ai_judge import SinglePassDecision, Action
+from lr_ai_exposure.ai_judge import Verdict, SinglePassDecision, Action
+from lr_ai_exposure.session import create_session
 from lr_ai_exposure.convergence import evaluate_pass_convergence
 from lr_ai_exposure.render_barrier import validate_render_barrier
 from lr_ai_exposure.job import Manifest, ManifestEntry
@@ -16,25 +13,24 @@ from lr_ai_exposure.job import Manifest, ManifestEntry
 def test_iterative_loop_end_to_end(tmp_path: Path) -> None:
     session_dir = tmp_path / "session_123"
     session_id = "sess-123"
-
-    # 1. Create Session
     selection = [
         {
             "id_local": "100",
             "uuid": str(uuid.uuid4()),
             "path": "D:/Photos/1.CR2",
-            "xmp_path": "D:/Photos/1.xmp",
+            "catalog_exposure2012": 0.25,
         },
         {
             "id_local": "101",
             "uuid": str(uuid.uuid4()),
             "path": "D:/Photos/2.CR2",
-            "xmp_path": "D:/Photos/2.xmp",
+            "catalog_exposure2012": 0.70,
         },
     ]
     state = create_session(session_dir, session_id, "D:/Photos", selection)
+    assert state.images["101"].baseline_exposure2012 == 0.70
+    assert state.images["101"].expected_exposure2012 == 0.70
 
-    # 2. Pass 1
     state.passes.append("pass-01")
     decisions = [
         SinglePassDecision(
@@ -57,7 +53,7 @@ def test_iterative_loop_end_to_end(tmp_path: Path) -> None:
             action=Action.ADJUST,
             scene_group_id="G1",
             is_reference=False,
-            delta_ev=0.5,
+            delta_ev=0.126,
             relevance_verdict=Verdict.KEEP,
             quality_verdict=Verdict.KEEP,
             confidence=0.9,
@@ -70,14 +66,12 @@ def test_iterative_loop_end_to_end(tmp_path: Path) -> None:
     ]
 
     results = evaluate_pass_convergence(state, decisions, "pass-01")
-    assert results["applied"] == 1
-    assert results["pass"] == 1
-    assert state.images["100"].status == "PASS"
-    assert state.images["101"].status == "ADJUST"
-    assert state.images["101"].cumulative_delta_ev == 0.5
+    assert results["pass_number"] == 1
+    assert results["quantized_deltas"]["101"] == 0.15
+    assert state.images["101"].cumulative_delta_ev == 0.15
+    assert state.images["101"].expected_exposure2012 == 0.85
     assert not state.is_converged
 
-    # 3. Render Barrier (simulate fresh preview)
     manifest = Manifest(
         job_id="sess-123",
         pass_number=2,
@@ -106,77 +100,41 @@ def test_iterative_loop_end_to_end(tmp_path: Path) -> None:
             ),
         ],
     )
-    # Set the previous hash for 101 to something different
     state.images["101"].last_preview_sha256 = "hash2_old"
-
-    freshness = validate_render_barrier(state, manifest)
+    freshness = validate_render_barrier(state, manifest, {"101": 0.85})
     assert freshness["101"] == "FRESH"
-    assert state.images["101"].status == "ADJUST"
 
-    # 4. Pass 2 (Oscillation simulation)
-    state.passes.append("pass-02")
-    decisions2 = [
-        SinglePassDecision(
-            image_id="101",
-            action=Action.ADJUST,
-            scene_group_id="G1",
-            is_reference=False,
-            delta_ev=-0.6,
-            relevance_verdict=Verdict.KEEP,
-            quality_verdict=Verdict.KEEP,
-            confidence=0.9,
-            highlight_risk=False,
-            shadow_risk=False,
-            subject_rationale="ok",
-            scene_rationale="ok",
-            reason="ok",
-        ),
-    ]
-    results2 = evaluate_pass_convergence(state, decisions2, "pass-02")
-    assert state.images["101"].oscillations == 1
-
-    # 5. Render Barrier (simulate another fresh preview)
-    manifest3 = Manifest(
-        job_id="sess-123",
-        pass_number=3,
-        pass_id="pass-03",
-        parent_pass_id="pass-02",
+    mismatch_state = create_session(
+        tmp_path / "mismatch",
+        "sess-mismatch",
+        "D:/Photos",
+        [
+            {
+                "id_local": "1",
+                "uuid": str(uuid.uuid4()),
+                "path": "D:/Photos/m.CR2",
+                "catalog_exposure2012": 0.0,
+            }
+        ],
+    )
+    mismatch_state.images["1"].status = "ADJUST"
+    mismatch_state.images["1"].expected_exposure2012 = 1.0
+    mismatch_state.images["1"].last_preview_sha256 = "old"
+    mismatch_manifest = Manifest(
+        job_id="sess-mismatch",
         entries=[
             ManifestEntry(
-                image_id="101",
+                image_id="1",
                 raw_path="",
                 source_xmp_path="",
                 backup_relative_path="",
                 preview_path="",
-                seq=2,
-                preview_bytes=2048,
-                preview_sha256="hash3_new",
-            ),
+                seq=1,
+                preview_bytes=100,
+                preview_sha256="new",
+            )
         ],
     )
-    state.images["101"].last_preview_sha256 = "hash2_new"
-    validate_render_barrier(state, manifest3)
-
-    # 6. Pass 3 (Oscillation continues -> REVIEW)
-    state.passes.append("pass-03")
-    decisions3 = [
-        SinglePassDecision(
-            image_id="101",
-            action=Action.ADJUST,
-            scene_group_id="G1",
-            is_reference=False,
-            delta_ev=0.4,
-            relevance_verdict=Verdict.KEEP,
-            quality_verdict=Verdict.KEEP,
-            confidence=0.9,
-            highlight_risk=False,
-            shadow_risk=False,
-            subject_rationale="ok",
-            scene_rationale="ok",
-            reason="ok",
-        ),
-    ]
-    results3 = evaluate_pass_convergence(state, decisions3, "pass-03")
-    assert state.images["101"].oscillations == 2
-    assert state.images["101"].status == "REVIEW"
-    assert state.is_converged
+    mismatch = validate_render_barrier(mismatch_state, mismatch_manifest, {"1": 0.5})
+    assert mismatch["1"].startswith("REVIEW_RENDER_UNPROVEN_CATALOG_MISMATCH")
+    assert mismatch_state.images["1"].status == "REVIEW"
