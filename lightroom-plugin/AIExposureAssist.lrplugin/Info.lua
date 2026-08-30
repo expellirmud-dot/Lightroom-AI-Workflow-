@@ -13,8 +13,12 @@ return {
             file = "DiagnoseCurrentFolder.lua",
         },
         {
-            title = "AI Exposure Assist — Start Whole-Folder Iterative Session",
+            title = "AI Exposure Assist — Prepare Whole-Folder Iterative Session",
             file = "IterativeSession.lua",
+        },
+        {
+            title = "AI Exposure Assist — Resume Pending Iterative Session",
+            file = "ResumeIterativeSession.lua",
         },
         {
             title = "AI Exposure Assist — Prepare Current Folder (Single Pass)",

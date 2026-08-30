@@ -1,14 +1,13 @@
 --[[
 AI Exposure Assist — Whole-Folder Iterative Exposure Session
 
-WO-034 makes the Lightroom Catalog authoritative for iterative Exposure2012:
-1. Capture current Catalog Exposure2012 with each selection snapshot.
-2. Analyze each pass once and freeze ai-decisions.json.
-3. Ask Python for an absolute Catalog apply plan (no XMP mutation).
-4. Re-read current Catalog exposure, fail closed on drift, and apply only
-   Exposure2012 with applyDevelopSettings().
-5. Confirm only Lightroom-verified mutations back to Python session state.
-6. Capture fresh Catalog exposure + preview evidence for the next pass.
+WO-035 splits the workflow at the AI boundary. This entrypoint only prepares
+Pass 1 and then stops in WAITING_FOR_AI. It does not invoke an AI provider and
+does not mutate the Lightroom Catalog.
+
+WO-034 Catalog safeguards remain in this module as the runtime contract used by
+the resume path: Catalog Exposure2012 is authoritative, absolute targets are
+drift-checked, and only Exposure2012 may be applied.
 ]]
 
 local LrApplication = import "LrApplication"
@@ -16,7 +15,6 @@ local LrDialogs = import "LrDialogs"
 local LrPathUtils = import "LrPathUtils"
 local LrFileUtils = import "LrFileUtils"
 local LrTasks = import "LrTasks"
-local LrProgressScope = import "LrProgressScope"
 local Json = require "Json"
 
 local IterativeSession = {}
@@ -185,6 +183,8 @@ local function writeSelectionSnapshot(stagingDir, photos, sourceFolder, exclusio
     return path
 end
 
+-- Kept here as a static WO-034 safety contract. The start entrypoint never calls
+-- this function; Catalog mutation is executed only by ResumeIterativeSession.lua.
 local function applyCatalogPlan(catalog, photoMap, plan, resultPath)
     local tolerance = tonumber(plan.catalog_exposure_tolerance) or 0.01
     local results = {}
@@ -252,7 +252,7 @@ end
 
 function IterativeSession.run()
     if IterativeSession.isRunning then
-        LrDialogs.message("AI Exposure Assist", "An exposure session is already running.", "warning")
+        LrDialogs.message("AI Exposure Assist", "A session preparation is already running.", "warning")
         return
     end
 
@@ -260,21 +260,18 @@ function IterativeSession.run()
     local success, err = LrTasks.pcall(function()
         local catalog = LrApplication.activeCatalog()
         local photos, sourceFolder, exclusions = getActiveFolderPhotos(catalog)
-        local photoMap = {}
-        for _, photo in ipairs(photos) do
-            photoMap[tostring(photo.localIdentifier)] = photo
-        end
 
         local confirmStart = LrDialogs.confirm(
-            "AI Exposure Assist — Start Iterative Session",
+            "AI Exposure Assist — Prepare Iterative Session",
             "Source Folder:\n" .. tostring(sourceFolder) .. "\n\n"
                 .. "Eligible RAW photos: " .. tostring(#photos) .. "\n\n"
-                .. "Start iterative Exposure2012 session?\n"
-                .. "• Lightroom Catalog is the exposure authority\n"
-                .. "• AI decisions are frozen before apply\n"
-                .. "• Only Exposure2012 is mutated\n"
-                .. "• No XMP metadata reload is used",
-            "Start Session",
+                .. "Prepare Pass 1 now?\n"
+                .. "• Current Catalog Exposure2012 will be captured\n"
+                .. "• Lightroom previews/manifest/schema will be prepared\n"
+                .. "• The workflow will stop at WAITING_FOR_AI\n"
+                .. "• No AI provider will be called\n"
+                .. "• No Lightroom Develop setting will be changed",
+            "Prepare Pass 1",
             "Cancel"
         )
         if confirmStart ~= "ok" then
@@ -286,18 +283,9 @@ function IterativeSession.run()
         local sessionId = "sess-" .. tostring(os.time())
         local lrdataPath = loadPreviewCachePath(REPO_ROOT)
         local bridgeResultPath = LrPathUtils.child(stagingDir, "bridge-result-" .. sessionId .. ".json")
-        local currentPass = 1
-        local maxPasses = 4
-        local totalAppliedEver = 0
-
         local selectionPath = writeSelectionSnapshot(
-            stagingDir, photos, sourceFolder, exclusions, sessionId, currentPass
+            stagingDir, photos, sourceFolder, exclusions, sessionId, 1
         )
-
-        local progress = LrProgressScope({
-            title = "AI Exposure Assist",
-            caption = "Initializing Catalog-authoritative Session...",
-        })
 
         local startArgs = " --start-session"
             .. " --session-id \"" .. sessionId .. "\""
@@ -306,122 +294,31 @@ function IterativeSession.run()
             .. " --bridge-result \"" .. bridgeResultPath .. "\""
         local startCommand = "cd /D \"" .. REPO_ROOT .. "\" && uv run lr-ai-exposure" .. startArgs
         if LrTasks.execute(startCommand) ~= 0 then
-            error("Failed to start Catalog-authoritative session.")
+            error("Failed to prepare Catalog-authoritative Pass 1.")
         end
 
-        while currentPass <= maxPasses do
-            progress:setCaption("Pass " .. tostring(currentPass) .. ": Analyzing exposure once...")
-            local analyzeArgs = " --analyze-session-pass"
-                .. " --session-id \"" .. sessionId .. "\""
-                .. " --pass-number " .. tostring(currentPass)
-                .. " --bridge-result \"" .. bridgeResultPath .. "\""
-            local analyzeCommand = "cd /D \"" .. REPO_ROOT .. "\" && uv run lr-ai-exposure" .. analyzeArgs
-            if LrTasks.execute(analyzeCommand) ~= 0 then
-                error("Pass " .. tostring(currentPass) .. " analysis failed.")
-            end
-
-            progress:setCaption("Pass " .. tostring(currentPass) .. ": Building frozen Catalog apply plan...")
-            local planArgs = " --apply-session-pass"
-                .. " --session-id \"" .. sessionId .. "\""
-                .. " --pass-number " .. tostring(currentPass)
-                .. " --authorize-apply \"" .. sessionId .. "\""
-                .. " --bridge-result \"" .. bridgeResultPath .. "\""
-            local planCommand = "cd /D \"" .. REPO_ROOT .. "\" && uv run lr-ai-exposure" .. planArgs
-            if LrTasks.execute(planCommand) ~= 0 then
-                error("Pass " .. tostring(currentPass) .. " apply planning failed.")
-            end
-
-            local planBridge = readJsonFile(bridgeResultPath)
-            local planPath = planBridge.apply_evidence
-            if type(planPath) ~= "string" or planPath == "" then
-                error("Pass " .. tostring(currentPass) .. " did not return a Catalog apply plan path.")
-            end
-            local plan = readJsonFile(planPath)
-            local resultPath = LrPathUtils.child(
-                stagingDir,
-                "catalog-apply-result-" .. sessionId .. "-pass-" .. tostring(currentPass) .. ".json"
-            )
-
-            progress:setCaption("Pass " .. tostring(currentPass) .. ": Applying Exposure2012 in Lightroom Catalog...")
-            local applyResult = applyCatalogPlan(catalog, photoMap, plan, resultPath)
-            local verifiedCount = 0
-            for _, item in ipairs(applyResult.results or {}) do
-                if item.status == "APPLIED_VERIFIED" then
-                    verifiedCount = verifiedCount + 1
-                end
-            end
-            totalAppliedEver = totalAppliedEver + verifiedCount
-
-            progress:setCaption("Pass " .. tostring(currentPass) .. ": Confirming Lightroom-verified apply...")
-            local confirmArgs = " -m lr_ai_exposure.catalog_confirm"
-                .. " --session-id \"" .. sessionId .. "\""
-                .. " --pass-number " .. tostring(currentPass)
-                .. " --apply-result \"" .. resultPath .. "\""
-                .. " --bridge-result \"" .. bridgeResultPath .. "\""
-            local confirmCommand = "cd /D \"" .. REPO_ROOT .. "\" && uv run python" .. confirmArgs
-            if LrTasks.execute(confirmCommand) ~= 0 then
-                error("Pass " .. tostring(currentPass) .. " Catalog confirmation failed.")
-            end
-
-            local result = readJsonFile(bridgeResultPath)
-            if result.status ~= "ok" then
-                error("Pass " .. tostring(currentPass) .. " Catalog confirmation returned an error.")
-            end
-
-            if result.is_converged or currentPass >= maxPasses or result.applied_count == 0 then
-                progress:done()
-                LrDialogs.message(
-                    "AI Exposure Assist — Session Complete",
-                    "Session: " .. sessionId .. "\n"
-                        .. "Source: " .. tostring(sourceFolder) .. "\n\n"
-                        .. "Total Passes: " .. tostring(currentPass) .. "\n"
-                        .. "Catalog applies verified: " .. tostring(totalAppliedEver) .. "\n"
-                        .. "Settled PASS: " .. tostring(result.pass_count or 0) .. "\n"
-                        .. "Settled REVIEW: " .. tostring(result.review_count or 0) .. "\n\n"
-                        .. "Iterative path did not reload XMP metadata.",
-                    "info"
-                )
-                break
-            end
-
-            local nextPass = currentPass + 1
-            local continueAction = LrDialogs.confirm(
-                "AI Exposure Assist — Pass " .. tostring(currentPass) .. " Complete",
-                "Verified Catalog adjustments: " .. tostring(result.applied_count or 0) .. "\n"
-                    .. "PASS: " .. tostring(result.pass_count or 0) .. "\n"
-                    .. "REVIEW: " .. tostring(result.review_count or 0) .. "\n\n"
-                    .. "Continue to Pass " .. tostring(nextPass) .. " after Lightroom rerenders previews?",
-                "Continue to Pass " .. tostring(nextPass),
-                "Stop Here"
-            )
-            if continueAction ~= "ok" then
-                progress:done()
-                LrDialogs.message(
-                    "AI Exposure Assist — Session Paused",
-                    "Session stopped after Pass " .. tostring(currentPass) .. ". Verified Catalog adjustments remain applied.",
-                    "info"
-                )
-                break
-            end
-
-            currentPass = nextPass
-            selectionPath = writeSelectionSnapshot(
-                stagingDir, photos, sourceFolder, exclusions, sessionId, currentPass
-            )
-            progress:setCaption("Pass " .. tostring(currentPass) .. ": Capturing current Catalog state and fresh previews...")
-
-            local prepArgs = " --prepare-session-pass"
-                .. " --session-id \"" .. sessionId .. "\""
-                .. " --pass-number " .. tostring(currentPass)
-                .. " --parent-pass-id \"" .. tostring(result.pass_id or "") .. "\""
-                .. " --selection \"" .. selectionPath .. "\""
-                .. " --lrdata \"" .. lrdataPath .. "\""
-                .. " --bridge-result \"" .. bridgeResultPath .. "\""
-            local prepCommand = "cd /D \"" .. REPO_ROOT .. "\" && uv run lr-ai-exposure" .. prepArgs
-            if LrTasks.execute(prepCommand) ~= 0 then
-                error("Failed to prepare Pass " .. tostring(currentPass) .. ".")
-            end
+        local result = readJsonFile(bridgeResultPath)
+        if result.status ~= "ok" then
+            error("Pass 1 preparation returned an error.")
         end
+        if type(result.pass_dir) ~= "string" or result.pass_dir == "" then
+            error("Pass 1 preparation did not return pass_dir.")
+        end
+
+        local decisionDir = result.decision_directory or LrPathUtils.child(result.pass_dir, "decisions")
+        local taskPath = result.ai_task or LrPathUtils.child(result.pass_dir, "AI_TASK.md")
+        LrDialogs.message(
+            "AI Exposure Assist — WAITING_FOR_AI",
+            "Session prepared successfully.\n\n"
+                .. "Session: " .. tostring(sessionId) .. "\n"
+                .. "Pass: 1\n"
+                .. "Eligible RAW: " .. tostring(#photos) .. "\n\n"
+                .. "Decision folder:\n" .. tostring(decisionDir) .. "\n\n"
+                .. "AI task:\n" .. tostring(taskPath) .. "\n\n"
+                .. "Nothing has been changed in Lightroom. When decision JSON files are ready, use:\n"
+                .. "AI Exposure Assist — Resume Pending Iterative Session",
+            "info"
+        )
     end)
 
     if not success then
