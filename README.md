@@ -1,67 +1,72 @@
 # Lightroom AI Exposure Assist
 
-A Windows-first Lightroom Classic exposure assistant. Lightroom remains the
-authoritative preset/color renderer; the application is limited to guarded
-`crs:Exposure2012` changes in proprietary-RAW XMP sidecars.
+A Windows-first Lightroom Classic exposure assistant. Lightroom remains the authoritative renderer. The iterative workflow is provider-agnostic and separates Lightroom capture/apply from external AI execution.
 
-## Project status
+## Current status
 
-The approved target is a provider-agnostic Exposure Session with immutable
-iterative passes:
+The session/pass runtime has automated evidence through WO-034..036. WO-037 changes the plug-in workflow so the AI boundary is a durable package on disk instead of a generic wait/resume loop.
+
+Representative Lightroom Classic end-to-end evidence is still pending. Do not treat the current iterative path as `LIVE_VERIFIED` until the bounded Lightroom test is completed.
+
+## Canonical Lightroom workflow
 
 ```text
-diagnose folder
--> capture Lightroom-rendered previews
--> group scenes and judge exposure outliers
--> apply validated Exposure2012 adjustments
--> Lightroom renders again
--> recheck until PASS/REVIEW or safe stop
+Lightroom: Diagnose Current Folder
+
+Lightroom: Prepare AI Package
+-> capture active-folder identities + current Catalog Exposure2012
+-> Python reads a validated read-only snapshot of Previews.lrdata
+-> extract Lightroom-rendered JPEG previews
+-> save manifest + task + skills + schema + previews
+-> PACKAGE_READY
+-> plug-in exits
+
+External AI application — run separately/later
+-> open the saved pass package
+-> inspect previews under the bundled task/skills
+-> write JSON decisions into decisions/
+-> exit
+
+Lightroom: Import / Apply AI Results
+-> refuse incomplete results without mutation
+-> validate/freeze exact decisions
+-> build guarded Exposure2012-only plan
+-> apply and verify in Lightroom
+-> SESSION_COMPLETE or RERENDER_REQUIRED
+-> plug-in exits
+
+Lightroom: Prepare Next AI Package
+-> use only after the prior pass is verified and Lightroom has rerendered
+-> existing render barrier must pass
+-> save next immutable package
+-> PACKAGE_READY
+-> plug-in exits
 ```
 
-This target is documented but **not implemented** at the current source head.
-The current plug-in still contains WO-029's Prepare Current Folder / Apply
-Prepared Job single-pass workflow. The plug-in loads, but the first owner-run
-Prepare test stopped with zero eligible proprietary-RAW masters before Python,
-preview-cache, CLI, or apply execution. Do not treat the iterative workflow or
-real XMP apply as live verified.
+There is no resident AI listener, polling loop, browser automation or API connection inside the Lightroom plug-in.
 
-## Next implementation seam
+## What “preview cache extraction” means
 
-`DIAGNOSE_CURRENT_FOLDER` will be implemented first. It will report active
-folder path, direct photo/eligibility metadata, observed Lightroom formats,
-preview-cache readiness, runtime/CLI/bridge readiness, and XMP/metadata-sync
-safety in one read-only diagnostic run.
+The AI sees JPEG previews already rendered by Lightroom after the user's current preset/Develop baseline. Those previews live in the Lightroom preview cache (`Previews.lrdata`), not in the `.lrcat` file itself.
 
-No session or real apply implementation begins until that evidence is reviewed.
+The plug-in does not query SQLite and does not decode `.lrdata`. It supplies stable Lightroom identity and current Exposure2012 to Python. Python then snapshots the configured preview cache read-only, maps those identities to cached previews, validates the JPEGs and stores them in the pass package.
 
-## Target operating principles
+This keeps responsibilities separate:
 
-- Lightroom Classic is the only authoritative renderer.
-- External vision AI judges subjects, scene groups, references, and exposure
-  outliers through a strict file contract.
-- Deterministic Python validates identity, pass lineage, convergence,
-  oscillation, render freshness, authorization, and XMP safety.
-- PASS and REVIEW never write XMP; only validated ADJUST may be authorized.
-- Scene groups persist across passes unless conflicting evidence causes REVIEW
-  or a provenance-recorded split.
-- Read-only preview-cache snapshot/extraction and transactional XMP
-  backup/write/verify/rollback are preserved.
-- Final JPEG export remains manual in Lightroom.
+- Lightroom plug-in: which folder/images and current Catalog Exposure2012.
+- Python: safe preview-cache snapshot/extraction and package/session logic.
+- External AI: visual judgment only.
+- Lightroom apply bridge: validated Exposure2012-only mutation and observed confirmation.
 
-See `docs/FOLDER_JOB_WORKFLOW.md`, `docs/ARCHITECTURE.md`,
-`docs/DIAGNOSTIC_PREFLIGHT.md`, and `docs/XMP_SAFETY.md` for the target
-contracts and current/target boundary.
+## External AI
 
-## Provider strategy
+The canonical AI boundary is the saved pass folder. Any file-capable vision application can be used later as long as it reads the bundled task/skills and writes the required JSON decisions.
 
-The canonical AI boundary is a filesystem pass package. Codex, AntiGravity,
-OpenHands, Hermes, other file-capable agents, free/local vision models, or
-optional API adapters may produce the same decision schema.
+No API key is required by the Lightroom plug-in or package/session engine. Provider-specific automation is optional and separate.
 
-No paid API, provider-specific account, API key, or `.env` file is required by
-the canonical target. Existing Google/API code, dependencies, and environment
-templates are legacy compatibility surfaces until a later implementation Work
-Order isolates or removes them.
+## Legacy commands
+
+WO-029 single-pass Prepare/Apply commands remain available temporarily and are labeled `Legacy Single Pass` in the plug-in menu. Older iterative Resume implementation files are retained for compatibility but are not registered as the canonical WO-037 workflow.
 
 ## Development setup
 
@@ -72,17 +77,15 @@ uv run lr-ai-exposure --check-config
 uv run pytest -q
 ```
 
-Current configuration validation still reflects legacy source requirements;
-passing it does not prove the target session/pass runtime.
-
 ## Safety boundaries
 
-- Never modify RAW/JPEG originals or Lightroom catalog files.
+- Never modify RAW/JPEG originals or Lightroom Catalog database files directly.
 - Never write to the live Lightroom preview cache.
-- Modify only `crs:Exposure2012` in an existing sidecar.
-- Back up and verify every authorized XMP write.
-- Fail closed when metadata synchronization or a new Lightroom render
-  generation cannot be proven.
-- Never compound corrections from a stale or unproven preview.
-- Never commit runtime sessions, previews, decisions, logs, XMP backups, or
-  credentials.
+- The WO-037 iterative Catalog apply path may modify only `Exposure2012`.
+- External AI has no mutation authority.
+- Import / Apply never prepares a next pass implicitly.
+- Prepare commands never invoke external AI.
+- Final JPEG export remains manual in Lightroom.
+- Never commit runtime sessions, previews, decisions, logs, backups or credentials.
+
+See `docs/FOLDER_JOB_WORKFLOW.md`, `docs/ARCHITECTURE.md`, `docs/AI_JUDGE_CONTRACT.md`, and `docs/DECISIONS.md` for canonical contracts.
