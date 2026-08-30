@@ -384,7 +384,10 @@ def _load_frozen_decisions(pass_dir: Path, manifest: Manifest) -> list[SinglePas
         raise SessionError("Frozen AI decision artifact has no decisions list")
 
     try:
-        decisions = [SinglePassDecision.model_validate(item) for item in raw_decisions]
+        decisions = [
+            SinglePassDecision.model_validate_json(json.dumps(item))
+            for item in raw_decisions
+        ]
     except Exception as exc:
         raise SessionError(f"Frozen AI decision schema validation failed: {exc}") from exc
 
