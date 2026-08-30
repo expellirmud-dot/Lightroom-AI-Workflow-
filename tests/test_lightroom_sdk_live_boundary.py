@@ -1,8 +1,8 @@
 """Regression contracts for the Lightroom SDK boundary.
 
 These tests are intentionally static: CI cannot host Lightroom Classic, so they
-protect the exact integration mistakes that previously passed Python tests but
-failed only inside Lightroom. A real owner run remains the final LIVE gate.
+protect integration mistakes that otherwise fail only inside Lightroom. A real
+owner run remains the final LIVE gate.
 """
 
 from __future__ import annotations
@@ -29,6 +29,11 @@ def test_critical_plugin_modules_exist_and_are_nonempty() -> None:
     expected = {
         "ActiveFolderResolver.lua": "return ActiveFolderResolver",
         "DiagnoseCurrentFolder.lua": "return DiagnoseCurrentFolder",
+        "PrepareAIPackage.lua": "return PrepareAIPackage",
+        "ImportApplyAIResults.lua": "return ImportApplyAIResults",
+        "PrepareNextAIPackage.lua": "return PrepareNextAIPackage",
+        "SessionPackageSupport.lua": "return Support",
+        # Retained compatibility surfaces.
         "RunExposureAssist.lua": "return RunExposureAssist",
         "ApplyPreparedJob.lua": "return ApplyPreparedJob",
         "IterativeSession.lua": "return IterativeSession",
@@ -40,16 +45,19 @@ def test_critical_plugin_modules_exist_and_are_nonempty() -> None:
         assert return_token in src, f"{name} missing module return contract"
 
 
-def test_info_registers_every_runtime_entrypoint() -> None:
+def test_info_registers_canonical_and_legacy_single_pass_entrypoints() -> None:
     info = _read("Info.lua")
     for name in (
         "DiagnoseCurrentFolder.lua",
+        "PrepareAIPackage.lua",
+        "ImportApplyAIResults.lua",
+        "PrepareNextAIPackage.lua",
         "RunExposureAssist.lua",
         "ApplyPreparedJob.lua",
-        "IterativeSession.lua",
-        "ResumeIterativeSession.lua",
     ):
         assert f'file = "{name}"' in info
+    assert 'file = "IterativeSession.lua"' not in info
+    assert 'file = "ResumeIterativeSession.lua"' not in info
 
 
 def test_active_folder_resolver_treats_lightroom_type_as_authoritative() -> None:
@@ -138,9 +146,24 @@ def test_diagnostic_version_matches_current_plugin_metadata() -> None:
     assert 'payload.plugin = { version = "1.2.0", build = 1 }' in diagnose
 
 
-def test_all_folder_entrypoints_use_the_shared_resolver() -> None:
+def test_canonical_commands_route_folder_identity_through_shared_support() -> None:
+    support = _read("SessionPackageSupport.lua")
+    assert 'require "ActiveFolderResolver"' in support
+    assert "ActiveFolderResolver.resolveActiveFolder(catalog)" in support
+    assert "activeFolder:getPhotos(true)" in support
+
     for name in (
-        "DiagnoseCurrentFolder.lua",
+        "PrepareAIPackage.lua",
+        "ImportApplyAIResults.lua",
+        "PrepareNextAIPackage.lua",
+    ):
+        src = _read(name)
+        assert 'require "SessionPackageSupport"' in src, name
+        assert "Support.getActiveFolderPhotos(catalog)" in src, name
+
+
+def test_retained_legacy_folder_entrypoints_keep_shared_resolver_contract() -> None:
+    for name in (
         "RunExposureAssist.lua",
         "ApplyPreparedJob.lua",
         "IterativeSession.lua",
@@ -149,17 +172,6 @@ def test_all_folder_entrypoints_use_the_shared_resolver() -> None:
         src = _read(name)
         assert 'require "ActiveFolderResolver"' in src, name
         assert "ActiveFolderResolver.resolveActiveFolder(catalog)" in src, name
-
-
-def test_whole_folder_entrypoints_are_recursive() -> None:
-    for name in (
-        "DiagnoseCurrentFolder.lua",
-        "RunExposureAssist.lua",
-        "IterativeSession.lua",
-        "ResumeIterativeSession.lua",
-    ):
-        src = _read(name)
-        assert "getPhotos(true)" in src, name
 
 
 def test_operational_plugins_do_not_wrap_known_sdk_calls_in_plain_pcall() -> None:
@@ -176,6 +188,10 @@ def test_operational_plugins_do_not_wrap_known_sdk_calls_in_plain_pcall() -> Non
     )
     for name in (
         "DiagnoseCurrentFolder.lua",
+        "PrepareAIPackage.lua",
+        "ImportApplyAIResults.lua",
+        "PrepareNextAIPackage.lua",
+        "SessionPackageSupport.lua",
         "RunExposureAssist.lua",
         "ApplyPreparedJob.lua",
         "IterativeSession.lua",
@@ -190,45 +206,66 @@ def test_operational_plugins_do_not_wrap_known_sdk_calls_in_plain_pcall() -> Non
             )
 
 
-def test_iterative_session_uses_catalog_exposure_only() -> None:
-    src = _read("IterativeSession.lua")
-    assert "photo:getDevelopSettings()" in src
-    assert "catalog_exposure2012" in src
-    assert "photo:applyDevelopSettings({ Exposure2012 = target })" in src
-    assert 'catalog:withWriteAccessDo("AI Exposure Assist — Exposure2012"' in src
-    assert "expected_before_exposure2012" in src
-    assert "observed_after_exposure2012" in src
-    assert "CATALOG_DRIFT" in src
-    assert "APPLIED_VERIFIED" in src
-    assert "readMetadata" not in src
-    assert "crs:Exposure2012=" not in src
-    assert "writeXmp" not in src
+def test_canonical_iterative_apply_uses_catalog_exposure_only() -> None:
+    support = _read("SessionPackageSupport.lua")
+    importer = _read("ImportApplyAIResults.lua")
+
+    assert "photo:getDevelopSettings()" in support
+    assert "catalog_exposure2012" in support
+    assert "photo:applyDevelopSettings({ Exposure2012 = target })" in support
+    assert 'catalog:withWriteAccessDo("AI Exposure Assist — Exposure2012"' in support
+    assert "expected_before_exposure2012" in support
+    assert "observed_after_exposure2012" in support
+    assert "CATALOG_DRIFT" in support
+    assert "APPLIED_VERIFIED" in support
+    assert "readMetadata" not in support
+    assert "crs:Exposure2012=" not in support
+    assert "writeXmp" not in support
+
+    assert "--analyze-session-pass" in importer
+    assert "--apply-session-pass" in importer
+    assert "lr_ai_exposure.catalog_confirm" in importer
+    assert "--prepare-session-pass" not in importer
 
 
-def test_pause_resume_workflow_contract() -> None:
+def test_decoupled_package_workflow_contract() -> None:
+    prepare = _read("PrepareAIPackage.lua")
+    importer = _read("ImportApplyAIResults.lua")
+    next_package = _read("PrepareNextAIPackage.lua")
+
+    assert "PACKAGE_READY" in prepare
+    assert "--start-session" in prepare
+    assert "--analyze-session-pass" not in prepare
+    assert "--apply-session-pass" not in prepare
+    assert "No AI provider will be called" in prepare
+
+    assert "AI_RESULTS_NOT_READY" in importer
+    assert "RERENDER_REQUIRED" in importer
+    assert "--analyze-session-pass" in importer
+    assert "--apply-session-pass" in importer
+    assert "--prepare-session-pass" not in importer
+
+    assert "catalog-apply-evidence.json" in next_package
+    assert "--prepare-session-pass" in next_package
+    assert "--analyze-session-pass" not in next_package
+    assert "--apply-session-pass" not in next_package
+
+    combined = "\n".join((prepare, importer, next_package))
+    assert "WAITING_FOR_AI" not in combined
+    assert "while true" not in combined.lower()
+    assert "LrTasks.sleep" not in combined
+
+
+def test_legacy_pause_resume_files_are_retained_but_not_canonical_menu() -> None:
     start = _read("IterativeSession.lua")
     resume = _read("ResumeIterativeSession.lua")
+    info = _read("Info.lua")
 
     assert "WAITING_FOR_AI" in start
-    assert "--start-session" in start
-    assert "--analyze-session-pass" not in start
-    assert "--apply-session-pass" not in start
-    assert "catalog_confirm" not in start
-    assert "No AI provider will be called" in start
-
-    assert "latest-session.json" in resume
-    assert "decisionReadiness" in resume
-    assert "ai-decisions.json" in resume
-    assert "catalog-apply-plan.json" in resume
-    assert "catalog-apply-evidence.json" in resume
     assert "WAITING_FOR_AI" in resume
-    assert "WAITING_FOR_RERENDER" in resume
-    assert "--analyze-session-pass" in resume
-    assert "--apply-session-pass" in resume
     assert "--prepare-session-pass" in resume
-    assert "lr_ai_exposure.catalog_confirm" in resume
-    assert "photo:applyDevelopSettings({ Exposure2012 = target })" in resume
-    assert "readMetadata" not in resume
+    assert 'file = "IterativeSession.lua"' not in info
+    assert 'file = "ResumeIterativeSession.lua"' not in info
 
 
 def test_diagnostic_remains_read_only_while_probing_live_boundaries() -> None:
