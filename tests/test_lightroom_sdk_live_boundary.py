@@ -32,6 +32,7 @@ def test_critical_plugin_modules_exist_and_are_nonempty() -> None:
         "RunExposureAssist.lua": "return RunExposureAssist",
         "ApplyPreparedJob.lua": "return ApplyPreparedJob",
         "IterativeSession.lua": "return IterativeSession",
+        "ResumeIterativeSession.lua": "return ResumeIterativeSession",
     }
     for name, return_token in expected.items():
         src = _read(name)
@@ -46,6 +47,7 @@ def test_info_registers_every_runtime_entrypoint() -> None:
         "RunExposureAssist.lua",
         "ApplyPreparedJob.lua",
         "IterativeSession.lua",
+        "ResumeIterativeSession.lua",
     ):
         assert f'file = "{name}"' in info
 
@@ -142,6 +144,7 @@ def test_all_folder_entrypoints_use_the_shared_resolver() -> None:
         "RunExposureAssist.lua",
         "ApplyPreparedJob.lua",
         "IterativeSession.lua",
+        "ResumeIterativeSession.lua",
     ):
         src = _read(name)
         assert 'require "ActiveFolderResolver"' in src, name
@@ -149,7 +152,12 @@ def test_all_folder_entrypoints_use_the_shared_resolver() -> None:
 
 
 def test_whole_folder_entrypoints_are_recursive() -> None:
-    for name in ("DiagnoseCurrentFolder.lua", "RunExposureAssist.lua", "IterativeSession.lua"):
+    for name in (
+        "DiagnoseCurrentFolder.lua",
+        "RunExposureAssist.lua",
+        "IterativeSession.lua",
+        "ResumeIterativeSession.lua",
+    ):
         src = _read(name)
         assert "getPhotos(true)" in src, name
 
@@ -171,6 +179,7 @@ def test_operational_plugins_do_not_wrap_known_sdk_calls_in_plain_pcall() -> Non
         "RunExposureAssist.lua",
         "ApplyPreparedJob.lua",
         "IterativeSession.lua",
+        "ResumeIterativeSession.lua",
     ):
         src = _read(name)
         for call in sdk_calls:
@@ -191,10 +200,35 @@ def test_iterative_session_uses_catalog_exposure_only() -> None:
     assert "observed_after_exposure2012" in src
     assert "CATALOG_DRIFT" in src
     assert "APPLIED_VERIFIED" in src
-    assert "lr_ai_exposure.catalog_confirm" in src
     assert "readMetadata" not in src
     assert "crs:Exposure2012=" not in src
     assert "writeXmp" not in src
+
+
+def test_pause_resume_workflow_contract() -> None:
+    start = _read("IterativeSession.lua")
+    resume = _read("ResumeIterativeSession.lua")
+
+    assert "WAITING_FOR_AI" in start
+    assert "--start-session" in start
+    assert "--analyze-session-pass" not in start
+    assert "--apply-session-pass" not in start
+    assert "catalog_confirm" not in start
+    assert "No AI provider will be called" in start
+
+    assert "latest-session.json" in resume
+    assert "decisionReadiness" in resume
+    assert "ai-decisions.json" in resume
+    assert "catalog-apply-plan.json" in resume
+    assert "catalog-apply-evidence.json" in resume
+    assert "WAITING_FOR_AI" in resume
+    assert "WAITING_FOR_RERENDER" in resume
+    assert "--analyze-session-pass" in resume
+    assert "--apply-session-pass" in resume
+    assert "--prepare-session-pass" in resume
+    assert "lr_ai_exposure.catalog_confirm" in resume
+    assert "photo:applyDevelopSettings({ Exposure2012 = target })" in resume
+    assert "readMetadata" not in resume
 
 
 def test_diagnostic_remains_read_only_while_probing_live_boundaries() -> None:
