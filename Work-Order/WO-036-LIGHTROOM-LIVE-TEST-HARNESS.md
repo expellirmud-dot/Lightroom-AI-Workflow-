@@ -1,0 +1,40 @@
+# WO-036 — Lightroom Live-Test Harness
+
+STATUS: IMPLEMENTED_AWAITING_CI
+
+## Goal
+Remove avoidable manual setup from the remaining Lightroom Classic live gate without testing any AI model/provider.
+
+## Scope
+- Add a deterministic decision seeder for the currently prepared WO-035 pass.
+- `pass-all` writes valid PASS decisions for every FOUND preview and never requests a Lightroom mutation.
+- `one-adjust` writes exactly one small ADJUST decision for the first FOUND preview and PASS for all remaining FOUND previews.
+- Default live adjustment is +0.10 EV and the utility refuses absolute test deltas above 0.25 EV.
+- Refuse to overwrite existing decision files unless `--force` is explicit.
+- Refuse any pass that already has frozen AI decisions or Catalog apply evidence.
+- Do not call AI, edit RAW/XMP, or touch the Lightroom Catalog.
+
+## Intended live sequence
+1. Lightroom: `Start Whole-Folder Iterative Session`.
+2. Confirm the plug-in stops at `WAITING_FOR_AI`.
+3. For a no-mutation workflow check run:
+   `uv run python tools/seed_live_test_decisions.py --mode pass-all`
+4. Lightroom: `Resume Pending Iterative Session`.
+5. For the bounded mutation proof use a fresh test session/pass and run:
+   `uv run python tools/seed_live_test_decisions.py --mode one-adjust --delta-ev 0.10`
+6. Lightroom: Resume and verify exactly one intended image changes Exposure2012 by +0.10 EV, with no other Develop setting changed.
+7. Resume again only after Lightroom rerenders to exercise the next-pass preparation boundary.
+
+## Acceptance
+- Seeder generates exact manifest-ID decision coverage.
+- PASS mode generates zero delta for all entries.
+- one-adjust changes exactly one decision.
+- Frozen/applied passes fail closed.
+- Existing decisions are not overwritten implicitly.
+- Automated Windows CI remains green on Python 3.12 and 3.13.
+
+## Non-goals
+- AI quality or provider testing.
+- Scene/reference redesign.
+- Automatic AI transport.
+- Replacing the actual Lightroom Classic live gate.
