@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
+
 import pytest
 
 from lr_ai_exposure.main import main
+from lr_ai_exposure.catalog_confirm import main as catalog_confirm_main
 from lr_ai_exposure.ai_judge import SinglePassDecision, Action, Verdict
 
 
@@ -56,7 +58,6 @@ def test_session_cli_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
     dummy_catalog = tmp_path / "catalog.lrcat"
     dummy_catalog.write_text("DUMMY_CATALOG", encoding="utf-8")
-
     dummy_exports = tmp_path / "exports"
     dummy_exports.mkdir(parents=True, exist_ok=True)
 
@@ -81,25 +82,28 @@ def test_session_cli_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
     raw1 = source_dir / "img1.NEF"
     raw1.write_bytes(b"RAW1")
-    _write_dummy_xmp(source_dir / "img1.xmp", 0.0)
-
+    _write_dummy_xmp(source_dir / "img1.xmp", -0.5)
     uuid1 = "uuid-cli-1"
     _make_dummy_preview_db(lrdata_dir, uuid1)
 
     selection = {
-        "protocol_version": "1.0",
+        "protocol_version": "1.1",
         "session_id": "sess-cli-01",
         "source_folder": str(source_dir),
-        "photos": [{"id_local": "1", "uuid": uuid1, "path": str(raw1)}],
+        "photos": [
+            {
+                "id_local": "1",
+                "uuid": uuid1,
+                "path": str(raw1),
+                "catalog_exposure2012": 0.35,
+            }
+        ],
     }
     selection_file = tmp_path / "selection.json"
     selection_file.write_text(json.dumps(selection), encoding="utf-8")
-
     bridge_file = tmp_path / "bridge-result.json"
-
     monkeypatch.chdir(tmp_path)
 
-    # 1. --start-session
     ret = main(
         [
             "--start-session",
@@ -116,10 +120,8 @@ def test_session_cli_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert ret == 0
     res = json.loads(bridge_file.read_text(encoding="utf-8"))
     assert res["status"] == "ok"
-    assert res["session_id"] == "sess-cli-01"
     assert res["pass_number"] == 1
 
-    # Write decision for Pass 1
     pass1_dir = Path(res["pass_dir"])
     dec = SinglePassDecision(
         image_id="1",
@@ -138,8 +140,20 @@ def test_session_cli_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     )
     (pass1_dir / "decisions" / "1.json").write_text(dec.model_dump_json(indent=2), encoding="utf-8")
 
-    # 2. --apply-session-pass
-    ret_apply = main(
+    ret_analyze = main(
+        [
+            "--analyze-session-pass",
+            "--session-id",
+            "sess-cli-01",
+            "--pass-number",
+            "1",
+            "--bridge-result",
+            str(bridge_file),
+        ]
+    )
+    assert ret_analyze == 0
+
+    ret_plan = main(
         [
             "--apply-session-pass",
             "--session-id",
@@ -152,13 +166,44 @@ def test_session_cli_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
             str(bridge_file),
         ]
     )
-    assert ret_apply == 0
-    res_apply = json.loads(bridge_file.read_text(encoding="utf-8"))
-    assert res_apply["status"] == "ok"
-    assert res_apply["pass_count"] == 1
-    assert res_apply["is_converged"] is True
+    assert ret_plan == 0
+    plan_bridge = json.loads(bridge_file.read_text(encoding="utf-8"))
+    assert plan_bridge["status"] == "ok"
+    assert plan_bridge["applied"] == 0
+    plan = json.loads(Path(plan_bridge["apply_evidence"]).read_text(encoding="utf-8"))
+    assert plan["planned_count"] == 0
 
-    # 3. --session-status
+    result_file = tmp_path / "catalog-result.json"
+    result_file.write_text(
+        json.dumps(
+            {
+                "protocol_version": "1.1",
+                "session_id": "sess-cli-01",
+                "pass_id": plan["pass_id"],
+                "pass_number": 1,
+                "results": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    ret_confirm = catalog_confirm_main(
+        [
+            "--session-id",
+            "sess-cli-01",
+            "--pass-number",
+            "1",
+            "--apply-result",
+            str(result_file),
+            "--bridge-result",
+            str(bridge_file),
+        ]
+    )
+    assert ret_confirm == 0
+    confirmed = json.loads(bridge_file.read_text(encoding="utf-8"))
+    assert confirmed["status"] == "ok"
+    assert confirmed["is_converged"] is True
+    assert confirmed["pass_count"] == 1
+
     ret_status = main(
         [
             "--session-status",
