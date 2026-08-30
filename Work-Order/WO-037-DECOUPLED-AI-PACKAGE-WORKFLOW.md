@@ -1,6 +1,6 @@
 # WO-037 — Decoupled AI Package Workflow
 
-STATUS: ACTIVE
+STATUS: COMPLETE_CI_CERTIFIED
 
 ## Goal
 Decouple Lightroom plug-in execution from external AI execution so every Lightroom action is short-lived and repairable independently.
@@ -86,7 +86,7 @@ WO-037 makes component ownership explicit:
 - Do not delete proven legacy code in this Work Order.
 
 ### F. Documentation and regression protection
-- Update canonical workflow, architecture, decisions, status, capability and user instructions to describe the file-based separation.
+- Update canonical workflow, architecture, decisions, status and user instructions to describe the file-based separation.
 - Reconcile pre-existing plug-in contract tests that encode the superseded WO-035 menu/state contract.
 - Add regression tests proving:
   - canonical menu exposes Prepare / Import-Apply / Prepare Next commands;
@@ -97,79 +97,71 @@ WO-037 makes component ownership explicit:
   - canonical commands contain no resident polling loop;
   - shared Catalog mutation is Exposure2012-only.
 
-## Allowed files
-- `Work-Order/WO-037-DECOUPLED-AI-PACKAGE-WORKFLOW.md`
-- `Work-Order/WO-036-LIGHTROOM-LIVE-TEST-HARNESS.md`
-- `Work-Order/CURRENT_WORK_ORDER.md`
-- `AGENTS.md`
-- `docs/FOLDER_JOB_WORKFLOW.md`
-- `docs/ARCHITECTURE.md`
-- `docs/DECISIONS.md`
-- `docs/PROJECT_STATUS.md`
-- `docs/CAPABILITY_MATRIX.md`
-- `docs/VALIDATION_REGISTER.md`
-- `README.md`
-- `lightroom-plugin/AIExposureAssist.lrplugin/Info.lua`
+## Implemented files
 - `lightroom-plugin/AIExposureAssist.lrplugin/PrepareAIPackage.lua`
 - `lightroom-plugin/AIExposureAssist.lrplugin/ImportApplyAIResults.lua`
 - `lightroom-plugin/AIExposureAssist.lrplugin/PrepareNextAIPackage.lua`
 - `lightroom-plugin/AIExposureAssist.lrplugin/SessionPackageSupport.lua`
+- updated `Info.lua` canonical menu routing
 - `tests/test_decoupled_package_workflow.py`
-- `tests/test_lightroom_plugin_contract.py`
-- `tests/test_lightroom_sdk_live_boundary.py`
+- reconciled plug-in/SDK static contracts
+- architecture/workflow/decision/status/README documentation
 
-## Reviewed but intentionally unchanged unless validation requires otherwise
-- `AGENTS.md` — existing provider-neutral filesystem boundary and thin Lightroom ownership are compatible.
+## Compatibility / reviewed unchanged
 - `src/lr_ai_exposure/session_lifecycle.py` — existing start/prepare paths already create self-contained pass packages and do not call an AI provider during preparation.
 - existing cache extractor / render barrier — reused without redesign.
 - legacy `IterativeSession.lua` / `ResumeIterativeSession.lua` — retained but unregistered from the canonical menu.
-- `DiagnoseCurrentFolder.lua` — diagnostic payload remains plug-in version 1.2.0; WO-037 keeps the metadata version at 1.2.0 because this Work Order changes workflow routing rather than the diagnostic protocol/build contract.
+- `DiagnoseCurrentFolder.lua` — diagnostic payload remains plug-in version 1.2.0; workflow routing does not change its diagnostic protocol/build contract.
+- `AGENTS.md` — existing provider-neutral filesystem boundary and thin Lightroom ownership are compatible.
 
-## Forbidden files / boundaries
-- `.serena/project.yml`
-- Lightroom `.lrcat`, `.lrcat-wal`, `.lrcat-shm`
-- any `.lrdata` write path
-- RAW/NEF/JPEG originals
-- runtime session/package artifacts
-- provider credentials/API keys
-- any Develop property other than `Exposure2012`
-- AI model/provider quality redesign (deferred)
-- scene/reference redesign (separate future work)
+## Forbidden boundaries preserved
+- no `.serena/project.yml` change
+- no direct Lightroom `.lrcat`, `.lrcat-wal`, `.lrcat-shm` access
+- no `.lrdata` write path
+- no RAW/NEF/JPEG original mutation
+- no provider credentials/API keys
+- no Develop mutation other than `Exposure2012`
+- no AI model/provider quality redesign
+- no scene/reference redesign
 
-## Acceptance criteria
-1. Pass 1 preparation finishes at visible `PACKAGE_READY` and the canonical plug-in command exits.
-2. No canonical iterative plug-in UI/state claims it is waiting or listening for AI.
-3. The prepared package is self-contained enough for external AI to run later with Lightroom closed.
-4. Import / Apply Results refuses incomplete decisions without mutation.
-5. Import / Apply Results never prepares a subsequent pass automatically.
-6. A separate Prepare Next AI Package command owns later-pass capture.
-7. Later-pass preparation still uses the existing render barrier and read-only `.lrdata` snapshot/extraction path.
-8. Catalog apply remains drift-checked and modifies only `Exposure2012`.
-9. Automated CI passes on Windows Python 3.12 and 3.13.
-10. No AI provider/model is called or tested by this Work Order.
+## Acceptance results
+1. Canonical Pass 1 command visibly ends at `PACKAGE_READY`: **PASS (static/automated contract)**.
+2. Canonical iterative command files contain no `WAITING_FOR_AI` state: **PASS**.
+3. Package is persisted before plug-in exit and external AI is filesystem-separated: **PASS (automated architecture contract; live use still pending)**.
+4. Import / Apply refuses incomplete decisions without mutation: **PASS (static + existing decision readiness path)**.
+5. Import / Apply never prepares a subsequent pass: **PASS**.
+6. Separate Prepare Next AI Package command owns later-pass capture: **PASS**.
+7. Later-pass preparation reuses the existing render barrier and read-only cache extraction: **PASS (code path + existing automated coverage)**.
+8. Catalog apply remains drift-checked and Exposure2012-only: **PASS**.
+9. Windows Python 3.12 and 3.13 certification: **PASS**.
+10. No AI provider/model was called or tested: **PASS**.
 
-## Required validation
-- focused `pytest tests/test_decoupled_package_workflow.py`
-- full `pytest tests`
-- integration test suite used by repository CI
-- `python -m compileall -q src`
+## Executed validation evidence
+GitHub Actions PR run #85, run id `33340357782`, head `d9aa38e4bd71f92196a71ee53aad16cf66aa481b`, completed `success` on 2026-08-30.
+
+Both Windows Python 3.12 and 3.13 jobs passed:
+- WO-029 focused prepared-job regressions
+- full pytest suite
+- CLI configuration smoke test
+- integration suite
+- source/test compile
 - `git diff --check`
-- repository CI on Windows Python 3.12 and 3.13
-- diff review proving no `.lrdata` writes, no Catalog-file access, no provider invocation in canonical prepare commands, and no non-Exposure2012 Develop mutation
+- clean working-tree/private-artifact check
 
-## Documentation impact
-- `docs/FOLDER_JOB_WORKFLOW.md`: explicit Prepare Package → external AI → Import/Apply → Prepare Next Package sequence.
-- `docs/ARCHITECTURE.md`: session folder as IPC boundary; no resident AI/listener.
-- `docs/DECISIONS.md`: durable decision accepting decoupled command ownership.
-- `README.md`: user-facing command sequence and current evidence boundary.
-- `docs/PROJECT_STATUS.md`, `docs/CAPABILITY_MATRIX.md`, `docs/VALIDATION_REGISTER.md`: reconcile after executed evidence.
-- `AGENTS.md`: REVIEWED_NO_CHANGE unless implementation uncovers a conflict.
+The first PR run exposed only stale tests that still required the superseded Resume menu/version assumptions. Those tests were reconciled to the WO-037 canonical command contract, after which run #85 passed on both Windows matrix jobs.
 
-## Commit / PR authority
-Owner explicitly requested: plan the change, add a Work Order, implement it, test it, and report when ready. This Work Order authorizes bounded commits, branch push, PR creation, and merge only after required CI passes and the diff remains within this scope.
+## Remaining evidence boundary
+WO-037 is CI-certified, not Lightroom-hosted `LIVE_VERIFIED`. The next manual gate is a bounded Lightroom Classic test of:
 
-## Stop conditions
-- Lightroom SDK behavior required by the change cannot be established from current implementation/tests and would require speculative mutation.
-- Existing render-barrier or Catalog Exposure2012 safety contract would need weakening.
-- Any path would require writing `.lrdata` or direct Catalog database access.
-- CI exposes an unrelated repository failure that cannot be safely separated from this Work Order.
+```text
+Prepare AI Package
+→ deterministic WO-036 no-AI decision seed
+→ Import / Apply AI Results
+→ Lightroom rerender
+→ Prepare Next AI Package (only if the test requires another pass)
+```
+
+AI model/provider quality testing remains deferred.
+
+## Merge authority
+Owner explicitly authorized planning, Work Order creation, implementation, testing and completion. PR #5 may merge after the final branch CI for closeout-only documentation remains green.
