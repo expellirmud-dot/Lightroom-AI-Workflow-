@@ -43,7 +43,7 @@ class TriageError(ValueError):
 @dataclass(frozen=True)
 class TriageDecision:
     """Structured decision contract for WO-010.2."""
-    
+
     image_id: str
     relevance_class: RelevanceClass
     quality_action: QualityAction
@@ -58,20 +58,20 @@ class TriageDecision:
 
 def validate_triage_decision(raw: Mapping[str, Any]) -> TriageDecision:
     """Validate raw triage decision dictionary against the strict contract."""
-    
+
     if not isinstance(raw, dict):
         raise TriageError("Decision must be a dictionary")
-        
+
     required = {
         "image_id", "relevance_class", "quality_action", "event_relation",
         "test_shot_likelihood", "accidental_likelihood", "quality_flags",
         "duplicate_of", "confidence", "reason"
     }
-    
+
     missing = required - set(raw.keys())
     if missing:
         raise TriageError(f"Missing required fields: {sorted(missing)}")
-        
+
     try:
         relevance_class = RelevanceClass(raw["relevance_class"])
         quality_action = QualityAction(raw["quality_action"])
@@ -90,14 +90,14 @@ def validate_triage_decision(raw: Mapping[str, Any]) -> TriageDecision:
 
     if not (0.0 <= confidence <= 1.0):
         raise TriageError(f"Confidence must be in [0, 1], got {confidence}")
-        
+
     if not isinstance(raw["quality_flags"], list):
         raise TriageError("quality_flags must be a list of strings")
 
     final_relevance = relevance_class
     final_action = quality_action
     reason = str(raw["reason"])
-    
+
     # Low-confidence or conflicting cases must produce REVIEW.
     if confidence < 0.8:
         if final_relevance != RelevanceClass.REVIEW:
@@ -105,7 +105,7 @@ def validate_triage_decision(raw: Mapping[str, Any]) -> TriageDecision:
             reason = f"Downgraded to REVIEW due to low confidence. {reason}".strip()
         if final_action == QualityAction.APPLY:
             final_action = QualityAction.REVIEW
-            
+
     # Ambiguous test shots (e.g., low or medium likelihood but suggested reject)
     if final_relevance == RelevanceClass.SUGGEST_REJECT_TEST_SHOT and test_shot_likelihood in (Likelihood.LOW, Likelihood.NONE):
         final_relevance = RelevanceClass.REVIEW

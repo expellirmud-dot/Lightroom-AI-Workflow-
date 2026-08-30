@@ -1,17 +1,17 @@
 """Canonical CLI for Lightroom AI Exposure Assist.
 
-Canonical production workflow:
+Canonical production workflows:
+1. Prepared-folder workflow (WO-029 backward compatibility):
+   - --prepare-job
+   - --process-job
+   - --apply-job
 
-1. ``--prepare-job``: snapshot the Lightroom preview cache once, extract all
-   selected previews, and write a durable external-AI job bundle.
-2. An external file-capable vision agent reads ``AI_TASK.md`` and the preview
-   folder, then writes one JSON decision per FOUND image into ``decisions/``.
-3. ``--process-job JOB_ID``: validate the saved decisions without touching XMP.
-4. ``--apply-job JOB_ID --authorize-apply JOB_ID``: re-open the same prepared
-   job, validate decisions, and apply only safe non-zero Exposure2012 deltas.
-
-The legacy one-shot ``--analyze-only`` and ``--apply`` routes remain for
-backward compatibility, but the Lightroom plug-in uses the prepared-job flow.
+2. Iterative Whole-Folder Exposure Session workflow:
+   - --start-session (prepares session & Pass 1)
+   - --prepare-session-pass (prepares Pass N with render freshness check)
+   - --analyze-session-pass (validates/runs AI decisions for Pass N)
+   - --apply-session-pass (applies Exposure2012 for Pass N and checks convergence)
+   - --session-status (retrieves session state summary)
 """
 
 from __future__ import annotations
@@ -44,6 +44,12 @@ from lr_ai_exposure.job_lifecycle import (
     prepare_external_ai_job,
     resolve_saved_job,
     update_job_state,
+)
+from lr_ai_exposure.session import load_session, resolve_session_dir, SessionError
+from lr_ai_exposure.session_lifecycle import (
+    prepare_session_pass,
+    analyze_session_pass,
+    apply_session_pass,
 )
 
 
@@ -136,7 +142,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--authorize-apply",
         type=str,
-        help="Second-key authorization. Must exactly equal the target job_id.",
+        help="Second-key authorization. Must exactly equal the target job_id or session_id.",
     )
     parser.add_argument(
         "--bridge-result",
@@ -146,13 +152,57 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--selection",
         type=Path,
-        help="Path to selection.json from Lightroom (prepare/legacy routes).",
+        help="Path to selection.json from Lightroom (prepare/legacy/session routes).",
     )
     parser.add_argument(
         "--lrdata",
         type=Path,
-        help="Path to Lightroom Previews.lrdata directory (prepare/legacy routes).",
+        help="Path to Lightroom Previews.lrdata directory (prepare/legacy/session routes).",
     )
+
+    # Iterative Exposure Session routes
+    parser.add_argument(
+        "--start-session",
+        action="store_true",
+        help="Initialize an iterative exposure session and prepare Pass 1.",
+    )
+    parser.add_argument(
+        "--prepare-session-pass",
+        action="store_true",
+        help="Prepare Pass N for an existing session with render freshness barrier check.",
+    )
+    parser.add_argument(
+        "--analyze-session-pass",
+        action="store_true",
+        help="Validate/execute AI exposure decisions for Pass N of a session.",
+    )
+    parser.add_argument(
+        "--apply-session-pass",
+        action="store_true",
+        help="Apply Exposure2012 adjustments for Pass N and evaluate convergence.",
+    )
+    parser.add_argument(
+        "--session-status",
+        action="store_true",
+        help="Inspect current state and convergence progress of an exposure session.",
+    )
+    parser.add_argument(
+        "--session-id",
+        type=str,
+        help="Identifier of the iterative exposure session.",
+    )
+    parser.add_argument(
+        "--pass-number",
+        type=int,
+        default=1,
+        help="Pass number for iterative session operations (default: 1).",
+    )
+    parser.add_argument(
+        "--parent-pass-id",
+        type=str,
+        help="Parent pass ID for session pass lineage.",
+    )
+
     return parser
 
 
@@ -167,20 +217,34 @@ def _select_mode(args: argparse.Namespace) -> str:
 
 
 def _select_operation(args: argparse.Namespace) -> str:
+    session_ops = [
+        bool(args.start_session),
+        bool(args.prepare_session_pass),
+        bool(args.analyze_session_pass),
+        bool(args.apply_session_pass),
+        bool(args.session_status),
+    ]
     prepared_ops = [
         bool(args.diagnose_current_folder),
         bool(args.prepare_job),
         bool(args.process_job),
         bool(args.apply_job),
     ]
-    if sum(prepared_ops) > 1:
-        raise ConfigError(
-            "--diagnose-current-folder, --prepare-job, --process-job, and --apply-job are mutually exclusive"
-        )
-    if any(prepared_ops) and (args.analyze_only or args.apply):
-        raise ConfigError(
-            "Prepared-job operations cannot be combined with legacy --analyze-only/--apply"
-        )
+    if sum(session_ops) + sum(prepared_ops) > 1:
+        raise ConfigError("Requested operations are mutually exclusive")
+    if (any(session_ops) or any(prepared_ops)) and (args.analyze_only or args.apply):
+        raise ConfigError("Structured operations cannot be combined with legacy --analyze-only/--apply")
+
+    if args.start_session:
+        return "START_SESSION"
+    if args.prepare_session_pass:
+        return "PREPARE_SESSION_PASS"
+    if args.analyze_session_pass:
+        return "ANALYZE_SESSION_PASS"
+    if args.apply_session_pass:
+        return "APPLY_SESSION_PASS"
+    if args.session_status:
+        return "SESSION_STATUS"
     if args.diagnose_current_folder:
         return "DIAGNOSE_CURRENT_FOLDER"
     if args.prepare_job:
@@ -269,7 +333,7 @@ def _run_apply(
 
 def _validate_prepare_inputs(args: argparse.Namespace) -> tuple[Path, Path]:
     if not args.selection or not args.lrdata:
-        raise ConfigError("--prepare-job requires --selection and --lrdata")
+        raise ConfigError("Operation requires --selection and --lrdata")
     selection_path = args.selection.resolve()
     lrdata_path = args.lrdata.resolve()
     if not selection_path.is_file():
@@ -352,6 +416,10 @@ def main(argv: list[str] | None = None) -> int:
             return _fail(str(exc))
         settings = _diagnostic_settings_fallback(root, exc)
 
+    runtime_dir = Path(settings["runtime_directory"])
+    if not runtime_dir.is_absolute():
+        runtime_dir = root / runtime_dir
+
     if args.check_config:
         summary = {
             "status": "ok",
@@ -397,6 +465,177 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2))
         return 0
 
+    # Iterative Exposure Session operations
+    if operation == "START_SESSION":
+        mode = "START_SESSION"
+        try:
+            selection_path, lrdata_path = _validate_prepare_inputs(args)
+            session_info = prepare_session_pass(
+                runtime_directory=runtime_dir,
+                lrdata_dir=lrdata_path,
+                selection_json_path=selection_path,
+                session_id=args.session_id,
+                pass_number=1,
+                project_root=root,
+            )
+            job_id = session_info["session_id"]
+        except Exception as exc:
+            return _fail(f"Start Session failed: {exc}")
+
+        result = _result_payload(
+            "ok",
+            session_id=session_info["session_id"],
+            pass_id=session_info["pass_id"],
+            pass_number=1,
+            session_dir=session_info["session_dir"],
+            pass_dir=session_info["pass_dir"],
+            manifest=session_info["manifest_path"],
+            preview_directory=session_info["preview_directory"],
+            decision_directory=session_info["decision_directory"],
+            decision_schema=session_info["decision_schema"],
+            ai_task=session_info["ai_task"],
+            total_selected=session_info["total_selected"],
+            total_found=session_info["total_found"],
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "PREPARE_SESSION_PASS":
+        mode = f"PREPARE_SESSION_PASS_{args.pass_number}"
+        if not args.session_id:
+            return _fail("--session-id is required for prepare-session-pass")
+        try:
+            selection_path, lrdata_path = _validate_prepare_inputs(args)
+            session_info = prepare_session_pass(
+                runtime_directory=runtime_dir,
+                lrdata_dir=lrdata_path,
+                selection_json_path=selection_path,
+                session_id=args.session_id,
+                pass_number=args.pass_number,
+                parent_pass_id=args.parent_pass_id,
+                project_root=root,
+            )
+            job_id = session_info["session_id"]
+        except Exception as exc:
+            return _fail(f"Prepare Session Pass failed: {exc}")
+
+        result = _result_payload(
+            "ok",
+            session_id=session_info["session_id"],
+            pass_id=session_info["pass_id"],
+            pass_number=session_info["pass_number"],
+            session_dir=session_info["session_dir"],
+            pass_dir=session_info["pass_dir"],
+            manifest=session_info["manifest_path"],
+            preview_directory=session_info["preview_directory"],
+            decision_directory=session_info["decision_directory"],
+            render_barrier=session_info.get("render_barrier", {}),
+            total_selected=session_info["total_selected"],
+            total_found=session_info["total_found"],
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "ANALYZE_SESSION_PASS":
+        mode = f"ANALYZE_SESSION_PASS_{args.pass_number}"
+        if not args.session_id:
+            return _fail("--session-id is required for analyze-session-pass")
+        try:
+            analysis_info = analyze_session_pass(
+                runtime_directory=runtime_dir,
+                session_id=args.session_id,
+                pass_number=args.pass_number,
+                settings=settings,
+            )
+            job_id = args.session_id
+            decision_count = analysis_info["decision_count"]
+            decisions_path = analysis_info["ai_decisions"]
+            evidence_path = analysis_info["analysis_evidence"]
+        except Exception as exc:
+            return _fail(f"Analyze Session Pass failed: {exc}")
+
+        result = _result_payload(
+            "ok",
+            session_id=analysis_info["session_id"],
+            pass_number=analysis_info["pass_number"],
+            pass_id=analysis_info["pass_id"],
+            decision_count=decision_count,
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "APPLY_SESSION_PASS":
+        mode = f"APPLY_SESSION_PASS_{args.pass_number}"
+        if not args.session_id:
+            return _fail("--session-id is required for apply-session-pass")
+        if args.authorize_apply != args.session_id:
+            return _fail("Apply Session Pass requires --authorize-apply equal to the exact session_id")
+        try:
+            apply_info = apply_session_pass(
+                runtime_directory=runtime_dir,
+                session_id=args.session_id,
+                pass_number=args.pass_number,
+                authorize_apply=args.authorize_apply,
+                settings=settings,
+            )
+            job_id = args.session_id
+            applied_count = apply_info["applied_count"]
+            apply_evidence = apply_info["apply_evidence"]
+        except Exception as exc:
+            return _fail(f"Apply Session Pass failed: {exc}")
+
+        result = _result_payload(
+            "ok",
+            session_id=apply_info["session_id"],
+            pass_number=apply_info["pass_number"],
+            pass_id=apply_info["pass_id"],
+            applied=apply_info["applied_count"],
+            pass_count=apply_info["pass_count"],
+            review_count=apply_info["review_count"],
+            is_converged=apply_info["is_converged"],
+            applied_image_ids=apply_info["applied_image_ids"],
+            next_pass_number=apply_info["next_pass_number"],
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "SESSION_STATUS":
+        mode = "SESSION_STATUS"
+        if not args.session_id:
+            return _fail("--session-id is required for session-status")
+        try:
+            session_dir = resolve_session_dir(runtime_dir, args.session_id)
+            state = load_session(session_dir)
+            job_id = state.session_id
+        except Exception as exc:
+            return _fail(f"Session Status failed: {exc}")
+
+        pass_count = sum(1 for img in state.images.values() if img.status == "PASS")
+        adjust_count = sum(1 for img in state.images.values() if img.status == "ADJUST")
+        review_count = sum(1 for img in state.images.values() if img.status == "REVIEW")
+        pending_count = sum(1 for img in state.images.values() if img.status == "PENDING")
+
+        result = _result_payload(
+            "ok",
+            session_id=state.session_id,
+            source_folder=state.source_folder,
+            total_images=len(state.images),
+            passes=state.passes,
+            is_converged=state.is_converged,
+            pass_count=pass_count,
+            adjust_count=adjust_count,
+            review_count=review_count,
+            pending_count=pending_count,
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    # Legacy Prepared-job operations
     if operation == "PREPARE":
         mode = "PREPARE"
         try:

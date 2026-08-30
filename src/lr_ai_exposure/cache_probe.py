@@ -14,7 +14,7 @@ def find_preview_uuid(previews_db_path: str, id_local: int | float | str) -> dic
         db = sqlite3.connect(safe_sqlite_uri(previews_db_path) + "?mode=ro", uri=True)
     except Exception:
         return {"status": "DB_ERROR", "uuid": None}
-        
+
     try:
         # Normalize id_local. SDK might pass float, int, or string.
         id_local_str = str(id_local).strip()
@@ -50,7 +50,7 @@ def find_preview_uuid(previews_db_path: str, id_local: int | float | str) -> dic
                 seen.add(r[0])
                 unique_rows.append(r)
         rows = unique_rows
-        
+
         count = len(rows)
         if count == 0:
             return {"status": "MISSING", "uuid": None}
@@ -73,7 +73,7 @@ def extract_root_pixel_jpeg(root_pixels_db_path: str, preview_uuid: str, output_
         row = cursor.fetchone()
         if not row or not row[0]:
             return False
-            
+
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "wb") as f:
             f.write(row[0])
@@ -88,10 +88,10 @@ def run_mapping_probe(previews_db: str, root_db: str, id_local: int | float, out
     res = find_preview_uuid(previews_db, id_local)
     if res["status"] != "FOUND":
         return {"status": res["status"], "id_local": id_local, "uuid": None}
-        
+
     uuid = res["uuid"]
     success = extract_root_pixel_jpeg(root_db, uuid, out_jpg)
     if not success:
         return {"status": "MISSING_JPEG_DATA", "id_local": id_local, "uuid": uuid}
-        
+
     return {"status": "FOUND", "id_local": id_local, "uuid": uuid, "output": out_jpg}

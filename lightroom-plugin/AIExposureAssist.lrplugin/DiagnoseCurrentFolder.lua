@@ -150,7 +150,7 @@ local function collectLightroomEvidence(catalog)
     payload.active_folder_path = safeCall(nil, function()
         return activeFolder:getPath()
     end)
-    
+
     local function countFolders(f)
         local count = 0
         local kids = safeCall({}, function() return f:getChildren() or {} end)

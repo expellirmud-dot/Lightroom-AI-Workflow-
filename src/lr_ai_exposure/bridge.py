@@ -15,17 +15,17 @@ class BridgeRequest:
     selected_count: int
     requested_mode: str
     photos: List[BridgeIdentity]
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> 'BridgeRequest':
         if data.get("protocol_version") != "1.0":
             raise ValueError(f"Unsupported protocol version: {data.get('protocol_version')}")
-            
+
         photos = [BridgeIdentity(**p) for p in data.get("photos", [])]
-        
+
         if len(photos) != data.get("selected_count"):
             raise ValueError("selected_count does not match photos length")
-            
+
         return cls(
             protocol_version=data["protocol_version"],
             job_id=data["job_id"],

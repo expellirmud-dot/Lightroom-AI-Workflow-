@@ -12,42 +12,42 @@ class ProviderQuotaError(SinglePassError):
     """Raised when the provider rate limits or exhausts quota."""
 
 def analyze_single_image_google(
-    entry: ManifestEntry, 
-    preview_full_path: Path, 
+    entry: ManifestEntry,
+    preview_full_path: Path,
     model_name: str = "gemini-2.5-pro",
     max_output_tokens: int = 512
 ) -> tuple[SinglePassDecision, dict[str, Any]]:
     """Analyze exactly one JPEG using Google GenAI provider."""
-    
+
     if not os.environ.get("GEMINI_API_KEY"):
         raise SinglePassError("GEMINI_API_KEY environment variable is required")
-        
+
     try:
         from google import genai
         from google.genai import types
         from google.genai.errors import APIError
     except ImportError:
         raise SinglePassError("google-genai package is required but not installed")
-        
+
     client = genai.Client()
-    
+
     # Verification
     if not preview_full_path.exists():
         raise SinglePassError(f"Preview not found for {entry.image_id}: {preview_full_path}")
-        
+
     try:
         image_bytes = preview_full_path.read_bytes()
     except Exception as e:
         raise SinglePassError(f"Failed to read image bytes: {e}")
-        
+
     if len(image_bytes) != entry.preview_bytes:
         raise SinglePassError(f"Byte size mismatch: expected {entry.preview_bytes}, got {len(image_bytes)}")
-        
+
     import hashlib
     actual_sha256 = hashlib.sha256(image_bytes).hexdigest()
     if actual_sha256 != entry.preview_sha256:
         raise SinglePassError(f"SHA-256 mismatch: expected {entry.preview_sha256}, got {actual_sha256}")
-        
+
     # Verify JPEG format using PIL
     try:
         from PIL import Image
@@ -76,7 +76,7 @@ def analyze_single_image_google(
         "9. Set is_reference to true if this image is the best reference for the scene group.\n"
         "10. Output valid JSON matching the exact schema. Do NOT include image_id, confidence is optional."
     )
-    
+
     schema = {
         "type": "OBJECT",
         "properties": {
@@ -94,19 +94,19 @@ def analyze_single_image_google(
             "reason": {"type": "STRING"}
         },
         "required": [
-            "action", "relevance_verdict", "quality_verdict", "delta_ev", 
+            "action", "relevance_verdict", "quality_verdict", "delta_ev",
             "confidence", "highlight_risk", "shadow_risk", "subject_rationale",
             "scene_rationale", "scene_group_id", "is_reference", "reason"
         ]
     }
-    
+
     _QUOTA_KEYWORDS = ("quota", "exhausted", "per day", "daily", "billing")
     _RATE_LIMIT_KEYWORDS = ("rate", "per minute", "retry")
-    
+
     def _is_quota_exhausted(exc: Exception) -> bool:
         msg = str(exc).lower()
         return any(k in msg for k in _QUOTA_KEYWORDS)
-    
+
     for attempt in range(1, 3):  # Maximum two attempts (one bounded retry for RATE_LIMITED only)
         try:
             response = client.models.generate_content(
@@ -149,17 +149,17 @@ def analyze_single_image_google(
         raw_dict = json.loads(response.text)
     except Exception as e:
         raise SinglePassError(f"Failed to parse JSON response: {e}")
-        
+
     # Explicitly system-bind image_id (no silent overwrite, just insert since we asked model not to provide it)
     if "image_id" in raw_dict:
         if raw_dict["image_id"] != str(entry.image_id):
             raise SinglePassError(f"Model returned incorrect image_id {raw_dict['image_id']}, expected {entry.image_id}")
     else:
         raw_dict["image_id"] = str(entry.image_id)
-        
+
     # Do not provide default confidence; if absent, schema validation fails.
     decision = validate_single_pass_decision(raw_dict)
-    
+
     usage = {}
     if hasattr(response, "usage_metadata") and response.usage_metadata:
         usage = {
@@ -167,12 +167,12 @@ def analyze_single_image_google(
             "candidates_token_count": getattr(response.usage_metadata, "candidates_token_count", 0),
             "total_token_count": getattr(response.usage_metadata, "total_token_count", 0),
         }
-        
+
     metadata = {
         "provider": "google",
         "model": model_name,
         "mode": "ANALYZE_ONLY",
         "usage": usage
     }
-        
+
     return decision, metadata

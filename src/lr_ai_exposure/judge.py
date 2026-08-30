@@ -57,7 +57,7 @@ def parse_and_validate_decision(
         confidence = float(raw["confidence"])
     except (TypeError, ValueError) as exc:
         raise DecisionError(f"confidence must be numeric: {exc}") from exc
-        
+
     if not (0.0 <= confidence <= 1.0):
         raise DecisionError(f"confidence must be in [0.0, 1.0], got {confidence}")
 
@@ -122,7 +122,7 @@ def validate_decision_batch(
         raise DecisionError(
             f"Decision count mismatch: expected {len(manifest.entries)}, got {len(raw_decisions)}"
         )
-        
+
     raw_by_id = {}
     for raw in raw_decisions:
         if not isinstance(raw, dict):
@@ -133,12 +133,12 @@ def validate_decision_batch(
         if img_id in raw_by_id:
             raise DecisionError(f"Duplicate decision for image_id: {img_id!r}")
         raw_by_id[img_id] = raw
-        
+
     validated = []
     for entry in manifest.entries:
         if entry.image_id not in raw_by_id:
             raise DecisionError(f"Missing decision for manifest image_id: {entry.image_id!r}")
-            
+
         validated.append(
             parse_and_validate_decision(
                 raw_by_id[entry.image_id],
@@ -147,7 +147,7 @@ def validate_decision_batch(
                 minimum_apply_confidence,
             )
         )
-        
+
     return validated
 
 __all__ = ["DecisionError", "clamp_ev", "parse_and_validate_decision", "process_mock_decisions", "validate_decision_batch"]

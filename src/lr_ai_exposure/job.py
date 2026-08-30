@@ -171,12 +171,12 @@ def validate_manifest_entries(
         if entry.image_id in seen_ids:
             raise ManifestError(f"Duplicate image_id: {entry.image_id}")
         seen_ids.add(entry.image_id)
-        
+
         # Duplicate preview_path
         if entry.preview_path in seen_previews:
             raise ManifestError(f"Duplicate preview_path: {entry.preview_path}")
         seen_previews.add(entry.preview_path)
-        
+
         # Duplicate raw_path
         if entry.raw_path in seen_raws:
             raise ManifestError(f"Duplicate raw_path: {entry.raw_path}")
@@ -308,7 +308,7 @@ def read_manifest(job_dir: Path) -> Manifest:
 
     job_id = raw.get("job_id", job_dir.name)
     manifest = Manifest(
-        job_id=job_id, 
+        job_id=job_id,
         pass_number=raw.get("pass_number", 1),
         pass_id=raw.get("pass_id", ""),
         parent_pass_id=raw.get("parent_pass_id"),

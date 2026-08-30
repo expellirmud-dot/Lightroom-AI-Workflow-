@@ -51,7 +51,7 @@ class ExposureJudgmentError(ValueError):
 @dataclass(frozen=True)
 class ExposureDecision:
     """Structured decision contract for WO-010.1."""
-    
+
     image_id: str
     subject_type: str
     subject_exposure: ExposureClass
@@ -68,20 +68,20 @@ class ExposureDecision:
 
 def validate_exposure_decision(raw: Mapping[str, Any], max_delta_ev: float = 3.0) -> ExposureDecision:
     """Validate raw decision dictionary against the strict contract."""
-    
+
     if not isinstance(raw, dict):
         raise ExposureJudgmentError("Decision must be a dictionary")
-        
+
     required = {
         "image_id", "subject_type", "subject_exposure", "background_exposure",
         "scene_intent", "highlight_risk", "group_id", "reference_image_id",
         "recommended_delta_ev", "action", "confidence", "reason"
     }
-    
+
     missing = required - set(raw.keys())
     if missing:
         raise ExposureJudgmentError(f"Missing required fields: {sorted(missing)}")
-        
+
     try:
         subject_exposure = ExposureClass(raw["subject_exposure"])
         background_exposure = ExposureClass(raw["background_exposure"])
@@ -107,17 +107,17 @@ def validate_exposure_decision(raw: Mapping[str, Any], max_delta_ev: float = 3.0
         # Instead of silent clamp like before, WO-010.1 contract might require it or we clamp it.
         # "All recommendations must still obey configured maximum_delta_ev."
         delta_ev = max(-max_delta_ev, min(max_delta_ev, delta_ev))
-        
+
     # Highlight risk downgrade logic (as required in test: "Highlight-risk downgrade to REVIEW")
-    # Actually, we shouldn't change the action if the caller already provided it, 
+    # Actually, we shouldn't change the action if the caller already provided it,
     # but the instructions say "Low confidence or conflicting evidence must produce REVIEW."
     final_action = action
     reason = str(raw["reason"])
-    
+
     if confidence < 0.8 and final_action == Action.APPLY:
         final_action = Action.REVIEW
         reason = f"Downgraded to REVIEW due to low confidence. {reason}".strip()
-        
+
     if highlight_risk == HighlightRisk.HIGH and final_action == Action.APPLY and delta_ev > 0:
         final_action = Action.REVIEW
         reason = f"Downgraded to REVIEW due to high highlight risk. {reason}".strip()

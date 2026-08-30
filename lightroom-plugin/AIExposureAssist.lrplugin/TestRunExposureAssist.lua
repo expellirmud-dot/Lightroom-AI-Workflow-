@@ -36,17 +36,17 @@ local photoMap = {}
 
 for _, photo in ipairs(photos) do
     local path = photo:getRawMetadata("path")
-    
+
     -- Using the repaired logic
     local id_local = tostring(photo.localIdentifier)
     local uuid = photo:getRawMetadata("uuid")
-    
+
     table.insert(selectionData, {
         id_local = id_local,
         path = path,
         uuid = uuid
     })
-    
+
     -- Prove photoMap uses the same normalized string key
     photoMap[id_local] = photo
 end
