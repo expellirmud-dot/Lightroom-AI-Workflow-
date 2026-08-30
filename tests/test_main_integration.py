@@ -26,7 +26,7 @@ from unittest import mock
 
 import pytest
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+from lr_ai_exposure.ai_judge import SinglePassDecision, Action, Verdict
 from lr_ai_exposure.job import Manifest, ManifestEntry
 from lr_ai_exposure.main import main
 
@@ -42,7 +42,7 @@ def _make_decision(image_id: str, seq: int) -> SinglePassDecision:
     """
     return SinglePassDecision(
         image_id=image_id,
-        relevance_verdict=Verdict.KEEP,
+        action=Action.ADJUST, relevance_verdict=Verdict.KEEP,
         quality_verdict=Verdict.KEEP,
         delta_ev=0.1 * seq,
         confidence=0.9,
@@ -50,7 +50,7 @@ def _make_decision(image_id: str, seq: int) -> SinglePassDecision:
         shadow_risk=False,
         subject_rationale=f"subject rationale for {image_id}",
         scene_rationale=f"scene rationale for {image_id}",
-        batch_consistency_group="group-A",
+        scene_group_id="group-A",
         reason=f"ok {image_id}",
     )
 
@@ -166,7 +166,7 @@ def test_canonical_cli_five_image_analyze_only_workflow(
             "shadow_risk",
             "subject_rationale",
             "scene_rationale",
-            "batch_consistency_group",
+            "scene_group_id",
             "reason",
         ):
             assert full_field in d, f"missing full-schema field {full_field}"
@@ -174,7 +174,7 @@ def test_canonical_cli_five_image_analyze_only_workflow(
         assert d["shadow_risk"] is False
         assert d["subject_rationale"] == f"subject rationale for {entry.image_id}"
         assert d["scene_rationale"] == f"scene rationale for {entry.image_id}"
-        assert d["batch_consistency_group"] == "group-A"
+        assert d["scene_group_id"] == "group-A"
 
     # analysis-evidence.json written with identity chain in manifest order.
     evidence_path = job_dir / "analysis-evidence.json"

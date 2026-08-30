@@ -30,17 +30,17 @@ def _make_entry(
 
 def test_validate_previews_success(tmp_path: Path) -> None:
     job_dir = create_job_directory(tmp_path, job_id="success")
-    
+
     entries = [
         _make_entry(1, "PTO_1", "previews/PTO_1.NEF", "previews/PTO_1.jpg"),
         _make_entry(2, "PTO_2", "previews/PTO_2.NEF", "previews/PTO_2.jpg"),
     ]
     manifest = Manifest("success", entries=entries)
-    
+
     # Create valid dummy files
     for e in entries:
         (job_dir / e.preview_path).write_bytes(b"dummy")
-        
+
     results = validate_previews(manifest, job_dir)
     assert len(results) == 2
     assert results[0].valid is True
@@ -51,7 +51,7 @@ def test_validate_previews_success(tmp_path: Path) -> None:
 def test_validate_previews_missing_file(tmp_path: Path) -> None:
     job_dir = create_job_directory(tmp_path, job_id="missing")
     manifest = Manifest("missing", entries=[_make_entry(1)])
-    
+
     results = validate_previews(manifest, job_dir)
     assert len(results) == 1
     assert results[0].valid is False
@@ -64,7 +64,7 @@ def test_validate_previews_not_jpeg(tmp_path: Path) -> None:
     entry = _make_entry(1, preview_path="previews/PTO_1234.png")
     manifest = Manifest("not_jpeg", entries=[entry])
     (job_dir / entry.preview_path).write_bytes(b"dummy")
-    
+
     results = validate_previews(manifest, job_dir)
     assert results[0].valid is False
     assert results[0].error is not None
@@ -76,7 +76,7 @@ def test_validate_previews_stem_mismatch(tmp_path: Path) -> None:
     entry = _make_entry(1, raw_path="previews/OTHER.NEF")
     manifest = Manifest("stem", entries=[entry])
     (job_dir / entry.preview_path).write_bytes(b"dummy")
-    
+
     results = validate_previews(manifest, job_dir)
     assert results[0].valid is False
     assert results[0].error is not None
@@ -88,7 +88,7 @@ def test_validate_previews_name_mismatch(tmp_path: Path) -> None:
     entry = _make_entry(1, image_id="WRONG_ID")
     manifest = Manifest("name", entries=[entry])
     (job_dir / entry.preview_path).write_bytes(b"dummy")
-    
+
     results = validate_previews(manifest, job_dir)
     assert results[0].valid is False
     assert results[0].error is not None
@@ -101,7 +101,7 @@ def test_validate_previews_path_mismatch(tmp_path: Path) -> None:
     entry = _make_entry(1, preview_path="wrong_folder/PTO_1234.jpg", raw_path="wrong_folder/PTO_1234.NEF")
     manifest = Manifest("path", entries=[entry])
     (job_dir / entry.preview_path).write_bytes(b"dummy")
-    
+
     results = validate_previews(manifest, job_dir)
     assert results[0].valid is False
     assert results[0].error is not None
@@ -116,7 +116,7 @@ def test_validate_previews_duplicate_path(tmp_path: Path) -> None:
     ]
     manifest = Manifest("dup", entries=entries)
     (job_dir / entries[0].preview_path).write_bytes(b"dummy")
-    
+
     results = validate_previews(manifest, job_dir)
     assert results[0].valid is True
     assert results[1].valid is False
@@ -130,10 +130,10 @@ def test_validate_previews_unreadable(tmp_path: Path) -> None:
     manifest = Manifest("unreadable", entries=[entry])
     p = (job_dir / entry.preview_path)
     p.write_bytes(b"dummy")
-    
+
     with patch("pathlib.Path.open", side_effect=OSError("Permission denied")):
         results = validate_previews(manifest, job_dir)
-        
+
     assert results[0].valid is False
     assert results[0].error is not None
     assert "unreadable" in results[0].error

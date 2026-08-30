@@ -71,13 +71,16 @@ def analyze_single_image_google(
         "4. Flag highlight_risk (true/false) if there are blown-out skies or bright spots that cannot be recovered.\n"
         "5. Flag shadow_risk (true/false) if important shadows are completely crushed.\n"
         "6. Provide a short reason and rationale for subject and scene.\n"
-        "7. Provide a batch_consistency_group string (e.g. 'indoor-warm', 'outdoor-overcast').\n"
-        "8. Output valid JSON matching the exact schema. Do NOT include image_id, confidence is optional."
+        "7. Provide a scene_group_id string (e.g. 'indoor-warm', 'outdoor-overcast').\n"
+        "8. Set action to PASS if no adjustment is needed, ADJUST if delta_ev should be applied, REVIEW if unsure.\n"
+        "9. Set is_reference to true if this image is the best reference for the scene group.\n"
+        "10. Output valid JSON matching the exact schema. Do NOT include image_id, confidence is optional."
     )
     
     schema = {
         "type": "OBJECT",
         "properties": {
+            "action": {"type": "STRING", "enum": ["PASS", "ADJUST", "REVIEW"]},
             "relevance_verdict": {"type": "STRING", "enum": ["KEEP", "REVIEW", "SKIP"]},
             "quality_verdict": {"type": "STRING", "enum": ["KEEP", "REVIEW", "SKIP"]},
             "delta_ev": {"type": "NUMBER"},
@@ -86,13 +89,14 @@ def analyze_single_image_google(
             "shadow_risk": {"type": "BOOLEAN"},
             "subject_rationale": {"type": "STRING"},
             "scene_rationale": {"type": "STRING"},
-            "batch_consistency_group": {"type": "STRING"},
+            "scene_group_id": {"type": "STRING"},
+            "is_reference": {"type": "BOOLEAN"},
             "reason": {"type": "STRING"}
         },
         "required": [
-            "relevance_verdict", "quality_verdict", "delta_ev", 
+            "action", "relevance_verdict", "quality_verdict", "delta_ev", 
             "confidence", "highlight_risk", "shadow_risk", "subject_rationale",
-            "scene_rationale", "batch_consistency_group", "reason"
+            "scene_rationale", "scene_group_id", "is_reference", "reason"
         ]
     }
     

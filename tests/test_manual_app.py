@@ -18,7 +18,7 @@ def dummy_response_file(tmp_path: Path) -> Path:
     resp = tmp_path / "resp.json"
     resp.write_text(json.dumps({
         "image_id": "123.0",
-        "relevance_verdict": "KEEP",
+        "action": "ADJUST", "relevance_verdict": "KEEP",
         "quality_verdict": "KEEP",
         "delta_ev": 0.5,
         "confidence": 0.9,
@@ -26,7 +26,7 @@ def dummy_response_file(tmp_path: Path) -> Path:
         "shadow_risk": False,
         "subject_rationale": "ok",
         "scene_rationale": "ok",
-        "batch_consistency_group": "group1",
+        "scene_group_id": "group1",
         "reason": "ok"
     }))
     return resp

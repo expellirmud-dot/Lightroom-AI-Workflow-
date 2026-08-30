@@ -12,12 +12,12 @@ def test_refresh_gate_allows_only_applied_verified():
             {"image_id": "5", "status": "APPLIED_VERIFIED"}
         ]
     }
-    
+
     refresh_ids = get_refresh_ids(payload)
     assert refresh_ids == ["1", "5"]
 
 def test_refresh_gate_empty_results():
     assert get_refresh_ids({"job_id": "job1", "results": []}) == []
-    
+
 def test_refresh_gate_no_results_key():
     assert get_refresh_ids({"job_id": "job1"}) == []

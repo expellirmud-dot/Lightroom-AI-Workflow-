@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+from lr_ai_exposure.ai_judge import SinglePassDecision, Action, Verdict
 from lr_ai_exposure.analysis_artifacts import (
     AnalysisRecord,
     serialize_analysis_records,
@@ -19,7 +19,7 @@ from lr_ai_exposure.analysis_artifacts import (
 def _decision(image_id: str = "img-1", delta: float = 0.5) -> SinglePassDecision:
     return SinglePassDecision(
         image_id=image_id,
-        relevance_verdict=Verdict.KEEP,
+        action=Action.ADJUST, relevance_verdict=Verdict.KEEP,
         quality_verdict=Verdict.KEEP,
         delta_ev=delta,
         confidence=0.9,
@@ -27,7 +27,7 @@ def _decision(image_id: str = "img-1", delta: float = 0.5) -> SinglePassDecision
         shadow_risk=True,
         subject_rationale="subject",
         scene_rationale="scene",
-        batch_consistency_group="group-A",
+        scene_group_id="group-A",
         reason="ok",
     )
 
@@ -58,7 +58,7 @@ def test_record_preserves_full_decision_schema():
         "shadow_risk",
         "subject_rationale",
         "scene_rationale",
-        "batch_consistency_group",
+        "scene_group_id",
         "reason",
     ):
         assert field in decision, f"decision field dropped: {field}"

@@ -124,6 +124,8 @@ local function collectLightroomEvidence(catalog)
         active_folder_count = #activeFolders,
         active_folder_path = nil,
         direct_photo_count = 0,
+        child_folder_count = 0,
+        recursive_photo_count = 0,
         enumeration_status = "SKIPPED_DEPENDENCY",
         observed_file_formats = {},
         counts = {
@@ -148,17 +150,35 @@ local function collectLightroomEvidence(catalog)
     payload.active_folder_path = safeCall(nil, function()
         return activeFolder:getPath()
     end)
-    local ok, folderPhotos = pcall(function()
+    
+    local function countFolders(f)
+        local count = 0
+        local kids = safeCall({}, function() return f:getChildren() or {} end)
+        for _, k in ipairs(kids) do
+            count = count + 1 + countFolders(k)
+        end
+        return count
+    end
+    payload.child_folder_count = countFolders(activeFolder)
+
+    local ok_direct, directPhotos = pcall(function()
         return activeFolder:getPhotos(false) or {}
     end)
-    if not ok then
+    local ok_recurse, recursivePhotos = pcall(function()
+        return activeFolder:getPhotos(true) or {}
+    end)
+
+    if not ok_recurse then
         payload.enumeration_status = "FAIL"
-        payload.enumeration_error = tostring(folderPhotos)
+        payload.enumeration_error = tostring(recursivePhotos)
         return payload
     end
 
     payload.enumeration_status = "PASS"
-    payload.direct_photo_count = #folderPhotos
+    payload.direct_photo_count = ok_direct and #directPhotos or 0
+    payload.recursive_photo_count = #recursivePhotos
+    local folderPhotos = recursivePhotos
+
     local formatMap = {}
     local seenPaths = {}
 

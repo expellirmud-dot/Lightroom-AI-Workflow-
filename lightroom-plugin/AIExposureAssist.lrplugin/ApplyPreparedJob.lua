@@ -147,7 +147,7 @@ function ApplyPreparedJob.run()
         end
 
         local photoMap = {}
-        for _, photo in ipairs(activeFolder:getPhotos(false) or {}) do
+        for _, photo in ipairs(activeFolder:getPhotos(true) or {}) do
             if not photo:getRawMetadata("isVirtualCopy") then
                 photoMap[tostring(photo.localIdentifier)] = photo
             end

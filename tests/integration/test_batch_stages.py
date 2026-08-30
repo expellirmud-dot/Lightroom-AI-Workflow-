@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 from unittest import mock
 from lr_ai_exposure.apply import apply_exposure_deltas
-from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+from lr_ai_exposure.ai_judge import SinglePassDecision, Action, Verdict
 from lr_ai_exposure.job import Manifest, ManifestEntry, write_manifest
 
 def run_stage_test(tmp_path: Path, count: int, test_name: str, inject_failure: bool = False):
@@ -47,14 +47,14 @@ def run_stage_test(tmp_path: Path, count: int, test_name: str, inject_failure: b
         decisions.append(SinglePassDecision(
             image_id=img_id,
             confidence=0.9,
-            relevance_verdict=Verdict.KEEP,
+            action=Action.ADJUST, relevance_verdict=Verdict.KEEP,
             quality_verdict=Verdict.KEEP,
             highlight_risk=False,
             shadow_risk=False,
             delta_ev=0.5,
             subject_rationale="",
             scene_rationale="",
-            batch_consistency_group="",
+            scene_group_id="",
             reason=""
         ))
         
@@ -117,9 +117,9 @@ def test_stage_b(tmp_path: Path):
     decisions = []
     for i in range(1, 21):
         decisions.append(SinglePassDecision(
-            image_id=f"img{i}", confidence=0.9, relevance_verdict=Verdict.KEEP, quality_verdict=Verdict.KEEP,
+            image_id=f"img{i}", confidence=0.9, action=Action.ADJUST, relevance_verdict=Verdict.KEEP, quality_verdict=Verdict.KEEP,
             highlight_risk=False, shadow_risk=False, delta_ev=0.5,
-            subject_rationale="", scene_rationale="", batch_consistency_group="", reason=""
+            subject_rationale="", scene_rationale="", scene_group_id="", reason=""
         ))
     config = {
         "dry_run": False, "apply_authorized": True,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+from lr_ai_exposure.ai_judge import SinglePassDecision, Action, Verdict
 from lr_ai_exposure.apply import apply_exposure_deltas
 from lr_ai_exposure.job import Manifest, ManifestEntry, write_manifest
 
@@ -58,7 +58,7 @@ def test_non_found_preview_and_zero_delta_settle_without_mutation(tmp_path: Path
     selection_path.write_text(json.dumps(selection), encoding="utf-8")
     decision = SinglePassDecision(
         image_id="1",
-        relevance_verdict=Verdict.KEEP,
+        action=Action.ADJUST, relevance_verdict=Verdict.KEEP,
         quality_verdict=Verdict.KEEP,
         delta_ev=0.0,
         confidence=0.95,
@@ -66,7 +66,7 @@ def test_non_found_preview_and_zero_delta_settle_without_mutation(tmp_path: Path
         shadow_risk=False,
         subject_rationale="subject",
         scene_rationale="scene",
-        batch_consistency_group="g",
+        scene_group_id="g",
         reason="no change",
     )
 

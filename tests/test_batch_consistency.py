@@ -31,7 +31,7 @@ def test_group_decisions():
     d1 = _make_dec("A", "g1", "BALANCED", "low", 0.9, 0.0)
     d2 = _make_dec("B", "g2", "BALANCED", "low", 0.9, 0.0)
     d3 = _make_dec("C", "g1", "BALANCED", "low", 0.9, 0.0)
-    
+
     groups = group_decisions([d1, d2, d3])
     assert len(groups) == 2
     assert len(groups["g1"]) == 2
@@ -48,7 +48,7 @@ def test_select_reference_frame():
     d3 = _make_dec("C", "g1", "BALANCED", "high", 0.9, 0.0)
     # d4: balanced, low risk, but lower conf
     d4 = _make_dec("D", "g1", "BALANCED", "low", 0.8, 0.0)
-    
+
     ref = select_reference_frame([d2, d3, d4, d1])
     assert ref is not None
     assert ref.image_id == "A"
@@ -58,7 +58,7 @@ def test_select_reference_frame_tie_breaker():
     """Ties broken by confidence then image_id alphabetically."""
     d1 = _make_dec("B", "g1", "BALANCED", "low", 0.9, 0.0)
     d2 = _make_dec("A", "g1", "BALANCED", "low", 0.9, 0.0)
-    
+
     ref = select_reference_frame([d1, d2])
     assert ref is not None
     assert ref.image_id == "A"
@@ -69,17 +69,17 @@ def test_adjacent_exposure_jump_detection():
     d1 = _make_dec("A", "g1", "BALANCED", "low", 0.9, 0.0)
     d2 = _make_dec("B", "g1", "BALANCED", "low", 0.9, 0.6)  # jump of 0.6
     d3 = _make_dec("C", "g2", "BALANCED", "low", 0.9, 1.5)  # jump of 0.9, but different group!
-    
+
     results = review_batch_consistency([d1, d2, d3], max_adjacent_jump_ev=0.5)
-    
+
     assert len(results) == 3
     assert not results[0].flagged_jump
-    
+
     # B is in same group and jumps 0.6 > 0.5
     assert results[1].flagged_jump
     assert results[1].final_action == "REVIEW"
     assert "Flagged adjacent jump" in results[1].consistency_reason
-    
+
     # C is in different group, so the jump from B to C is ignored
     assert not results[2].flagged_jump
     assert results[2].final_action == "APPLY"

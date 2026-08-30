@@ -26,7 +26,7 @@ def test_safety_skip():
     """Obstruction and severe blur safety outcomes -> SKIP."""
     dec = _make_dec("APPLY", ["severe_blur"])
     safe_dec = apply_quality_safety_rules(dec)
-    
+
     assert safe_dec.quality_action == QualityAction.SKIP
     assert "severe_blur" in safe_dec.reason
 
@@ -35,7 +35,7 @@ def test_safety_review():
     """Motion blur or clipped highlights -> REVIEW."""
     dec = _make_dec("APPLY", ["clipped_highlights"])
     safe_dec = apply_quality_safety_rules(dec)
-    
+
     assert safe_dec.quality_action == QualityAction.REVIEW
     assert "clipped_highlights" in safe_dec.reason
 
@@ -44,7 +44,7 @@ def test_safety_pass():
     """No severe flags -> APPLY."""
     dec = _make_dec("APPLY", ["minor_noise"])
     safe_dec = apply_quality_safety_rules(dec)
-    
+
     assert safe_dec.quality_action == QualityAction.APPLY
 
 
@@ -52,5 +52,5 @@ def test_safety_already_skip():
     """If already SKIP, keep it SKIP."""
     dec = _make_dec("SKIP", ["clipped_highlights"])
     safe_dec = apply_quality_safety_rules(dec)
-    
+
     assert safe_dec.quality_action == QualityAction.SKIP

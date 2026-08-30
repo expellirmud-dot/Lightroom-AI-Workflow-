@@ -80,7 +80,7 @@ local function getActiveFolderPhotos(catalog)
         error("Open exactly one Lightroom folder in the Library source panel before preparing a job.")
     end
 
-    local folderPhotos = activeFolder:getPhotos(false) or {}
+    local folderPhotos = activeFolder:getPhotos(true) or {}
     local photos = {}
     local seenPaths = {}
     local skippedVirtualCopies = 0

@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict, Action
 from lr_ai_exposure.job import Manifest, ManifestError, read_manifest
 
 
@@ -175,10 +175,10 @@ def _task_markdown(job_dir: Path, manifest: Manifest, skills_path: Path) -> str:
 - `KEEP`, `REVIEW`, or `SKIP` verdicts with grounded rationales.
 
 ## Required JSON fields
-
 ```json
 {{
   "image_id": "<manifest image_id>",
+  "action": "PASS | ADJUST | REVIEW",
   "relevance_verdict": "KEEP | REVIEW | SKIP",
   "quality_verdict": "KEEP | REVIEW | SKIP",
   "delta_ev": 0.0,
@@ -187,7 +187,8 @@ def _task_markdown(job_dir: Path, manifest: Manifest, skills_path: Path) -> str:
   "shadow_risk": false,
   "subject_rationale": "grounded subject observation",
   "scene_rationale": "grounded scene and exposure observation",
-  "batch_consistency_group": "stable visual group",
+  "scene_group_id": "stable visual group",
+  "is_reference": false,
   "reason": "concise final rationale"
 }}
 ```
@@ -366,9 +367,7 @@ def eligible_apply_ids(
 ) -> list[str]:
     result: list[str] = []
     for decision in decisions:
-        if decision.relevance_verdict != Verdict.KEEP:
-            continue
-        if decision.quality_verdict != Verdict.KEEP:
+        if decision.action != Action.ADJUST:
             continue
         if decision.confidence < minimum_confidence:
             continue

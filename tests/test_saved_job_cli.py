@@ -94,7 +94,7 @@ def _build_saved_job(tmp_path: Path) -> tuple[Path, Path]:
         json.dumps(
             {
                 "image_id": "1",
-                "relevance_verdict": "KEEP",
+                "action": "ADJUST", "relevance_verdict": "KEEP",
                 "quality_verdict": "KEEP",
                 "delta_ev": 0.25,
                 "confidence": 0.95,
@@ -102,7 +102,7 @@ def _build_saved_job(tmp_path: Path) -> tuple[Path, Path]:
                 "shadow_risk": False,
                 "subject_rationale": "subject is slightly dark",
                 "scene_rationale": "scene supports a modest lift",
-                "batch_consistency_group": "group-1",
+                "scene_group_id": "group-1",
                 "reason": "matches the reference exposure",
             }
         ),

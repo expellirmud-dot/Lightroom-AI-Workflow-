@@ -22,7 +22,7 @@ def test_prepare_command_exports_active_folder_once() -> None:
     src = _read("RunExposureAssist.lua")
     assert re.search(r"function\s+RunExposureAssist\.run", src)
     assert "catalog:getActiveSources()" in src
-    assert "activeFolder:getPhotos(false)" in src
+    assert "activeFolder:getPhotos(true)" in src
     assert 'sourceType == "LrFolder"' in src
     assert 'getRawMetadata("isVirtualCopy")' in src
     assert 'getRawMetadata("isVideo")' in src
@@ -54,7 +54,7 @@ def test_apply_command_reopens_saved_job_for_matching_active_folder() -> None:
     assert "pointer.state_path" in src
     assert "state.source_root" in src
     assert "catalog:getActiveSources()" in src
-    assert "activeFolder:getPhotos(false)" in src
+    assert "activeFolder:getPhotos(true)" in src
     assert "catalog:getTargetPhotos()" not in src
     assert "--lrdata" not in src
     assert "--selection" not in src
@@ -89,7 +89,7 @@ def test_diagnostic_command_aggregates_without_xmp_or_apply() -> None:
     src = _read("DiagnoseCurrentFolder.lua")
     assert re.search(r"function\s+DiagnoseCurrentFolder\.run", src)
     assert "catalog:getActiveSources()" in src
-    assert "activeFolder:getPhotos(false)" in src
+    assert "activeFolder:getPhotos(true)" in src
     assert 'safeMetadata(photo, "fileFormat")' in src
     assert 'type(metadata.fileFormat)' in src
     assert "observed_file_formats" in src

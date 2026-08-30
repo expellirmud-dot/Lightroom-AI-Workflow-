@@ -82,6 +82,9 @@ def test_write_and_read_manifest_roundtrip(tmp_path: Path) -> None:
     # Determinism: re-read yields same content
     assert path.read_text(encoding="utf-8") == (
         '{\n  "job_id": "roundtrip",\n'
+        '  "pass_number": 1,\n'
+        '  "pass_id": "",\n'
+        '  "parent_pass_id": null,\n'
         '  "total_selected": 0,\n'
         '  "total_found": 0,\n'
         '  "total_missing": 0,\n'

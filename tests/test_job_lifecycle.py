@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+from lr_ai_exposure.ai_judge import SinglePassDecision, Action, Verdict
 from lr_ai_exposure.job import Manifest, ManifestEntry, write_manifest
 from lr_ai_exposure.job_lifecycle import (
     JOB_STATE_PREPARED,
@@ -184,14 +184,14 @@ def test_external_provider_is_job_scoped(tmp_path: Path) -> None:
 
 def test_eligible_apply_ids_are_safe_and_non_zero() -> None:
     base = dict(
-        relevance_verdict=Verdict.KEEP,
+        action=Action.ADJUST, relevance_verdict=Verdict.KEEP,
         quality_verdict=Verdict.KEEP,
         confidence=0.9,
         highlight_risk=False,
         shadow_risk=False,
         subject_rationale="subject",
         scene_rationale="scene",
-        batch_consistency_group="g",
+        scene_group_id="g",
         reason="ok",
     )
     decisions = [
@@ -200,7 +200,7 @@ def test_eligible_apply_ids_are_safe_and_non_zero() -> None:
         SinglePassDecision(
             image_id="review",
             delta_ev=0.25,
-            **{**base, "relevance_verdict": Verdict.REVIEW},
+            **{**base, "action": Action.REVIEW},
         ),
     ]
     assert eligible_apply_ids(decisions, 0.85) == ["apply"]

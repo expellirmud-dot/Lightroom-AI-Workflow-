@@ -70,6 +70,9 @@ class Manifest:
     """
 
     job_id: str
+    pass_number: int = 1
+    pass_id: str = ""
+    parent_pass_id: Optional[str] = None
     entries: list[ManifestEntry] = field(default_factory=list)
     total_selected: int = 0
     total_found: int = 0
@@ -218,6 +221,9 @@ def write_manifest(job_dir: Path, manifest: Manifest) -> Path:
 
     payload = {
         "job_id": manifest.job_id,
+        "pass_number": manifest.pass_number,
+        "pass_id": manifest.pass_id,
+        "parent_pass_id": manifest.parent_pass_id,
         "total_selected": manifest.total_selected,
         "total_found": manifest.total_found,
         "total_missing": manifest.total_missing,
@@ -303,6 +309,9 @@ def read_manifest(job_dir: Path) -> Manifest:
     job_id = raw.get("job_id", job_dir.name)
     manifest = Manifest(
         job_id=job_id, 
+        pass_number=raw.get("pass_number", 1),
+        pass_id=raw.get("pass_id", ""),
+        parent_pass_id=raw.get("parent_pass_id"),
         entries=entries,
         total_selected=raw.get("total_selected", 0),
         total_found=raw.get("total_found", 0),

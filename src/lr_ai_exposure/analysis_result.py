@@ -88,6 +88,9 @@ def serialize_evidence(
         "identity_chain": [
             {
                 "image_id": decision.image_id,
+                "action": decision.action.value if hasattr(decision.action, "value") else decision.action,
+                "scene_group_id": decision.scene_group_id,
+                "is_reference": decision.is_reference,
                 "relevance_verdict": decision.relevance_verdict.value
                 if hasattr(decision.relevance_verdict, "value")
                 else decision.relevance_verdict,

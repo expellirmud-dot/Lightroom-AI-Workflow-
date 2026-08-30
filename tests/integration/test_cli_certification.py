@@ -24,7 +24,7 @@ from unittest import mock
 
 import pytest
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+from lr_ai_exposure.ai_judge import SinglePassDecision, Action, Verdict
 from lr_ai_exposure.job import Manifest, read_manifest
 from lr_ai_exposure.main import main
 
@@ -98,7 +98,7 @@ def test_cli_analyze_only_five_image_integration(
     decisions = [
         SinglePassDecision(
             image_id=f"img-{i}",
-            relevance_verdict=Verdict.KEEP,
+            action=Action.ADJUST, relevance_verdict=Verdict.KEEP,
             quality_verdict=Verdict.KEEP,
             delta_ev=0.1 * i,
             confidence=0.9,
@@ -106,7 +106,7 @@ def test_cli_analyze_only_five_image_integration(
             shadow_risk=False,
             subject_rationale=f"subject img-{i}",
             scene_rationale=f"scene img-{i}",
-            batch_consistency_group="group-A",
+            scene_group_id="group-A",
             reason=f"ok img-{i}",
         )
         for i in range(1, 6)

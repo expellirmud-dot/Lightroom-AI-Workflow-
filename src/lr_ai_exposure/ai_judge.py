@@ -14,6 +14,12 @@ class Verdict(str, Enum):
     SKIP = "SKIP"
 
 
+class Action(str, Enum):
+    PASS = "PASS"
+    ADJUST = "ADJUST"
+    REVIEW = "REVIEW"
+
+
 class SinglePassError(ValueError):
     """Raised when the single-pass AI decision contract is violated."""
 
@@ -24,6 +30,7 @@ class SinglePassDecision(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
 
     image_id: str = Field(..., description="The Lightroom id_local of the image")
+    action: Action = Field(default=Action.REVIEW, description="PASS, ADJUST, or REVIEW")
     relevance_verdict: Verdict
     quality_verdict: Verdict
     delta_ev: float = Field(
@@ -36,7 +43,8 @@ class SinglePassDecision(BaseModel):
     shadow_risk: bool
     subject_rationale: str
     scene_rationale: str
-    batch_consistency_group: str
+    scene_group_id: str = Field(default="group-1", description="Scene group ID for iterative passes")
+    is_reference: bool = Field(default=False, description="Is this image the reference for the scene group?")
     reason: str
 
 
@@ -59,6 +67,8 @@ def validate_single_pass_decision(
             )
 
         if decision.confidence < min_confidence:
+            if decision.action != Action.REVIEW:
+                decision.action = Action.REVIEW
             if decision.relevance_verdict == Verdict.KEEP:
                 decision.relevance_verdict = Verdict.REVIEW
             if decision.quality_verdict == Verdict.KEEP:
@@ -69,6 +79,8 @@ def validate_single_pass_decision(
             ).strip()
 
         if decision.highlight_risk or decision.shadow_risk:
+            if decision.action != Action.REVIEW:
+                decision.action = Action.REVIEW
             if decision.quality_verdict == Verdict.KEEP:
                 decision.quality_verdict = Verdict.REVIEW
             decision.reason = (

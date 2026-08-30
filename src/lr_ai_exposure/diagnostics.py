@@ -297,6 +297,8 @@ def _summary_text(report: dict[str, Any]) -> str:
         f"Overall readiness: {report['overall_readiness']}",
         f"Active folder: {report['lightroom'].get('active_folder_path') or '<none>'}",
         f"Direct photos: {counts['direct_photo_count']}",
+        f"Child folders: {counts['child_folder_count']}",
+        f"Recursive photos: {counts['recursive_photo_count']}",
         f"Eligible proprietary RAW masters: {counts['eligible_raw_count']}",
         "",
         "Stages:",
@@ -364,6 +366,8 @@ def run_diagnostic(
             "active_folder_count": active_folder_count,
             "active_folder_path": request.get("active_folder_path"),
             "direct_photo_count": int(request.get("direct_photo_count", 0)),
+            "child_folder_count": int(request.get("child_folder_count", 0)),
+            "recursive_photo_count": int(request.get("recursive_photo_count", 0)),
         },
     )
 
@@ -407,15 +411,15 @@ def run_diagnostic(
             for item in observed_formats
             if isinstance(item, dict) and isinstance(item.get("count", 0), int)
         )
-        direct_count = int(request.get("direct_photo_count", 0))
-        if observed_total != direct_count:
+        recursive_count = int(request.get("recursive_photo_count", 0))
+        if observed_total != recursive_count:
             _issue(
                 issues,
                 stage="eligibility",
                 severity="FAIL",
                 code="FILE_FORMAT_HISTOGRAM_MISMATCH",
-                message="Observed fileFormat histogram does not cover every direct photo.",
-                evidence={"histogram_count": observed_total, "direct_photo_count": direct_count},
+                message="Observed fileFormat histogram does not cover every recursive photo.",
+                evidence={"histogram_count": observed_total, "recursive_photo_count": recursive_count},
             )
     source_root_value = request.get("active_folder_path")
     if isinstance(source_root_value, str) and source_root_value:
@@ -626,6 +630,8 @@ def run_diagnostic(
         },
         "summary": {
             "direct_photo_count": int(request.get("direct_photo_count", 0)),
+            "child_folder_count": int(request.get("child_folder_count", 0)),
+            "recursive_photo_count": int(request.get("recursive_photo_count", 0)),
             "eligible_raw_count": eligible_count,
             "counts": counts,
             "stage_counts": {

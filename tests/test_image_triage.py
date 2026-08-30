@@ -54,7 +54,7 @@ def test_low_confidence_downgrade() -> None:
     """Low-confidence downgrade to REVIEW."""
     raw = _base_raw()
     raw["confidence"] = 0.6
-    
+
     dec = validate_triage_decision(raw)
     assert dec.relevance_class == RelevanceClass.REVIEW
     assert dec.quality_action == QualityAction.REVIEW
@@ -66,7 +66,7 @@ def test_ambiguous_test_shot() -> None:
     raw = _base_raw()
     raw["relevance_class"] = "SUGGEST_REJECT_TEST_SHOT"
     raw["test_shot_likelihood"] = "low"  # ambiguous evidence
-    
+
     dec = validate_triage_decision(raw)
     assert dec.relevance_class == RelevanceClass.REVIEW
     assert "ambiguous test shot evidence" in dec.reason
@@ -76,7 +76,7 @@ def test_supporting_detail_image() -> None:
     """Supporting and detail image classification."""
     raw = _base_raw()
     raw["relevance_class"] = "KEEP_SUPPORTING"
-    
+
     dec = validate_triage_decision(raw)
     assert dec.relevance_class == RelevanceClass.KEEP_SUPPORTING
 
@@ -86,14 +86,14 @@ def test_candid_vs_accidental() -> None:
     raw1 = _base_raw()
     raw1["relevance_class"] = "KEEP_CANDID"
     raw1["accidental_likelihood"] = "low"
-    
+
     dec1 = validate_triage_decision(raw1)
     assert dec1.relevance_class == RelevanceClass.KEEP_CANDID
-    
+
     raw2 = _base_raw()
     raw2["relevance_class"] = "SUGGEST_REJECT_ACCIDENTAL"
     raw2["accidental_likelihood"] = "high"
-    
+
     dec2 = validate_triage_decision(raw2)
     assert dec2.relevance_class == RelevanceClass.SUGGEST_REJECT_ACCIDENTAL
 
@@ -103,7 +103,7 @@ def test_irrelevant_image() -> None:
     raw = _base_raw()
     raw["relevance_class"] = "SUGGEST_REJECT_IRRELEVANT"
     raw["event_relation"] = "unrelated_scene"
-    
+
     dec = validate_triage_decision(raw)
     assert dec.relevance_class == RelevanceClass.SUGGEST_REJECT_IRRELEVANT
 
@@ -113,7 +113,7 @@ def test_duplicate_suggestion() -> None:
     raw = _base_raw()
     raw["relevance_class"] = "SUGGEST_REJECT_DUPLICATE"
     raw["duplicate_of"] = "IMG_0"
-    
+
     dec = validate_triage_decision(raw)
     assert dec.relevance_class == RelevanceClass.SUGGEST_REJECT_DUPLICATE
     assert dec.duplicate_of == "IMG_0"

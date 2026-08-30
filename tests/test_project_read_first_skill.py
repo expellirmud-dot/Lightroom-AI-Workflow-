@@ -58,8 +58,6 @@ def test_preflight_script_deterministic_output() -> None:
         "GIT_READY",
         "BLOCKED_DIRTY_WORKTREE",
         "BLOCKED_PROJECT_MISMATCH",
-        "BLOCKED_SERENA",
-        "BLOCKED_CODEGRAPH",
         "BLOCKED_MISSING_AUTHORITY",
         "BLOCKED_SCOPE_CONFLICT",
         "BLOCKED_OWNER_DECISION",

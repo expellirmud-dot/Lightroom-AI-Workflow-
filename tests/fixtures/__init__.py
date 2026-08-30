@@ -133,7 +133,7 @@ def write_manual_responses(root: Path, count: int = EXPECTED) -> Path:
             json.dumps(
                 {
                     "image_id": image_id,
-                    "relevance_verdict": "KEEP",
+                    "action": "ADJUST", "relevance_verdict": "KEEP",
                     "quality_verdict": "KEEP",
                     "delta_ev": 0.1 * i,
                     "confidence": 0.9,
@@ -141,7 +141,7 @@ def write_manual_responses(root: Path, count: int = EXPECTED) -> Path:
                     "shadow_risk": False,
                     "subject_rationale": f"subject {image_id}",
                     "scene_rationale": f"scene {image_id}",
-                    "batch_consistency_group": "group-A",
+                    "scene_group_id": "group-A",
                     "reason": f"ok {image_id}",
                 },
                 indent=2,
@@ -168,7 +168,7 @@ def write_negative_identity_responses(root: Path) -> Path:
         json.dumps(
             {
                 "image_id": "img-1",
-                "relevance_verdict": "KEEP",
+                "action": "ADJUST", "relevance_verdict": "KEEP",
                 "quality_verdict": "KEEP",
                 "delta_ev": 0.1,
                 "confidence": 0.9,
@@ -176,7 +176,7 @@ def write_negative_identity_responses(root: Path) -> Path:
                 "shadow_risk": False,
                 "subject_rationale": "dup",
                 "scene_rationale": "dup",
-                "batch_consistency_group": "group-A",
+                "scene_group_id": "group-A",
                 "reason": "duplicate",
             },
             indent=2,
@@ -189,7 +189,7 @@ def write_negative_identity_responses(root: Path) -> Path:
         json.dumps(
             {
                 "image_id": "img-99",
-                "relevance_verdict": "KEEP",
+                "action": "ADJUST", "relevance_verdict": "KEEP",
                 "quality_verdict": "KEEP",
                 "delta_ev": 0.5,
                 "confidence": 0.9,
@@ -197,7 +197,7 @@ def write_negative_identity_responses(root: Path) -> Path:
                 "shadow_risk": False,
                 "subject_rationale": "unknown",
                 "scene_rationale": "unknown",
-                "batch_consistency_group": "group-B",
+                "scene_group_id": "group-B",
                 "reason": "not in manifest",
             },
             indent=2,
@@ -214,7 +214,7 @@ def write_negative_identity_responses(root: Path) -> Path:
     (resp_dir / "no-id.json").write_text(
         json.dumps(
             {
-                "relevance_verdict": "KEEP",
+                "action": "ADJUST", "relevance_verdict": "KEEP",
                 "quality_verdict": "KEEP",
                 "delta_ev": 0.1,
                 "confidence": 0.9,

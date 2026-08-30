@@ -82,7 +82,7 @@ def test_highlight_risk_downgrade() -> None:
     raw["highlight_risk"] = "high"
     raw["recommended_delta_ev"] = 0.5
     raw["action"] = "APPLY"
-    
+
     dec = validate_exposure_decision(raw)
     assert dec.action == Action.REVIEW
     assert "high highlight risk" in dec.reason
@@ -93,7 +93,7 @@ def test_low_confidence_downgrade() -> None:
     raw = _base_raw()
     raw["confidence"] = 0.7
     raw["action"] = "APPLY"
-    
+
     dec = validate_exposure_decision(raw)
     assert dec.action == Action.REVIEW
     assert "low confidence" in dec.reason
@@ -103,7 +103,7 @@ def test_delta_ev_clamp() -> None:
     """Delta EV bands and maximum clamp."""
     raw = _base_raw()
     raw["recommended_delta_ev"] = 4.0
-    
+
     dec = validate_exposure_decision(raw, max_delta_ev=3.0)
     assert dec.recommended_delta_ev == 3.0
 
@@ -114,7 +114,7 @@ def test_person_priority() -> None:
     raw["subject_exposure"] = "UNDEREXPOSED"
     raw["background_exposure"] = "BALANCED"
     raw["recommended_delta_ev"] = 0.5
-    
+
     dec = validate_exposure_decision(raw)
     assert dec.recommended_delta_ev == 0.5
     assert dec.action == Action.APPLY
@@ -127,7 +127,7 @@ def test_dark_background_intent() -> None:
     raw["background_exposure"] = "UNDEREXPOSED"
     raw["scene_intent"] = "night_or_low_light"
     raw["recommended_delta_ev"] = 0.0
-    
+
     dec = validate_exposure_decision(raw)
     assert dec.recommended_delta_ev == 0.0
     assert dec.action == Action.APPLY

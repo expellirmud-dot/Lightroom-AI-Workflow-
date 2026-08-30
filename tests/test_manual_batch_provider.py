@@ -35,7 +35,7 @@ EXPECTED = 5
 def _decision_payload(image_id: str, seq: int) -> dict:
     return {
         "image_id": image_id,
-        "relevance_verdict": "KEEP",
+        "action": "ADJUST", "relevance_verdict": "KEEP",
         "quality_verdict": "KEEP",
         "delta_ev": 0.1 * seq,
         "confidence": 0.9,
@@ -43,7 +43,7 @@ def _decision_payload(image_id: str, seq: int) -> dict:
         "shadow_risk": False,
         "subject_rationale": f"subject {image_id}",
         "scene_rationale": f"scene {image_id}",
-        "batch_consistency_group": "group-A",
+        "scene_group_id": "group-A",
         "reason": f"ok {image_id}",
     }
 
@@ -245,7 +245,7 @@ def test_batch_five_decisions_in_manifest_order(tmp_path):
             "shadow_risk",
             "subject_rationale",
             "scene_rationale",
-            "batch_consistency_group",
+            "scene_group_id",
             "reason",
         ):
             assert field in record["decision"]

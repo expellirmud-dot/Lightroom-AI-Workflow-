@@ -7,7 +7,7 @@ from lr_ai_exposure.cache_extractor import snapshot_cache_dbs, extract_batch
 def dummy_lrdata(tmp_path):
     lrdata = tmp_path / "Dummy.lrdata"
     lrdata.mkdir()
-    
+
     # previews.db
     pdb_path = lrdata / "previews.db"
     pdb = sqlite3.connect(str(pdb_path))
@@ -17,7 +17,7 @@ def dummy_lrdata(tmp_path):
     pdb.execute("INSERT INTO ImageCacheEntry VALUES (103.0, 'UUID-103', 'digest', 'A')")
     pdb.commit()
     pdb.close()
-    
+
     # root-pixels.db
     rdb_path = lrdata / "root-pixels.db"
     rdb = sqlite3.connect(str(rdb_path))
@@ -28,13 +28,13 @@ def dummy_lrdata(tmp_path):
     rdb.execute("INSERT INTO RootPixels VALUES ('UUID-103', 'digest', 'prof', 600, 400, 0.8, ?)", (fake_jpeg,))
     rdb.commit()
     rdb.close()
-    
+
     return str(lrdata)
 
 def test_snapshot_cache_dbs(dummy_lrdata, tmp_path):
     snapshot_dir = tmp_path / "snapshots"
     previews_dst, root_dst = snapshot_cache_dbs(dummy_lrdata, str(snapshot_dir))
-    
+
     assert os.path.exists(previews_dst)
     assert os.path.exists(root_dst)
     assert os.path.dirname(previews_dst) == str(snapshot_dir)
@@ -42,9 +42,9 @@ def test_snapshot_cache_dbs(dummy_lrdata, tmp_path):
 def test_extract_batch(dummy_lrdata, tmp_path):
     snapshot_dir = tmp_path / "snapshots"
     snapshot_cache_dbs(dummy_lrdata, str(snapshot_dir))
-    
+
     out_dir = str(tmp_path / "out")
-    
+
     identities = [
         {"id_local": 101.0, "path": "C:/photos/IMG_01.CR2"},
         {"id_local": 102.0, "path": "C:/photos/IMG_02.CR2"}, # Missing jpeg
@@ -52,21 +52,21 @@ def test_extract_batch(dummy_lrdata, tmp_path):
         {"id_local": 103.0, "path": "C:/photos/IMG_03.CR2"},
         {"id_local": None, "path": "C:/photos/IMG_ERR.CR2"}, # Error
     ]
-    
+
     results = extract_batch(identities, str(snapshot_dir), out_dir)
     assert len(results) == 5
-    
+
     assert results[0]["status"] == "FOUND"
     assert results[0]["output"].endswith("000001__IMG_01.jpg")
     assert os.path.exists(results[0]["output"])
-    
+
     assert results[1]["status"] == "MISSING"
     assert results[1]["output"] is None
-    
+
     assert results[2]["status"] == "MISSING"
-    
+
     assert results[3]["status"] == "FOUND"
     assert results[3]["output"].endswith("000004__IMG_03.jpg")
     assert os.path.exists(results[3]["output"])
-    
+
     assert results[4]["status"] == "ERROR"

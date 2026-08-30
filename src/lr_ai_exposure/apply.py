@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict
+from lr_ai_exposure.ai_judge import SinglePassDecision, Verdict, Action
 from lr_ai_exposure.apply_transaction import execute_apply_transaction, RollbackFatalError
 from lr_ai_exposure.job import read_manifest
 from lr_ai_exposure.xmp import read_exposure_2012
@@ -205,13 +205,10 @@ def apply_exposure_deltas(
                 settled_ids.add(image_id)
                 continue
 
-        if (
-            decision.relevance_verdict != Verdict.KEEP
-            or decision.quality_verdict != Verdict.KEEP
-        ):
+        if decision.action != Action.ADJUST:
             record_skip(
                 image_id,
-                f"Not KEEP ({decision.relevance_verdict}, {decision.quality_verdict})",
+                f"Not ADJUST (action is {decision.action})",
             )
             settled_ids.add(image_id)
             continue
