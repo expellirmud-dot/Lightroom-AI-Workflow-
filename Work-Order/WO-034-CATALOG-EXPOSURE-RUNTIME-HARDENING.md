@@ -1,6 +1,6 @@
 # WO-034 — Catalog Exposure Runtime Hardening
 
-STATUS: IN_PROGRESS
+STATUS: CI_CERTIFIED_LIVE_GATE_PENDING
 
 ## Goal
 Finish the Lightroom iterative-session runtime boundary before any new Vision architecture work. The iterative path must use the Lightroom Catalog as the authoritative Exposure2012 state and must never re-run AI during apply.
@@ -58,6 +58,12 @@ No XMP comparison is used for the iterative Catalog route.
 - Confirmation records only Lightroom-verified applies.
 - Existing legacy prepared-job tests remain green.
 - Full Windows CI passes on Python 3.12 and 3.13.
+
+## Automated validation result
+- GitHub Actions run: `33326239821` (`Lightroom AI Workflow Certification`, run 71).
+- Windows / Python 3.12: PASS — focused prepared-job tests, full pytest suite, config smoke test, integration suite, compile check, diff check, clean-tree check.
+- Windows / Python 3.13: PASS — same certification gates.
+- The first CI attempt exposed strict-enum deserialization in frozen `ai-decisions.json`; the loader was corrected to validate from JSON and the complete certification then passed.
 
 ## Live acceptance gate
 CI cannot host Lightroom Classic. After automated certification, owner performs a bounded 1–3 image Lightroom test confirming:
