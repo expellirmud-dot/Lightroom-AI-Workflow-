@@ -13,26 +13,30 @@ return {
             file = "DiagnoseCurrentFolder.lua",
         },
         {
-            title = "AI Exposure Assist — Prepare Whole-Folder Iterative Session",
-            file = "IterativeSession.lua",
+            title = "AI Exposure Assist — Prepare AI Package",
+            file = "PrepareAIPackage.lua",
         },
         {
-            title = "AI Exposure Assist — Resume Pending Iterative Session",
-            file = "ResumeIterativeSession.lua",
+            title = "AI Exposure Assist — Import / Apply AI Results",
+            file = "ImportApplyAIResults.lua",
         },
         {
-            title = "AI Exposure Assist — Prepare Current Folder (Single Pass)",
+            title = "AI Exposure Assist — Prepare Next AI Package",
+            file = "PrepareNextAIPackage.lua",
+        },
+        {
+            title = "AI Exposure Assist — Prepare Current Folder (Legacy Single Pass)",
             file = "RunExposureAssist.lua",
         },
         {
-            title = "AI Exposure Assist — Apply Prepared Job (Single Pass)",
+            title = "AI Exposure Assist — Apply Prepared Job (Legacy Single Pass)",
             file = "ApplyPreparedJob.lua",
         },
     },
 
     VERSION = {
         major = 1,
-        minor = 2,
+        minor = 3,
         revision = 0,
         build = 1,
     },
