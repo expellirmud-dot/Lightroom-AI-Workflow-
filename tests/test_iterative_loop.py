@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 import uuid
 
 from lr_ai_exposure.ai_judge import Verdict, SinglePassDecision, Action
@@ -54,7 +53,7 @@ def test_iterative_loop_end_to_end(tmp_path: Path) -> None:
             action=Action.ADJUST,
             scene_group_id="G1",
             is_reference=False,
-            delta_ev=0.123,
+            delta_ev=0.126,
             relevance_verdict=Verdict.KEEP,
             quality_verdict=Verdict.KEEP,
             confidence=0.9,
@@ -68,9 +67,9 @@ def test_iterative_loop_end_to_end(tmp_path: Path) -> None:
 
     results = evaluate_pass_convergence(state, decisions, "pass-01")
     assert results["pass_number"] == 1
-    assert results["quantized_deltas"]["101"] == 0.10
-    assert state.images["101"].cumulative_delta_ev == 0.10
-    assert state.images["101"].expected_exposure2012 == 0.80
+    assert results["quantized_deltas"]["101"] == 0.15
+    assert state.images["101"].cumulative_delta_ev == 0.15
+    assert state.images["101"].expected_exposure2012 == 0.85
     assert not state.is_converged
 
     manifest = Manifest(
@@ -102,7 +101,7 @@ def test_iterative_loop_end_to_end(tmp_path: Path) -> None:
         ],
     )
     state.images["101"].last_preview_sha256 = "hash2_old"
-    freshness = validate_render_barrier(state, manifest, {"101": 0.80})
+    freshness = validate_render_barrier(state, manifest, {"101": 0.85})
     assert freshness["101"] == "FRESH"
 
     mismatch_state = create_session(
