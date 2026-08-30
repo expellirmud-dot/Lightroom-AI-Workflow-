@@ -1,94 +1,78 @@
 # Project Status
 
-LAST_UPDATED: 2026-08-30
-PROJECT_PHASE: Diagnostic Owner Verification
-CURRENT_WORK_ORDER: NONE
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-031-DIAGNOSE-CURRENT-FOLDER.md
-CURRENT_BRANCH: main
-PR_1_STATUS: MERGED_ON_2026-08-13
+LAST_UPDATED: 2026-08-31
+PROJECT_PHASE: Decoupled AI Package Workflow Implementation
+CURRENT_WORK_ORDER: Work-Order/WO-037-DECOUPLED-AI-PACKAGE-WORKFLOW.md
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-036-LIGHTROOM-LIVE-TEST-HARNESS.md
+CURRENT_BRANCH: wo-037-decoupled-ai-package-workflow
 
-> Moving Git HEAD is intentionally not duplicated in this document. Git is the
-> authority for the current commit; this file records project phase and evidence
-> boundaries so a documentation commit does not make its own HEAD field stale.
+> Git is the authority for moving HEAD. This file records phase and evidence boundaries only.
 
 ## Current implementation truth
 
-The code and Lightroom plug-in currently implement WO-029's prepared-folder
-single-pass workflow:
+Main already contains automated-tested iterative session work through WO-036, including:
+
+- active-folder identity capture;
+- Catalog Exposure2012 baseline capture;
+- read-only preview-cache snapshot/extraction;
+- immutable pass/session artifacts;
+- external decision-file validation;
+- bounded Catalog Exposure2012 apply planning and observed verification;
+- deterministic no-AI live-test decision seeding.
+
+WO-036 post-merge GitHub Actions run #80 completed successfully. Representative Lightroom Classic end-to-end mutation/rerender evidence remains pending.
+
+## WO-037 objective
+
+Replace the user-facing generic wait/resume semantics with three explicit short-lived Lightroom commands:
 
 ```text
-Prepare Current Folder
--> external file decisions
--> Apply Prepared Job
+Prepare AI Package
+-> PACKAGE_READY
+-> plug-in exits
+
+Import / Apply AI Results
+-> SESSION_COMPLETE or RERENDER_REQUIRED
+-> plug-in exits
+
+Prepare Next AI Package
+-> PACKAGE_READY
+-> plug-in exits
 ```
 
-Automated Windows evidence covers the Python prepared-job lifecycle, strict
-decision import, and transactional XMP paths. It does not prove the approved
-iterative Exposure Session target.
+External AI runs independently against the saved pass directory. The Lightroom plug-in never polls or keeps an AI/provider connection alive.
 
-The owner verified Lightroom plug-in version 1.1.0 build 2 loads and both menu
-commands appear. The first real **Prepare Current Folder** attempt failed inside
-Lua eligibility filtering with zero eligible proprietary-RAW masters. Because
-that failure occurred before staging/CLI/cache execution, current runtime
-evidence does not identify direct photo count or the actual Lightroom
-`fileFormat` values.
+## Current branch implementation
 
-WO-029 is `SUPERSEDED`, not completed or live verified. WO-030 reconciled the
-canonical target architecture and governance. WO-031 implemented the
-diagnostic-first seam through automated integration; no real Lightroom
-diagnostic evidence exists yet.
+WO-037 currently adds:
 
-## Approved target
+- `PrepareAIPackage.lua` — Pass 1 capture/package command;
+- `ImportApplyAIResults.lua` — explicit result import/apply command;
+- `PrepareNextAIPackage.lua` — explicit later-pass capture command;
+- `SessionPackageSupport.lua` — shared Lightroom identity/selection/apply helpers;
+- plug-in menu version 1.3.0 routing to the new canonical commands;
+- static regression tests for command separation and Exposure2012-only mutation;
+- canonical architecture/workflow/decision/user documentation updates.
 
-The accepted architecture remains:
+The older `IterativeSession.lua` / `ResumeIterativeSession.lua` remain in the repository for compatibility but are no longer registered as the canonical menu path.
 
-```text
-provider-agnostic Exposure Session
--> immutable iterative passes
--> Lightroom authoritative rendering
--> external vision scene/group/outlier judgment
--> deterministic Python validation/convergence/XMP safety
--> thin Lightroom coordination
-```
+## Safety preserved
 
-It includes diagnostic-first preflight, PASS/ADJUST/REVIEW, persistent scene
-groups with safe split/REVIEW, render-generation proof, metadata-sync safety,
-convergence/oscillation controls, and bounded safe stop. Session/pass
-capabilities remain `PLANNED`; WO-031 does not authorize them.
+- no direct `.lrcat` database access;
+- no `.lrdata` writes;
+- Python remains the cache extractor;
+- external AI has decision-only authority;
+- only Catalog Exposure2012 is writable through the WO-037 iterative command path;
+- Import / Apply does not prepare another pass;
+- next-pass capture remains gated by prior apply evidence and the existing Python render barrier.
 
-## Current implemented seam
+## Evidence boundary
 
-`DIAGNOSE_CURRENT_FOLDER` is implemented as one read-only aggregated diagnostic
-run. It continues independent checks when eligible RAW count is zero and writes
-`preflight.json` plus `diagnostic.txt` with active-folder metadata, eligibility,
-preview-cache readiness, runtime/CLI/bridge readiness, strict read-only XMP
-readiness, and fail-closed metadata-sync status.
-
-Automated integration is green. The Lightroom-hosted Lua path and the current
-problem folder remain unverified until the owner runs the new menu command.
-
-## Preserved evidence and safety
-
-- Historical selected-photo cache extraction remains evidence, not a target
-  workflow.
-- Read-only SQLite cache snapshot/extraction is preserved.
-- Transactional XMP backup, hash verification, atomic replacement,
-  post-write validation, rollback, and checkpoint behavior remain preserved.
-- Only `crs:Exposure2012` is in writable scope for future authorized apply;
-  WO-031 itself is read-only.
-- Final JPEG export remains manual.
-
-## Current risks
-
-- Active-folder eligibility has not yet been diagnosed in real Lightroom.
-- Current code has no session/pass lineage, rerender freshness barrier,
-  convergence, oscillation detection, or metadata synchronization proof.
-- Optional legacy Google/API compatibility remains outside the canonical target
-  and is not part of WO-031.
-- Real XMP apply and Lightroom metadata/render round-trip remain unverified.
+WO-037 is `IMPLEMENTED_PENDING_CI` on its feature branch. No claim is made yet that its new Lua command routing is Lightroom-hosted or live verified.
 
 ## Next gate
 
-Perform exactly one bounded real Lightroom `DIAGNOSE_CURRENT_FOLDER` run and
-return its generated `preflight.json`. Use that artifact to decide the next
-implementation seam; do not start session/pass work before this gate.
+1. Run repository CI on the WO-037 pull request.
+2. Repair any focused/static/Windows failures without widening architecture scope.
+3. After CI is green, merge if the Work Order closeout diff remains bounded.
+4. Then perform the previously deferred Lightroom Classic live package/apply/rerender test using the new explicit commands.
