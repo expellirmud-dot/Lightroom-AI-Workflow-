@@ -3,8 +3,8 @@
 These tests validate the plug-in files without a Lightroom runtime:
 - Info.lua parses as valid Lua when a Lua interpreter is available.
 - Required files exist.
-- Info.lua declares the SDK, identity, two menu commands, and version fields.
-- Prepare and Apply modules define implementation entry points.
+- Info.lua declares the SDK, identity, workflow commands, and version fields.
+- Runtime modules define implementation entry points.
 - Metadata/bootstrap files contain no runtime side effects.
 """
 
@@ -27,6 +27,8 @@ REQUIRED_FILES = [
     "Info.lua",
     "PluginInit.lua",
     "DiagnoseCurrentFolder.lua",
+    "IterativeSession.lua",
+    "ResumeIterativeSession.lua",
     "RunExposureAssist.lua",
     "ApplyPreparedJob.lua",
     "ActiveFolderResolver.lua",
@@ -65,6 +67,8 @@ def test_info_metadata_valid() -> None:
         "LrPluginName",
         "LrLibraryMenuItems",
         "DiagnoseCurrentFolder.lua",
+        "IterativeSession.lua",
+        "ResumeIterativeSession.lua",
         "RunExposureAssist.lua",
         "ApplyPreparedJob.lua",
         "VERSION",
@@ -78,11 +82,15 @@ def test_info_metadata_valid() -> None:
     assert "LrPluginInit =" not in src
 
 
-def test_info_declares_folder_prepare_and_saved_apply_commands() -> None:
+def test_info_declares_workflow_and_legacy_commands() -> None:
     src = _read("Info.lua")
     assert "Diagnose Current Folder" in src
+    assert "Prepare Whole-Folder Iterative Session" in src
+    assert "Resume Pending Iterative Session" in src
     assert "Prepare Current Folder" in src
     assert "Apply Prepared Job" in src
+    assert 'file = "IterativeSession.lua"' in src
+    assert 'file = "ResumeIterativeSession.lua"' in src
     assert 'file = "RunExposureAssist.lua"' in src
     assert 'file = "DiagnoseCurrentFolder.lua"' in src
     assert 'file = "ApplyPreparedJob.lua"' in src
@@ -90,15 +98,17 @@ def test_info_declares_folder_prepare_and_saved_apply_commands() -> None:
 
 
 def test_runtime_modules_have_run_entries() -> None:
-    diagnose = _read("DiagnoseCurrentFolder.lua")
-    prepare = _read("RunExposureAssist.lua")
-    apply = _read("ApplyPreparedJob.lua")
-    assert re.search(r"function\s+DiagnoseCurrentFolder\.run", diagnose)
-    assert "return DiagnoseCurrentFolder" in diagnose
-    assert re.search(r"function\s+RunExposureAssist\.run", prepare)
-    assert "return RunExposureAssist" in prepare
-    assert re.search(r"function\s+ApplyPreparedJob\.run", apply)
-    assert "return ApplyPreparedJob" in apply
+    modules = {
+        "DiagnoseCurrentFolder.lua": "DiagnoseCurrentFolder",
+        "IterativeSession.lua": "IterativeSession",
+        "ResumeIterativeSession.lua": "ResumeIterativeSession",
+        "RunExposureAssist.lua": "RunExposureAssist",
+        "ApplyPreparedJob.lua": "ApplyPreparedJob",
+    }
+    for filename, module in modules.items():
+        src = _read(filename)
+        assert re.search(rf"function\s+{module}\.run", src)
+        assert f"return {module}" in src
 
 
 def test_metadata_and_bootstrap_have_no_side_effects() -> None:
