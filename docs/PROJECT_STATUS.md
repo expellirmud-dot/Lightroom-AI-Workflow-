@@ -1,78 +1,87 @@
 # Project Status
 
 LAST_UPDATED: 2026-08-31
-PROJECT_PHASE: Decoupled AI Package Workflow Implementation
-CURRENT_WORK_ORDER: Work-Order/WO-037-DECOUPLED-AI-PACKAGE-WORKFLOW.md
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-036-LIGHTROOM-LIVE-TEST-HARNESS.md
-CURRENT_BRANCH: wo-037-decoupled-ai-package-workflow
-
-> Git is the authority for moving HEAD. This file records phase and evidence boundaries only.
+PROJECT_PHASE: Lightroom Live Verification Pending
+CURRENT_WORK_ORDER: NONE
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-037-DECOUPLED-AI-PACKAGE-WORKFLOW.md
+CURRENT_BRANCH: main after PR #5 merge; Git remains authority for moving HEAD
 
 ## Current implementation truth
 
-Main already contains automated-tested iterative session work through WO-036, including:
-
-- active-folder identity capture;
-- Catalog Exposure2012 baseline capture;
-- read-only preview-cache snapshot/extraction;
-- immutable pass/session artifacts;
-- external decision-file validation;
-- bounded Catalog Exposure2012 apply planning and observed verification;
-- deterministic no-AI live-test decision seeding.
-
-WO-036 post-merge GitHub Actions run #80 completed successfully. Representative Lightroom Classic end-to-end mutation/rerender evidence remains pending.
-
-## WO-037 objective
-
-Replace the user-facing generic wait/resume semantics with three explicit short-lived Lightroom commands:
+The automated-tested iterative session runtime now has an explicit decoupled package workflow:
 
 ```text
 Prepare AI Package
+-> Python read-only Lightroom preview-cache extraction
 -> PACKAGE_READY
 -> plug-in exits
 
+External AI Runner
+-> runs separately against the saved package
+-> writes decisions only
+
 Import / Apply AI Results
+-> exact decision validation
+-> guarded Catalog Exposure2012-only apply and observed confirmation
 -> SESSION_COMPLETE or RERENDER_REQUIRED
 -> plug-in exits
 
 Prepare Next AI Package
+-> explicit command after rerender
+-> existing render barrier
+-> next immutable package
 -> PACKAGE_READY
--> plug-in exits
 ```
 
-External AI runs independently against the saved pass directory. The Lightroom plug-in never polls or keeps an AI/provider connection alive.
+The Lightroom plug-in does not own a resident AI listener, polling loop, provider session, browser automation or API key.
 
-## Current branch implementation
+## WO-037 implementation
 
-WO-037 currently adds:
+WO-037 adds:
 
-- `PrepareAIPackage.lua` — Pass 1 capture/package command;
+- `PrepareAIPackage.lua` — Pass 1 identity/capture/package command;
 - `ImportApplyAIResults.lua` — explicit result import/apply command;
 - `PrepareNextAIPackage.lua` — explicit later-pass capture command;
-- `SessionPackageSupport.lua` — shared Lightroom identity/selection/apply helpers;
-- plug-in menu version 1.3.0 routing to the new canonical commands;
-- static regression tests for command separation and Exposure2012-only mutation;
-- canonical architecture/workflow/decision/user documentation updates.
+- `SessionPackageSupport.lua` — shared Lightroom identity/selection/Exposure2012 apply helpers;
+- canonical `Info.lua` routing to the new commands while retaining WO-029 single-pass commands as Legacy;
+- static regressions protecting command separation, no resident listener and Exposure2012-only Catalog mutation;
+- architecture/workflow/decision/user documentation aligned to the durable filesystem package boundary.
 
-The older `IterativeSession.lua` / `ResumeIterativeSession.lua` remain in the repository for compatibility but are no longer registered as the canonical menu path.
+The historical `IterativeSession.lua` / `ResumeIterativeSession.lua` files remain for compatibility but are not registered as the canonical menu workflow.
+
+The plug-in metadata remains version 1.2.0 build 1 so it stays aligned with the existing diagnostic payload contract; WO-037 changes routing rather than the diagnostic protocol.
+
+## Automated evidence
+
+- WO-036 post-merge run #80 succeeded on `main`.
+- WO-037 PR #5 certification run #85 (`33340357782`) succeeded on Windows Python 3.12 and 3.13.
+- Both matrix jobs passed focused prepared-job regressions, the full pytest suite, CLI config smoke, integration suite, compile, diff check and clean working-tree/private-artifact check.
+- The first WO-037 PR run failed only because old static tests still required the superseded Resume menu/version assumptions; those contracts were updated and the subsequent run passed.
+
+This supports CI certification/integration only. It does not prove the new Lua command routing inside a real Lightroom Classic host.
 
 ## Safety preserved
 
-- no direct `.lrcat` database access;
+- no direct `.lrcat`, `.lrcat-wal` or `.lrcat-shm` access;
 - no `.lrdata` writes;
-- Python remains the cache extractor;
+- Python remains the read-only cache snapshot/extractor;
 - external AI has decision-only authority;
-- only Catalog Exposure2012 is writable through the WO-037 iterative command path;
-- Import / Apply does not prepare another pass;
-- next-pass capture remains gated by prior apply evidence and the existing Python render barrier.
-
-## Evidence boundary
-
-WO-037 is `IMPLEMENTED_PENDING_CI` on its feature branch. No claim is made yet that its new Lua command routing is Lightroom-hosted or live verified.
+- only Catalog Exposure2012 is writable through the canonical iterative apply path;
+- Import / Apply never prepares another pass implicitly;
+- next-pass capture remains gated by prior verified apply evidence and the existing Python render barrier;
+- AI provider/model quality testing remains deferred.
 
 ## Next gate
 
-1. Run repository CI on the WO-037 pull request.
-2. Repair any focused/static/Windows failures without widening architecture scope.
-3. After CI is green, merge if the Work Order closeout diff remains bounded.
-4. Then perform the previously deferred Lightroom Classic live package/apply/rerender test using the new explicit commands.
+Perform one bounded Lightroom Classic live test using the new explicit commands and the existing WO-036 deterministic no-AI decision seeder:
+
+```text
+Prepare AI Package
+-> seed PASS-only or one +0.10 EV test decision set
+-> Import / Apply AI Results
+-> verify Lightroom-observed result
+-> allow rerender
+-> Prepare Next AI Package only if a second-pass proof is required
+```
+
+Do not claim `LIVE_VERIFIED` until that Lightroom-hosted evidence is captured.
