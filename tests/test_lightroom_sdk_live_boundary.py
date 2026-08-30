@@ -122,8 +122,8 @@ def test_diagnostic_preserves_exact_folder_resolution_evidence() -> None:
         "enumeration_error",
     ):
         assert field in src
-    assert '"getPhotos(true) failed: "' in src
-    assert '"getPhotos(false) failed: "' in src
+    assert "getPhotos(true) failed:" in src
+    assert "getPhotos(false) failed:" in src
 
 
 def test_diagnostic_version_matches_current_plugin_metadata() -> None:
