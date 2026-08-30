@@ -1,8 +1,22 @@
 from __future__ import annotations
 
 from typing import Any
-from lr_ai_exposure.session import SessionState, SessionImageState, ExposureHistory
+
 from lr_ai_exposure.ai_judge import SinglePassDecision, Action
+from lr_ai_exposure.session import SessionState, ExposureHistory
+
+
+def _quantize_ev(delta: float, step: float) -> float:
+    if step <= 0:
+        return round(float(delta), 4)
+    return round(round(float(delta) / step) * step, 4)
+
+
+def _pass_number_for_id(state: SessionState, pass_id: str) -> int:
+    try:
+        return state.passes.index(pass_id) + 1
+    except ValueError as exc:
+        raise ValueError(f"Pass {pass_id!r} is not present in session lineage") from exc
 
 
 def evaluate_pass_convergence(
@@ -10,19 +24,25 @@ def evaluate_pass_convergence(
     decisions: list[SinglePassDecision],
     pass_id: str,
 ) -> dict[str, Any]:
-    """Evaluate decisions against convergence policy and update session state."""
+    """Evaluate frozen decisions against policy and update a session-state instance.
+
+    Callers that are only planning an apply should pass a deep copy of the
+    authoritative state. Session history is committed only after Lightroom
+    confirms the Catalog mutation.
+    """
     tolerance = float(state.policy.get("tolerance", 0.10))
+    quantization = float(state.policy.get("quantization", 0.05))
     max_auto_delta = float(state.policy.get("maximum_delta_ev", 1.0))
     max_cumulative = float(state.policy.get("cumulative_delta_ev", 2.0))
     max_passes = int(state.policy.get("maximum_passes", 4))
 
-    current_pass_number = len(state.passes) + 1
+    current_pass_number = _pass_number_for_id(state, pass_id)
 
     applied_count = 0
     review_count = 0
     pass_count = 0
-
     results: dict[str, str] = {}
+    quantized_deltas: dict[str, float] = {}
 
     for decision in decisions:
         image_id = str(decision.image_id)
@@ -30,7 +50,6 @@ def evaluate_pass_convergence(
             continue
 
         img = state.images[image_id]
-
         img.scene_group_id = decision.scene_group_id
         img.is_reference = decision.is_reference
 
@@ -45,13 +64,14 @@ def evaluate_pass_convergence(
             results[image_id] = "REVIEW"
             continue
 
-        if decision.action == Action.PASS or abs(decision.delta_ev) <= tolerance:
+        delta = _quantize_ev(decision.delta_ev, quantization)
+        quantized_deltas[image_id] = delta
+
+        if decision.action == Action.PASS or abs(delta) <= tolerance:
             img.status = "PASS"
             pass_count += 1
             results[image_id] = "PASS"
             continue
-
-        delta = decision.delta_ev
 
         if abs(delta) > max_auto_delta:
             img.status = "REVIEW"
@@ -65,17 +85,23 @@ def evaluate_pass_convergence(
             results[image_id] = "REVIEW_CUMULATIVE_EXCEEDED"
             continue
 
-        # Oscillation check:
-        # 1. Sign reversal across passes
-        # 2. Returning near a previously tried value
-        if len(img.history) > 0:
+        # Oscillation is intentionally conservative: one meaningful sign flip is
+        # recorded, but automatic authority is removed only after repeated
+        # evidence or a revisit of a prior exposure state.
+        if img.history:
             last_hist = img.history[-1]
             if abs(last_hist.delta_ev) > tolerance and abs(delta) > tolerance:
-                if (last_hist.delta_ev > 0 and delta < 0) or (last_hist.delta_ev < 0 and delta > 0):
+                if (last_hist.delta_ev > 0 and delta < 0) or (
+                    last_hist.delta_ev < 0 and delta > 0
+                ):
                     img.oscillations += 1
 
-            # Check if resulting exposure is near any previously seen exposure
-            proposed_exposure = (img.expected_exposure2012 or 0.0) + delta
+            current_expected = (
+                img.expected_exposure2012
+                if img.expected_exposure2012 is not None
+                else img.baseline_exposure2012
+            )
+            proposed_exposure = current_expected + delta
             for prior in img.history:
                 if abs(proposed_exposure - prior.expected_exposure2012) < (tolerance / 2.0):
                     img.oscillations += 1
@@ -94,12 +120,16 @@ def evaluate_pass_convergence(
             continue
 
         img.status = "ADJUST"
-        img.cumulative_delta_ev += delta
+        img.cumulative_delta_ev = round(img.cumulative_delta_ev + delta, 4)
         img.previous_pass_id = pass_id
 
-        expected = round((img.expected_exposure2012 or 0.0) + delta, 4)
+        current_expected = (
+            img.expected_exposure2012
+            if img.expected_exposure2012 is not None
+            else img.baseline_exposure2012
+        )
+        expected = round(current_expected + delta, 4)
         img.expected_exposure2012 = expected
-
         img.history.append(
             ExposureHistory(
                 pass_id=pass_id,
@@ -111,7 +141,6 @@ def evaluate_pass_convergence(
         applied_count += 1
         results[image_id] = "ADJUST"
 
-    # Check if session converged: no ADJUST remaining or all images settled
     all_settled = all(img.status in {"PASS", "REVIEW"} for img in state.images.values())
     if current_pass_number >= max_passes or applied_count == 0 or all_settled:
         for img in state.images.values():
@@ -119,11 +148,15 @@ def evaluate_pass_convergence(
                 img.status = "REVIEW"
                 results[img.image_id] = "REVIEW_MAX_PASSES"
         state.is_converged = True
+    else:
+        state.is_converged = False
 
     return {
         "applied": applied_count,
         "review": review_count,
         "pass": pass_count,
         "results": results,
+        "quantized_deltas": quantized_deltas,
         "is_converged": state.is_converged,
+        "pass_number": current_pass_number,
     }
