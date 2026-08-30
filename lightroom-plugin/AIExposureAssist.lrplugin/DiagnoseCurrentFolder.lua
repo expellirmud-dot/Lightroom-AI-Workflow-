@@ -47,8 +47,10 @@ local function readJsonFile(path)
     return value
 end
 
+-- Lightroom SDK calls may yield. Standard Lua pcall can turn a valid SDK call
+-- into an apparent failure, so diagnostic probing must use LrTasks.pcall.
 local function safeCall(defaultValue, func)
-    local ok, value = pcall(func)
+    local ok, value = LrTasks.pcall(func)
     if ok then
         return value
     end
@@ -100,7 +102,12 @@ local function collectLightroomEvidence(catalog)
             type = table.concat(info.capabilities, ","),
             name = info.name,
             path = info.path,
-            reason = info.reason
+            reason = info.reason,
+            source_type = info.source_type,
+            source_type_status = info.source_type_status,
+            source_type_error = info.source_type_error,
+            get_path_status = info.get_path_status,
+            get_path_error = info.get_path_error
         })
     end
 
@@ -144,21 +151,25 @@ local function collectLightroomEvidence(catalog)
     end
     payload.child_folder_count = countFolders(activeFolder)
 
-    local ok_direct, directPhotos = pcall(function()
+    local okDirect, directPhotos = LrTasks.pcall(function()
         return activeFolder:getPhotos(false) or {}
     end)
-    local ok_recurse, recursivePhotos = pcall(function()
+    local okRecursive, recursivePhotos = LrTasks.pcall(function()
         return activeFolder:getPhotos(true) or {}
     end)
 
-    if not ok_recurse then
+    if not okRecursive then
         payload.enumeration_status = "FAIL"
-        payload.enumeration_error = tostring(recursivePhotos)
+        payload.enumeration_error = "getPhotos(true) failed: " .. tostring(recursivePhotos)
+        if not okDirect then
+            payload.enumeration_error = payload.enumeration_error
+                .. " | getPhotos(false) failed: " .. tostring(directPhotos)
+        end
         return payload
     end
 
     payload.enumeration_status = "PASS"
-    payload.direct_photo_count = ok_direct and #directPhotos or 0
+    payload.direct_photo_count = okDirect and #directPhotos or 0
     payload.recursive_photo_count = #recursivePhotos
     local folderPhotos = recursivePhotos
 
@@ -268,7 +279,7 @@ function DiagnoseCurrentFolder.run()
         payload.protocol_version = "1.0"
         payload.operation = "DIAGNOSE_CURRENT_FOLDER"
         payload.diagnostic_id = diagnosticId
-        payload.plugin = { version = "1.1.0", build = 3 }
+        payload.plugin = { version = "1.2.0", build = 1 }
 
         local stagingDir = LrPathUtils.child(REPO_ROOT, "runtime\\staging")
         LrFileUtils.createAllDirectories(stagingDir)
