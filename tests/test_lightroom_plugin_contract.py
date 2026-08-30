@@ -29,6 +29,7 @@ REQUIRED_FILES = [
     "DiagnoseCurrentFolder.lua",
     "RunExposureAssist.lua",
     "ApplyPreparedJob.lua",
+    "ActiveFolderResolver.lua",
 ]
 
 

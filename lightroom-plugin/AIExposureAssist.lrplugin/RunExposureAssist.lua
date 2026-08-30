@@ -59,26 +59,14 @@ local function loadPreviewCachePath(repoRoot)
 end
 
 local function getActiveFolderPhotos(catalog)
-    local activeSources = catalog:getActiveSources() or {}
-    local activeFolder = nil
+    local ActiveFolderResolver = require "ActiveFolderResolver"
+    local resolverResult = ActiveFolderResolver.resolveActiveFolder(catalog)
 
-    for _, source in ipairs(activeSources) do
-        if type(source) ~= "string" then
-            local ok, sourceType = pcall(function()
-                return source:type()
-            end)
-            if ok and sourceType == "LrFolder" then
-                if activeFolder ~= nil then
-                    error("Select exactly one Lightroom folder before preparing a job.")
-                end
-                activeFolder = source
-            end
-        end
+    if resolverResult.error then
+        error("Folder Resolution Error: " .. resolverResult.error .. "\nOpen exactly one Lightroom folder in the Library source panel before preparing a job.")
     end
 
-    if activeFolder == nil then
-        error("Open exactly one Lightroom folder in the Library source panel before preparing a job.")
-    end
+    local activeFolder = resolverResult.active_folder
 
     local folderPhotos = activeFolder:getPhotos(true) or {}
     local photos = {}

@@ -50,26 +50,16 @@ local function writeUtf8File(path, content)
 end
 
 local function getSingleActiveFolder(catalog)
-    local activeSources = catalog:getActiveSources() or {}
-    local activeFolder = nil
-    for _, source in ipairs(activeSources) do
-        if type(source) ~= "string" then
-            local ok, sourceType = pcall(function()
-                return source:type()
-            end)
-            if ok and sourceType == "LrFolder" then
-                if activeFolder ~= nil then
-                    error("Open exactly one Lightroom folder before applying a prepared job.")
-                end
-                activeFolder = source
-            end
-        end
+    local ActiveFolderResolver = require "ActiveFolderResolver"
+    local resolverResult = ActiveFolderResolver.resolveActiveFolder(catalog)
+
+    if resolverResult.error then
+        error("Folder Resolution Error: " .. resolverResult.error .. "\nOpen exactly one Lightroom folder before applying a prepared job.")
     end
-    if activeFolder == nil then
-        error("Open exactly one Lightroom folder before applying a prepared job.")
-    end
-    return activeFolder
+
+    return resolverResult.active_folder
 end
+
 
 local function validateBridgeResult(result, expectedJobId, exitStatus)
     if result.protocol_version ~= "1.0" then

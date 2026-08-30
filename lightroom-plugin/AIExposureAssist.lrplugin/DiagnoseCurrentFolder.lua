@@ -91,42 +91,29 @@ local function photoSample(photo, metadata)
 end
 
 local function collectLightroomEvidence(catalog)
-    local activeSources = safeCall({}, function()
-        return catalog:getActiveSources() or {}
-    end)
+    local ActiveFolderResolver = require "ActiveFolderResolver"
+    local resolverResult = ActiveFolderResolver.resolveActiveFolder(catalog)
+
     local sourceEvidence = {}
-    local activeFolders = {}
-    for _, source in ipairs(activeSources) do
-        local sourceType = type(source) == "string" and "string" or safeCall("unknown", function()
-            return source:type()
-        end)
-        local sourceName = type(source) == "string" and source or safeCall(nil, function()
-            return source:getName()
-        end)
-        local sourcePath = type(source) == "string" and nil or safeCall(nil, function()
-            return source:getPath()
-        end)
+    for _, info in ipairs(resolverResult.sources_info) do
         table.insert(sourceEvidence, {
-            type = sourceType,
-            name = sourceName,
-            path = sourcePath
+            type = table.concat(info.capabilities, ","),
+            name = info.name,
+            path = info.path,
+            reason = info.reason
         })
-        if sourceType == "LrFolder" then
-            table.insert(activeFolders, source)
-        end
     end
 
     local payload = {
-        catalog_path = safeCall(nil, function()
-            return catalog:getPath()
-        end),
+        catalog_path = safeCall(nil, function() return catalog:getPath() end),
         active_sources = sourceEvidence,
-        active_folder_count = #activeFolders,
-        active_folder_path = nil,
+        active_folder_count = resolverResult.folder_count,
+        active_folder_path = resolverResult.active_folder_path,
         direct_photo_count = 0,
         child_folder_count = 0,
         recursive_photo_count = 0,
         enumeration_status = "SKIPPED_DEPENDENCY",
+        enumeration_error = resolverResult.error,
         observed_file_formats = {},
         counts = {
             eligible_raw = 0,
@@ -141,15 +128,11 @@ local function collectLightroomEvidence(catalog)
         eligible_photos = {}
     }
 
-    if #activeFolders ~= 1 then
-        payload.enumeration_error = "Exactly one active LrFolder is required; observed " .. tostring(#activeFolders)
+    if resolverResult.error then
         return payload
     end
 
-    local activeFolder = activeFolders[1]
-    payload.active_folder_path = safeCall(nil, function()
-        return activeFolder:getPath()
-    end)
+    local activeFolder = resolverResult.active_folder
 
     local function countFolders(f)
         local count = 0
