@@ -87,6 +87,7 @@ WO-037 makes component ownership explicit:
 
 ### F. Documentation and regression protection
 - Update canonical workflow, architecture, decisions, status, capability and user instructions to describe the file-based separation.
+- Reconcile pre-existing plug-in contract tests that encode the superseded WO-035 menu/state contract.
 - Add regression tests proving:
   - canonical menu exposes Prepare / Import-Apply / Prepare Next commands;
   - canonical command files contain no `WAITING_FOR_AI` state;
@@ -114,12 +115,15 @@ WO-037 makes component ownership explicit:
 - `lightroom-plugin/AIExposureAssist.lrplugin/PrepareNextAIPackage.lua`
 - `lightroom-plugin/AIExposureAssist.lrplugin/SessionPackageSupport.lua`
 - `tests/test_decoupled_package_workflow.py`
+- `tests/test_lightroom_plugin_contract.py`
+- `tests/test_lightroom_sdk_live_boundary.py`
 
 ## Reviewed but intentionally unchanged unless validation requires otherwise
 - `AGENTS.md` — existing provider-neutral filesystem boundary and thin Lightroom ownership are compatible.
 - `src/lr_ai_exposure/session_lifecycle.py` — existing start/prepare paths already create self-contained pass packages and do not call an AI provider during preparation.
 - existing cache extractor / render barrier — reused without redesign.
 - legacy `IterativeSession.lua` / `ResumeIterativeSession.lua` — retained but unregistered from the canonical menu.
+- `DiagnoseCurrentFolder.lua` — diagnostic payload remains plug-in version 1.2.0; WO-037 keeps the metadata version at 1.2.0 because this Work Order changes workflow routing rather than the diagnostic protocol/build contract.
 
 ## Forbidden files / boundaries
 - `.serena/project.yml`
