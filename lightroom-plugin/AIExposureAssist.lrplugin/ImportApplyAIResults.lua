@@ -7,6 +7,7 @@ Short-lived Lightroom command:
 - validates/freezes the exact decision set through Python;
 - builds a guarded Catalog Exposure2012-only plan;
 - applies and verifies that plan in Lightroom;
+- recovers legacy technical verification failures without double-applying;
 - exits at SESSION_COMPLETE or RERENDER_REQUIRED.
 
 It never prepares the next pass and never calls an AI provider.
@@ -18,6 +19,7 @@ local LrPathUtils = import "LrPathUtils"
 local LrTasks = import "LrTasks"
 local LrProgressScope = import "LrProgressScope"
 local Support = require "SessionPackageSupport"
+local CatalogApplyBarrier = require "CatalogApplyBarrier"
 
 local ImportApplyAIResults = {}
 ImportApplyAIResults.isRunning = false
@@ -46,6 +48,17 @@ local function showResultsNotReady(pointer, missing)
     )
 end
 
+local function confirmationErrorDetail(bridgeResultPath)
+    if not Support.fileExists(bridgeResultPath) then
+        return ""
+    end
+    local result = Support.readJsonFile(bridgeResultPath)
+    if type(result.error) == "string" and result.error ~= "" then
+        return "\n\n" .. result.error
+    end
+    return ""
+end
+
 function ImportApplyAIResults.run()
     if ImportApplyAIResults.isRunning then
         LrDialogs.message("AI Exposure Assist", "An AI result import/apply is already running.", "warning")
@@ -57,8 +70,17 @@ function ImportApplyAIResults.run()
         local pointer = Support.loadLatestPointer()
         local sessionState = Support.readSessionState(pointer)
         local currentPass = tonumber(pointer.pass_number) or 1
+        local evidencePath = LrPathUtils.child(pointer.pass_dir, "catalog-apply-evidence.json")
+        local recoverableApplyFailure, failedEvidenceIds = CatalogApplyBarrier.evidenceHasFailures(
+            Support,
+            evidencePath
+        )
 
-        if sessionState.is_converged == true then
+        -- A pre-WO-039 bug could mark the session converged after a technical
+        -- verify mismatch even though Lightroom later committed the targets.
+        -- Such evidence is explicitly recoverable; a genuinely completed pass
+        -- still exits immediately.
+        if sessionState.is_converged == true and not recoverableApplyFailure then
             LrDialogs.message(
                 "AI Exposure Assist — Session Complete",
                 "Session " .. tostring(pointer.session_id) .. " is already converged. No further apply is required.",
@@ -67,8 +89,7 @@ function ImportApplyAIResults.run()
             return
         end
 
-        local evidencePath = LrPathUtils.child(pointer.pass_dir, "catalog-apply-evidence.json")
-        if Support.fileExists(evidencePath) then
+        if Support.fileExists(evidencePath) and not recoverableApplyFailure then
             LrDialogs.message(
                 "AI Exposure Assist — Pass Already Applied",
                 "Pass " .. tostring(currentPass) .. " already has verified apply evidence.\n\n"
@@ -109,6 +130,7 @@ function ImportApplyAIResults.run()
                 .. " --bridge-result \"" .. bridgeResultPath .. "\""
             local analyzeCommand = "cd /D \"" .. Support.REPO_ROOT .. "\" && uv run lr-ai-exposure" .. analyzeArgs
             if LrTasks.execute(analyzeCommand) ~= 0 then
+                progress:done()
                 error("Pass " .. tostring(currentPass) .. " external decision validation/freeze failed.")
             end
         end
@@ -123,6 +145,7 @@ function ImportApplyAIResults.run()
                 .. " --bridge-result \"" .. bridgeResultPath .. "\""
             local planCommand = "cd /D \"" .. Support.REPO_ROOT .. "\" && uv run lr-ai-exposure" .. planArgs
             if LrTasks.execute(planCommand) ~= 0 then
+                progress:done()
                 error("Pass " .. tostring(currentPass) .. " Catalog apply planning failed.")
             end
         end
@@ -133,10 +156,19 @@ function ImportApplyAIResults.run()
             "catalog-apply-result-" .. pointer.session_id .. "-pass-" .. tostring(currentPass) .. ".json"
         )
 
-        if not Support.fileExists(resultPath) then
+        if recoverableApplyFailure then
+            progress:setCaption(
+                "Pass " .. tostring(currentPass) .. ": reconciling "
+                    .. tostring(#failedEvidenceIds) .. " prior Catalog verification failures..."
+            )
+        else
             progress:setCaption("Pass " .. tostring(currentPass) .. ": applying Exposure2012 in Lightroom Catalog...")
-            Support.applyCatalogPlan(catalog, photoMap, plan, resultPath)
         end
+
+        -- Always rebuild the result from current Catalog truth.  The barrier is
+        -- absolute-target and idempotent: already-correct targets are verified
+        -- without applying a delta twice.
+        CatalogApplyBarrier.applyCatalogPlan(Support, catalog, photoMap, plan, resultPath)
 
         progress:setCaption("Pass " .. tostring(currentPass) .. ": confirming Lightroom-observed results...")
         local confirmArgs = " -m lr_ai_exposure.catalog_confirm"
@@ -146,11 +178,17 @@ function ImportApplyAIResults.run()
             .. " --bridge-result \"" .. bridgeResultPath .. "\""
         local confirmCommand = "cd /D \"" .. Support.REPO_ROOT .. "\" && uv run python" .. confirmArgs
         if LrTasks.execute(confirmCommand) ~= 0 then
-            error("Pass " .. tostring(currentPass) .. " Catalog confirmation failed.")
+            progress:done()
+            error(
+                "Pass " .. tostring(currentPass)
+                    .. " Catalog confirmation failed. Session state was not advanced."
+                    .. confirmationErrorDetail(bridgeResultPath)
+            )
         end
 
         local result = Support.readJsonFile(bridgeResultPath)
         if result.status ~= "ok" then
+            progress:done()
             error("Pass " .. tostring(currentPass) .. " Catalog confirmation returned an error.")
         end
         progress:done()
