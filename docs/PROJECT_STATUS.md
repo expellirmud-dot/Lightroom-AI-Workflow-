@@ -1,15 +1,16 @@
 # Project Status
 
 LAST_UPDATED: 2026-08-31
-PROJECT_PHASE: MVP_CLOSURE_LIVE_CERTIFICATION
-CURRENT_WORK_ORDER: Work-Order/WO-039-CATALOG-APPLY-COMMIT-BARRIER.md
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-038-CONTACT-SHEET-PACKAGE-PIPELINE.md
+PROJECT_PHASE: TECHNICAL_MVP_COMPLETE
+CURRENT_WORK_ORDER: NONE
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-039-CATALOG-APPLY-COMMIT-BARRIER.md
 CURRENT_BRANCH: main; Git is authority for moving HEAD
 
 ## Current truth
 
-The canonical iterative workflow is implemented and CI-certified through
-WO-039. It is no longer a WO-029-only prepared-folder prototype.
+The exposure-only technical MVP is complete. The canonical workflow is
+implemented, CI-certified and representative-live-verified through the final
+Catalog/rerender boundary:
 
 ```text
 Diagnose Current Folder (optional/advisory)
@@ -23,88 +24,83 @@ Diagnose Current Folder (optional/advisory)
 → Prepare Next AI Package after rerender
 ```
 
-The Lightroom plug-in is short-lived and owns explicit Lightroom-side commands.
+Lightroom is the authoritative renderer and Catalog-visible Develop state.
 Python owns read-only preview-cache extraction, immutable package/session data,
-decision validation, convergence/safety planning and render freshness. External
-AI has decision-only authority. The canonical iterative route does not require
-XMP Save/Read Metadata synchronization.
+decision validation, deterministic safety/convergence planning and render
+freshness checks. External AI has decision-only authority. The canonical route
+does not require XMP Save/Read Metadata synchronization.
 
-## Evidence already established
+## Technical MVP closure evidence
 
-- Real Lightroom identity/cache Analyze Only was proven historically.
-- Whole-folder/session/package implementation and canonical command separation
-  are covered by automated/integration evidence.
-- WO-037 Windows certification passed on Python 3.12 and 3.13.
-- WO-038 contact-sheet package creation/integrity passed focused and full
-  automated validation.
-- A representative live session reached a 324-image decision/apply stage.
-- Lightroom actually held the 21 requested absolute `Exposure2012` target
-  values after apply.
+Automated/integration chain:
 
-The last point exposed a verification defect rather than a failed mutation:
-verification occurred too early inside Lightroom write access, so the old code
-observed stale values and incorrectly converted technical verification failures
-to photographic REVIEW.
+- WO-037 explicit Prepare / Import-Apply / Prepare Next package architecture is
+  CI-certified on Windows/Python 3.12 and 3.13.
+- WO-038 ordered contact-sheet package creation/integrity is integrated.
+- WO-039 post-commit Catalog verification, absolute-target idempotency,
+  fail-closed confirmation and legacy technical-state recovery passed CI run
+  #91.
+- Governance/instruction reconciliation commit `3c1ae399` passed GitHub Actions
+  run #95 (`33355167400`) on Windows/Python 3.12 and 3.13.
 
-## Current gate — WO-039
+Representative Lightroom chain on session `sess-1788136092`:
 
-WO-039 moves verification outside the write callback, uses bounded post-commit
-polling, makes retries absolute-target/idempotent, keeps technical failures out
-of photographic REVIEW, and repairs only the affected legacy technical state.
-GitHub Actions run #91 passed on Windows/Python 3.12 and 3.13.
+1. A 324-image live session reached real decision/apply behavior and exposed the
+   original same-transaction stale-read defect.
+2. After WO-039, `Import / Apply AI Results` recognized the 21 already-present
+   absolute Catalog targets without a second delta and returned:
 
-Remaining owner-operated acceptance:
+   ```text
+   Verified Catalog applies: 21
+   PASS: 303
+   REVIEW: 0
+   RERENDER_REQUIRED
+   ```
 
-```text
-re-run Import / Apply AI Results
-→ recognize 21 existing targets without a second delta
-→ PASS 303 / REVIEW 0
-→ RERENDER_REQUIRED
-→ allow Lightroom to rerender
-→ Prepare Next AI Package
-→ prove a fresh generation
-```
+3. After Lightroom rerender, `Prepare Next AI Package` created Pass 2 and
+   returned `PACKAGE_READY` for the same session.
 
-Do not claim the post-commit barrier or complete iterative loop
-`LIVE_VERIFIED` until this bounded recheck succeeds.
+This closes both Roadmap Gate A and Gate B. A separate live multi-pass
+convergence Work Order is not required merely to repeat deterministic behavior
+already covered by automated/integration evidence.
 
-## Reconciled legacy conflicts
+## Capability boundary at closure
 
-Canonical project instructions/safety/AI contracts now distinguish the WO-037+
-Catalog route from legacy WO-029 XMP behavior and align the visual instruction
-bundle with the generated current schema (`action`, `scene_group_id`,
-`is_reference`). Relevance/blur/focus/culling instructions are dormant for the
-current exposure-only small-preview task.
+Live evidence now supports the real canonical path through:
 
-The optional WO-031 diagnostic implementation still contains legacy
-XMP/metadata-sync aggregate readiness semantics that can overstate a
-`SAFETY_BLOCKED` result for the current Catalog architecture. Treat those
-legacy-only codes as **non-blocking diagnostic debt** during MVP closure unless
-they actually block Gate A/B. Do not activate a separate Work Order solely from
-that stale aggregate label.
+- whole-folder/session identity;
+- immutable package/decision handoff;
+- real Catalog absolute `Exposure2012` target application;
+- corrected post-commit confirmation and idempotent recovery;
+- `RERENDER_REQUIRED` transition;
+- fresh Pass 2 package creation.
 
-## Phase policy
+Deterministic internals such as exact-set/schema validation, exposure bounds,
+oscillation/no-progress and convergence/safe-stop rules continue to rely on
+executed automated/integration evidence where a separate Lightroom repetition
+would add no new capability proof.
 
-This project is currently in **MVP closure/live certification**, not general
-feature expansion.
+## No active technical blocker
 
-Until WO-039 and the next-render proof close:
+There is no active Work Order and no known blocker to the declared technical
+MVP boundary.
 
-- do not activate a new Work Order for a defect that belongs to the current
-  acceptance gate;
-- reconcile stale project instructions/documents as part of WO-039 closeout;
-- keep AI model/provider quality, broader image triage, UX expansion, packaging
-  and optional provider automation in `docs/ROADMAP.md` backlog;
-- create a new Work Order only for a genuinely new capability/boundary after the
-  Controller identifies the roadmap gate it advances.
+The optional WO-031 diagnostic implementation still contains historical
+XMP/metadata-sync aggregate readiness semantics. These are legacy diagnostic
+debt and are not a prerequisite for the current Catalog-authoritative workflow.
+They should be changed only if a future product requirement makes that
+readiness report important again.
 
-## Current risks / unknowns
+## Post-MVP backlog
 
-- WO-039 fixed verification has CI evidence but still needs Lightroom-hosted
-  recheck on the affected live session.
-- The next-pass render freshness barrier still needs representative Lightroom
-  proof after the corrected apply confirmation.
-- Optional WO-031 aggregate diagnostic readiness still carries legacy XMP sync
-  assumptions; current canonical Prepare/Apply does not.
-- AI photographic quality/calibration remains intentionally deferred and is not
-  a blocker for technical MVP closure.
+The next phase is owner-selected product improvement, not automatic Work Order
+continuation. Candidate areas remain:
+
+1. AI exposure-judgment calibration with representative photographer review.
+2. Operator UX and simpler session/error recovery.
+3. Packaging/distribution for normal Windows + Lightroom installation/use.
+4. Optional provider automation through isolated adapters.
+5. Broader relevance/quality/culling only if explicitly required with suitable
+   evidence beyond the current small previews.
+
+No item above is active merely because it appears in the roadmap.

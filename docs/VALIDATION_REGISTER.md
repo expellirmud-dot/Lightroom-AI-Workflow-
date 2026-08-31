@@ -109,72 +109,74 @@ requirements that automatically reopen the canonical WO-037+ architecture.
 | VLD-129 | 2026-08-31 | TDD RED then focused contact-sheet/session/CLI/plug-in regressions | expected RED; GREEN 10 tests passed |
 | VLD-130 | 2026-08-31 | full pytest, compileall, config smoke, diff check | all commands exited 0; local automated/integration proof only |
 
-WO-038 supports `INTEGRATED` contact-sheet creation/integrity, not model quality.
+WO-038 supports contact-sheet creation/integrity; later live package preparation
+adds representative host evidence without claiming AI model quality.
 
-## Reconciled missing current evidence
-
-The following executed evidence existed in accepted Work Orders but was missing
-from this canonical register. It is added here without changing its scope.
+## Reconciled current evidence
 
 ### WO-034 — Catalog Exposure runtime hardening
 
 | ID | Date | Evidence | Result / scope |
 |---|---|---|---|
-| VLD-131 | 2026-08-30 | GitHub Actions `33326239821`, Windows Python 3.12/3.13 | PASS: focused/full, config, integration, compile, diff and clean-tree gates; Catalog-authoritative iterative implementation, no live Lightroom proof |
+| VLD-131 | 2026-08-30 | GitHub Actions `33326239821`, Windows Python 3.12/3.13 | PASS: focused/full, config, integration, compile, diff and clean-tree gates; Catalog-authoritative iterative implementation |
 
 ### WO-035 — Durable AI handoff workflow
 
 | ID | Date | Evidence | Result / scope |
 |---|---|---|---|
-| VLD-132 | 2026-08-30 | GitHub Actions `33328089473`, Windows Python 3.12/3.13 | PASS: canonical session/handoff automation; no provider quality/live mutation claim |
+| VLD-132 | 2026-08-30 | GitHub Actions `33328089473`, Windows Python 3.12/3.13 | PASS: canonical session/handoff automation; no provider quality claim |
 
 ### WO-036 — Lightroom live-test harness
 
 | ID | Date | Evidence | Result / scope |
 |---|---|---|---|
-| VLD-133 | 2026-08-30 | post-merge GitHub Actions run #80 | success; deterministic pass-all/one-adjust test seeder certified; does not replace Lightroom live proof |
+| VLD-133 | 2026-08-30 | post-merge GitHub Actions run #80 | success; deterministic pass-all/one-adjust test seeder certified |
 
 ### WO-037 — Decoupled AI package workflow
 
 | ID | Date | Evidence | Result / scope |
 |---|---|---|---|
-| VLD-134 | 2026-08-30 | PR certification run #85 (`33340357782`), Windows Python 3.12/3.13 | PASS: explicit Prepare / Import-Apply / Prepare Next architecture, full regression/certification; CI not Lightroom host |
+| VLD-134 | 2026-08-30 | PR certification run #85 (`33340357782`), Windows Python 3.12/3.13 | PASS: explicit Prepare / Import-Apply / Prepare Next architecture, full regression/certification |
 
-### WO-039 — Catalog apply commit barrier
+### WO-039 — Catalog apply commit barrier and technical MVP closure
 
 | ID | Date | Evidence | Result / scope |
 |---|---|---|---|
-| VLD-135 | 2026-08-31 | GitHub Actions run #91, Windows Python 3.12/3.13 | PASS: post-commit bounded verification, absolute-target/idempotent retry, fail-closed confirmation and legacy technical-state recovery; fixed path not yet live-rechecked |
-| VLD-136 | 2026-08-31 | Live Lightroom session `sess-1788136092` before WO-039 fix | 324-image session reached apply; 21 requested absolute targets were later observed present in Develop, while same-callback verification recorded stale values and produced `PASS=303 / REVIEW=21 / verified applies=0`; this is defect-discovery evidence, not proof of the corrected barrier |
+| VLD-135 | 2026-08-31 | GitHub Actions run #91, Windows Python 3.12/3.13 | PASS: post-commit bounded verification, absolute-target/idempotent retry, fail-closed confirmation and legacy technical-state recovery |
+| VLD-136 | 2026-08-31 | Live Lightroom session `sess-1788136092` before WO-039 fix | 324-image session reached apply; 21 requested absolute targets were later observed present in Develop, while same-callback verification recorded stale values and produced `PASS=303 / REVIEW=21 / verified applies=0`; defect-discovery evidence |
+| VLD-137 | 2026-08-31 | GitHub Actions run #95 (`33355167400`) on reconciled main commit `3c1ae399` | PASS / success; full Windows certification workflow completed on Python 3.12 and 3.13 after governance/instruction reconciliation |
+| VLD-138 | 2026-08-31 | Live Lightroom Gate A, session `sess-1788136092`, `Import / Apply AI Results` | PASS: `Verified Catalog applies: 21`, `PASS: 303`, `REVIEW: 0`, `RERENDER_REQUIRED`; already-present targets recognized idempotently and legacy technical REVIEW state recovered |
+| VLD-139 | 2026-08-31 | Live Lightroom Gate B, same session, `Prepare Next AI Package` after rerender | PASS: `PACKAGE_READY`, Pass 2; fresh next immutable package accepted after corrected Catalog confirmation/rerender transition |
 
-VLD-136 supersedes the interpretation that the project is still blocked at the
-old zero-eligible whole-folder stage. It proves real whole-folder/session/apply
-progress, but it must not be re-labeled as a successful WO-039 verification.
+VLD-138 directly live-verifies the corrected WO-039 Catalog confirmation and
+recovery path. VLD-139 live-verifies the final known iterative render/package
+boundary required by the technical MVP roadmap.
 
-## Current live acceptance still pending
+## Technical MVP evidence boundary — CLOSED
 
-Current owner-operated proof must establish:
+The combined executed evidence now covers the representative live boundary
+through:
 
-1. re-run `Import / Apply AI Results` on the affected session;
-2. recognize all 21 already-present targets without a second delta;
-3. recover only the recorded technical failure IDs;
-4. produce `Verified Catalog applies: 21`, `PASS: 303`, `REVIEW: 0` and
-   `RERENDER_REQUIRED`;
-5. after Lightroom rerender, run `Prepare Next AI Package` and prove a fresh
-   generation is accepted.
+1. whole-folder/session identity reaching real workflow;
+2. real package/decision/apply behavior;
+3. real absolute Catalog `Exposure2012` target application;
+4. post-commit idempotent confirmation and technical-state recovery;
+5. `RERENDER_REQUIRED` transition;
+6. fresh Pass 2 `PACKAGE_READY` generation.
 
-Only after those observations may the corresponding post-commit/iterative-loop
-capabilities be promoted to complete `LIVE_VERIFIED` status.
+Automated/integration evidence continues to prove deterministic internals such
+as exact-set validation, package/contact-sheet integrity, exposure bounds,
+oscillation/no-progress and convergence/safe-stop logic. A separate Lightroom
+repetition of those internals is not required merely to manufacture another
+Work Order.
 
 ## Known evidence gaps / deferred proof
 
-- WO-032 states that whole-folder traversal and iterative schema changes were
-  implemented/tested, but this register does not invent a missing exact command,
-  run ID or test count. Later live session evidence independently supersedes the
-  earlier whole-folder blocker.
-- GitHub CI statically/automatically exercises Lua contracts but cannot replace
-  Lightroom-hosted runtime proof.
 - AI model/provider photographic quality and photographer calibration are
-  intentionally deferred beyond the current technical closure gate.
+  intentionally post-MVP.
+- Broader relevance, duplicate, blur/focus/quality and keep/cull judgments are
+  outside the current exposure-only small-preview contract.
 - Legacy XMP/metadata synchronization evidence remains historical and is not a
   prerequisite for the canonical Catalog-authoritative iterative route.
+- WO-031 aggregate diagnostic semantics retain legacy XMP assumptions; this is
+  non-blocking debt unless a future product requirement reactivates that path.

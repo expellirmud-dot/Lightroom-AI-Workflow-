@@ -1,6 +1,7 @@
 # WO-039 — Catalog Apply Commit Barrier & Recovery
 
-STATUS: CI_VALIDATED_LIVE_RECHECK_PENDING
+STATUS: COMPLETE_LIVE_VERIFIED
+CLOSED: 2026-08-31
 
 ## Trigger
 
@@ -38,9 +39,9 @@ Work Order for the same acceptance path.
 6. A pre-WO-039 session corrupted by the old behavior may be recovered only
    from its own `catalog-apply-evidence.json.failed_image_ids`; only those
    technical REVIEW states are reset before successful reconfirmation.
-7. Canonical `Import / Apply AI Results` must rebuild apply results from current
-   Catalog truth on each retry instead of trusting a stale result JSON.
-8. Technical verification failure remains technical evidence; it must never be
+7. Canonical `Import / Apply AI Results` rebuilds apply results from current
+   Catalog truth on each retry instead of trusting stale result JSON.
+8. Technical verification failure remains technical evidence; it is never
    converted into photographic REVIEW merely to settle a session.
 
 ## Authorized scope
@@ -75,15 +76,15 @@ Owner-authorized closeout reconciliation scope:
 - `Work-Order/CURRENT_WORK_ORDER.md`
 - this Work Order
 
-The reconciliation extension exists to align current authority/instruction
-truth and remove superseded task pressure. It does not authorize unrelated
-feature work, a new provider, or architecture redesign. The still-stale WO-031
-diagnostic aggregate code is documented as non-blocking legacy debt rather than
-silently changed without a dedicated executed test cycle.
+The reconciliation extension aligned current authority/instruction truth and
+removed superseded task pressure. It did not authorize unrelated feature work,
+a new provider, or architecture redesign. The still-stale WO-031 diagnostic
+aggregate code remains documented non-blocking legacy debt rather than being
+silently changed without its own executed test cycle.
 
 ## Automated traps
 
-Tests must fail if:
+Tests fail if:
 
 - verification is moved back into the write transaction;
 - polling becomes unbounded;
@@ -94,52 +95,95 @@ Tests must fail if:
 
 ## CI evidence
 
-GitHub Actions run #91 (`Lightroom AI Workflow Certification`) passed on both
-Windows/Python 3.12 and 3.13 for the implementation commit. The full pytest
-suite, integration suite, source/test compilation, config smoke, diff check and
-clean-tree artifact gate passed.
+- GitHub Actions run #91 passed on Windows/Python 3.12 and 3.13 for the WO-039
+  implementation commit. Focused/full pytest, integration, compile, config,
+  diff and clean-tree gates passed.
+- GitHub Actions run #95 (`33355167400`) passed on `main` commit `3c1ae399`
+  after the governance/instruction reconciliation, again exercising the full
+  certification workflow on Windows/Python 3.12 and 3.13.
 
-Documentation/instruction reconciliation after that implementation does not
-claim a new runtime validation row until CI actually executes on the reconciled
-commit.
+## Live acceptance — PASS
 
-## Live acceptance
+The Owner re-ran the affected real Lightroom session `sess-1788136092` using the
+WO-039 implementation.
 
-Using the existing `sess-1788136092` after installing/pulling the fix:
+### Gate A — Catalog confirmation and recovery
 
-1. Run `Import / Apply AI Results` again.
-2. The 21 already-applied targets must be recognized without a second delta.
-3. Legacy `REVIEW=21 / converged=true` state must be repaired from failed apply
-   evidence and reconfirmed.
-4. Result must be `Verified Catalog applies: 21`, `PASS: 303`, `REVIEW: 0`,
-   followed by `RERENDER_REQUIRED` rather than `Session Complete`.
-5. `Prepare Next AI Package` must then be allowed to prepare the unsettled
-   rerender/recheck pass after Lightroom produces a fresh render generation.
+`Import / Apply AI Results` returned:
+
+```text
+RERENDER_REQUIRED
+Pass 1 was confirmed.
+Verified Catalog applies: 21
+PASS: 303
+REVIEW: 0
+```
+
+This directly demonstrates that the 21 already-present absolute targets were
+recognized idempotently, the old technical REVIEW contamination was repaired,
+and session state advanced to rerender rather than false convergence. No second
+exposure delta was required for those already-present targets.
+
+### Gate B — Fresh next pass
+
+After Lightroom rerender, `Prepare Next AI Package` returned:
+
+```text
+PACKAGE_READY
+Session: sess-1788136092
+Pass: 2
+Next AI package saved successfully.
+```
+
+This demonstrates the real Lightroom iterative transition through corrected
+Catalog confirmation, rerender freshness acceptance, immutable Pass 2 package
+creation and `PACKAGE_READY` without re-applying Pass 1.
+
+Gate A and Gate B satisfy the final known live technical gates defined in
+`docs/ROADMAP.md`.
 
 ## Anti-loop closeout rule
 
-A defect discovered while executing the live acceptance above belongs to
-WO-039 when it is a direct defect of Catalog apply confirmation, recovery,
-rerender transition, or the already-authorized acceptance path.
+A defect discovered while proving a current acceptance gate belongs to that
+Work Order when it is a direct defect of the same capability/acceptance path.
+Do not create WO-040 merely to repeat deterministic behavior or to continue the
+same proof chain.
 
-Do not create WO-040 merely to continue proving or repairing this same gate.
-A new Work Order is justified only if evidence reveals a genuinely new
-capability, architecture boundary, safety model, or owner product requirement
-that WO-039 cannot safely own.
+A new Work Order is justified only for a genuinely new capability, architecture
+boundary, safety model, or Owner product requirement selected from the roadmap.
 
-Stale/conflicting canonical instructions/documentation discovered during
-closeout are fixed under this Work Order and are not a separate feature.
+## Documentation closeout
 
-## Closeout
+Updated at final closeout:
 
-WO-039 may close only when:
+- `Work-Order/CURRENT_WORK_ORDER.md`
+- this Work Order
+- `docs/PROJECT_STATUS.md`
+- `docs/CAPABILITY_MATRIX.md`
+- `docs/VALIDATION_REGISTER.md`
+- `docs/ROADMAP.md`
 
-- automated evidence remains green for the implementation/reconciliation state
-  actually being delivered;
-- the live acceptance above succeeds or a precise unresolved stop condition is
-  recorded;
-- canonical project documents/instructions are reconciled to current evidence;
-- capability maturity does not exceed executed proof;
-- the active Work Order pointer and project phase agree;
-- remaining post-MVP work is placed in `docs/ROADMAP.md` rather than activated
-  automatically.
+Reviewed and already reconciled by commit `3c1ae399`; no additional content
+change required for closure:
+
+- `AGENTS.md`
+- `docs/INDEX.md`
+- `docs/DECISIONS.md`
+- `docs/ARCHITECTURE.md`
+- `docs/FOLDER_JOB_WORKFLOW.md`
+- `docs/XMP_SAFETY.md`
+- `docs/DIAGNOSTIC_PREFLIGHT.md`
+- `docs/AI_JUDGE_CONTRACT.md`
+- the four bundled visual skill entrypoints
+- `README.md`
+- historical `Work-Order/ROADMAP-WO-015-TO-WO-020.md`
+
+## Closeout result
+
+Acceptance criteria are satisfied. Runtime implementation/instruction state is
+CI-certified, the affected real Lightroom Catalog recovery is live-verified,
+and a fresh next immutable package was created from the same session.
+
+WO-039 is closed. The project phase is `TECHNICAL_MVP_COMPLETE`. AI photographic
+quality/calibration, operator UX, packaging/distribution and optional provider
+automation are post-MVP roadmap items and are not active Work Orders.
