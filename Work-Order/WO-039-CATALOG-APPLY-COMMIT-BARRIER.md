@@ -1,6 +1,6 @@
 # WO-039 — Catalog Apply Commit Barrier & Recovery
 
-STATUS: IMPLEMENTED_PENDING_CI_AND_LIVE_RECHECK
+STATUS: CI_VALIDATED_LIVE_RECHECK_PENDING
 
 ## Trigger
 
@@ -58,6 +58,13 @@ Tests must fail if:
 - target-already-present idempotency is removed;
 - an unverified result is allowed to reach session confirmation;
 - legacy technical-failure evidence can no longer recover the affected IDs.
+
+## CI evidence
+
+GitHub Actions run #91 (`Lightroom AI Workflow Certification`) passed on both
+Windows/Python 3.12 and 3.13. The full pytest suite, integration suite, source
+and test compilation, config smoke test, diff check and clean-tree artifact gate
+all passed.
 
 ## Live acceptance
 
