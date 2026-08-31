@@ -2,23 +2,29 @@
 
 ## Project Mission
 
-Build a Windows-first Lightroom Classic exposure assistant whose approved
-target workflow is:
+Build a Windows-first Lightroom Classic exposure assistant whose canonical MVP
+workflow is:
 
 ```text
-diagnose exactly one Lightroom folder
-→ start one provider-agnostic Exposure Session
+diagnose one Lightroom source-folder scope
+→ Prepare AI Package
 → capture an immutable Lightroom-rendered preview pass
-→ external vision AI judges scene groups and exposure outliers
-→ deterministic Python validates PASS / ADJUST / REVIEW decisions
-→ explicitly apply guarded Exposure2012 changes
-→ refresh Lightroom metadata and prove a new render generation
-→ capture the next immutable pass and recheck unresolved images
-→ stop at convergence, safe REVIEW, or another explicit stop condition
+→ external vision AI returns provider-neutral exposure decisions
+→ deterministic Python validates identity, lineage, bounds and convergence
+→ Import / Apply AI Results
+→ Lightroom applies only guarded absolute Exposure2012 targets
+→ verify the committed Catalog value outside the write callback
+→ stop at SESSION_COMPLETE or RERENDER_REQUIRED
+→ Prepare Next AI Package after Lightroom rerenders
+→ repeat until convergence, safe REVIEW or another explicit stop condition
 ```
 
-The application must remain independent of any single AI vendor or API.
-Lightroom is the authoritative renderer. The MVP adjusts exposure only.
+Lightroom is the authoritative renderer and Catalog-visible Develop state. The
+core must remain independent of any single AI vendor/API. The current MVP is
+exposure-only.
+
+Project Truth is not Task Truth. A Work Order is bounded execution authority;
+it does not redefine the product mission or automatically create the next task.
 
 ## Authority Order and Required Read Set
 
@@ -26,357 +32,270 @@ Authority order:
 
 1. Active Work Order
 2. `AGENTS.md`
-3. `docs/XMP_SAFETY.md`
-4. `docs/FOLDER_JOB_WORKFLOW.md`
-5. `docs/ARCHITECTURE.md`
-6. `docs/AI_JUDGE_CONTRACT.md`
+3. safety contracts
+4. `docs/FOLDER_JOB_WORKFLOW.md` and `docs/ARCHITECTURE.md`
+5. `docs/AI_JUDGE_CONTRACT.md` and `docs/DECISIONS.md`
+6. `docs/ROADMAP.md`, capability/status/evidence registers
+7. existing tests and implementation
+8. `README.md`
 
-## Authority Order and Required Read Set
+Before repository-changing work:
 
-Authority order:
-
-1. Active Work Order
-2. `AGENTS.md`
-3. `docs/XMP_SAFETY.md`
-4. `docs/FOLDER_JOB_WORKFLOW.md`
-5. `docs/ARCHITECTURE.md`
-6. `docs/AI_JUDGE_CONTRACT.md`
-7. `docs/DECISIONS.md`
-8. Existing tests and implementation
-9. `README.md`
-
-Before any implementation or debugging task:
-
-1. Invoke `.agents/skills/project-read-first/SKILL.md`.
+1. Invoke or validly reuse `.agents/skills/project-read-first/SKILL.md`.
 2. Read `docs/INDEX.md`.
-3. Read `Work-Order/CURRENT_WORK_ORDER.md`.
-4. Read the active Work Order completely.
-5. Read every canonical document whose update trigger matches the task.
-6. Verify repository root and Git state.
+3. Read `Work-Order/CURRENT_WORK_ORDER.md` and the active Work Order.
+4. Read canonical documents whose update trigger matches the task.
+5. Verify repository root, HEAD and relevant Git state.
 
-No active Work Order or conflicting authority is a stop condition. Dirty files
-are classified by material risk under **Dirty Worktree Classification** below;
-Git status alone is not a stop condition.
+For planning or creation of a new Work Order, also read `docs/ROADMAP.md`,
+`docs/PROJECT_STATUS.md`, and the affected capability/evidence rows.
 
-## Canonical Target Lifecycle
+No active Work Order or unresolved conflicting authority is a stop condition for
+implementation. Dirty Git state is classified by material risk rather than
+blocked merely because paths are modified.
 
-1. `DIAGNOSE_CURRENT_FOLDER` gathers independent Lightroom, eligibility,
-   cache, runtime, CLI, bridge, and XMP-readiness evidence before creating a
-   session. Diagnostics aggregate all discoverable issues rather than failing
-   at the first independent check.
-2. Lightroom requires exactly one active `LrFolder` and reads every directly
-   contained proprietary-RAW master automatically; no Ctrl+A photo selection
-   is required.
-3. One Exposure Session freezes source-folder and image identity. Each analysis
-   round is an immutable pass with monotonic `pass_number`, unique `pass_id`,
-   and `parent_pass_id` pointing to the preceding pass or `null` for pass 1.
-4. Each pass snapshots the preview cache read-only and records Lightroom-rendered
-   preview identity, generation evidence, byte count, and SHA-256.
-5. External vision AI judges intended subject, persistent scene groups,
-   reference frames, outliers, and PASS / ADJUST / REVIEW. The canonical
-   boundary is a provider-neutral file contract; optional adapters may use
-   local models or APIs outside the core application.
-6. Python validates identity, pass lineage, schema, confidence, pilot bounds,
-   cumulative exposure, convergence, oscillation, and XMP authorization.
-7. ADJUST applies only `crs:Exposure2012` through the existing guarded
-   transaction. PASS and REVIEW never mutate XMP.
-8. Lightroom refreshes metadata for `APPLIED_VERIFIED` images and remains the
-   only authoritative renderer.
-9. A subsequent pass is analyzable only after render freshness reconciles the
-   expected Exposure2012, a new pass/generation identity, and refreshed preview
-   evidence/hash. Preview hash alone is insufficient.
-10. The session stops when no meaningful ADJUST remains, every unresolved image
-    is REVIEW, a pilot limit is reached, or a safety condition fails closed.
+## Canonical Runtime Ownership
 
-The current source and plug-in still implement the WO-029 prepared-folder
-single-pass lifecycle. Target documentation must label session/pass behavior
-`PLANNED` until a separate implementation Work Order proves it.
+- Lightroom plug-in owns active-folder diagnostics, Lightroom identity and
+  Catalog `Exposure2012` capture, explicit Prepare, Import/Apply and Prepare
+  Next commands, and Catalog mutation/observation.
+- Cache extractor owns validated read-only SQLite snapshots and Lightroom JPEG
+  preview extraction. `.lrdata` is never writable.
+- Session/package engine owns immutable selection/pass lineage, manifest, task,
+  skill bundle, schema, package integrity, decision intake and durable evidence.
+- External AI owns visual judgment and pass-scoped decision JSON only.
+- Deterministic Python owns schema/identity validation, authorization,
+  convergence, bounds, oscillation/no-progress policy, render freshness and
+  deterministic planning.
+- The session/pass directory is the durable IPC boundary.
+- A pass is immutable after capture. Import/Apply never creates the next pass.
 
-## Runtime Ownership Rules
+The legacy WO-029 sidecar/XMP workflow may remain for compatibility, but it is
+not the canonical iterative mutation model and must not be used to infer current
+session requirements.
 
-- Lightroom plug-in owns active-folder diagnostics, identity capture, session
-  coordination, explicit apply invocation, source-folder confirmation,
-  metadata refresh, and render-generation coordination.
-- Cache extractor owns read-only SQLite snapshots and JPEG extraction.
-- Session lifecycle owns immutable selection, pass lineage, self-contained
-  skill/task/schema artifacts, generation evidence, and safe resume.
-- External AI owns visual judgment and decision JSON only.
-- Python owns decision validation, identity reconciliation, authorization,
-  XMP mutation, evidence, checkpoint, and rollback.
-- Decisions belong to one immutable pass beneath one session.
-- One session contains eligible RAW masters from exactly one source folder.
-- Every eligible RAW master receives exactly one settlement record per pass in
-  which it is in scope and one terminal session outcome.
+## Catalog Apply Rules
 
-## Non-Negotiable Boundaries
+For the canonical iterative route:
 
-- Never open or modify `.lrcat`, `.lrcat-wal`, or `.lrcat-shm`.
-- Never write to `.lrdata`; read only through validated SQLite snapshots.
-- Never modify RAW, NEF, JPEG originals, or EXIF capture fields.
-- DNG, JPEG, TIFF, PSD, video, and virtual-copy inputs are outside the
-  sidecar-only apply boundary and must not be prepared as writable targets.
-- The only editable Lightroom development property is
-  `crs:Exposure2012`.
+- current Catalog `Exposure2012` is the authoritative pre-apply value;
+- apply plans contain absolute targets, not blind repeated deltas;
+- drift from the expected pre-apply value fails closed;
+- Lightroom may mutate only `{ Exposure2012 = target }`;
+- the `withWriteAccessDo()` callback requests the mutation but does not declare
+  success from an immediate same-callback read;
+- committed-value verification occurs after the callback returns and is bounded;
+- if the absolute target is already present on retry, verify it without applying
+  another delta;
+- every planned mutation must be `APPLIED_VERIFIED` before session confirmation
+  advances;
+- technical apply/verification failures remain technical outcomes and must not
+  be converted into photographic REVIEW merely to converge the session.
+
+A non-converged confirmed pass ends at `RERENDER_REQUIRED`. A later pass is
+created only by `Prepare Next AI Package`, after the render freshness barrier
+accepts a new generation.
+
+## Non-Negotiable Safety Boundaries
+
+- Never open or modify `.lrcat`, `.lrcat-wal` or `.lrcat-shm` directly.
+- Never write to `.lrdata`.
+- Never modify RAW/NEF/JPEG originals or EXIF capture fields.
+- Canonical iterative mutation is limited to Catalog `Exposure2012`.
 - Never modify White Balance, Contrast, Highlights, Shadows, Whites, Blacks,
   Clarity, Texture, Vibrance, Saturation, Crop, Straighten, Masks, Keywords,
-  Rating, Label, Sharpening, Noise Reduction, or export settings.
+  Rating, Label, Sharpening, Noise Reduction or export settings.
+- External AI never receives Lightroom/Catalog/cache mutation authority.
 - Never delete or move user photographs.
-- Reject outcomes remain suggestions only.
 - Final export remains manual.
-- Never store credentials or API keys in tracked files.
-- Runtime jobs, previews, decisions, logs, XMP backups, and temp files must not
-  be committed.
+- Never store credentials/API keys in tracked files.
+- Runtime sessions, previews, decisions, logs, backups, temp files and secrets
+  must not be committed.
 
-## Session and Pass Integrity Rules
+Legacy XMP transaction code retains its own safety contract in
+`docs/XMP_SAFETY.md`; do not expand or substitute it for the canonical Catalog
+route without explicit owner/architecture authority.
 
-- A session freezes its source folder, eligible image identities, initial XMP
-  evidence, and ordered group ledger.
-- Every pass is self-contained and immutable after capture. It owns its
-  manifest, Lightroom-rendered previews, task, bundled skills, decision schema,
-  decisions, generation evidence, results, and apply evidence.
-- `AI_SKILLS.md` is generated deterministically from all Markdown/JSON files in
-  the four canonical visual skill directories.
-- Missing canonical skill source files, task, schema, manifest, state,
-  generation evidence, or session identity make processing fail closed.
-- External AI may write only the pass-scoped decision output authorized by the
-  file contract. It must not modify captured inputs.
-- Apply must use the exact session/pass/source-folder lineage. A global response
-  directory or mutable replacement pass is not canonical.
-- Scene groups persist across passes by default. Conflicting evidence may move
-  an image to REVIEW or create a provenance-recorded split; silent regrouping
-  is forbidden.
+## Session and Pass Integrity
 
-## XMP Rules
+- One session freezes its source-folder scope and image identities.
+- Each pass has monotonic `pass_number`, unique `pass_id` and `parent_pass_id`.
+- Every pass owns its selection, manifest, Lightroom-rendered previews, contact
+  sheets/index, task, bundled skills, decision schema, decisions and evidence.
+- Missing required package/session identity or immutable inputs fails closed.
+- External AI may write only the authorized current-pass decision output.
+- Apply must use exact session/pass/source-folder lineage.
+- A confirmed pass is never silently re-applied.
+- A later pass is never prepared implicitly by Import/Apply.
+- Stale/unproven render evidence must not advance the next pass.
 
-- Treat `crs:Exposure2012` as an EV value.
-- `new_exposure = existing_exposure + validated_delta_ev`.
-- A zero delta must not rewrite XMP.
-- Require exact selection, full manifest, FOUND decision, UUID, RAW path, XMP
-  path, and job identity reconciliation.
-- Require exact source-folder containment for every real target.
-- Missing, malformed, ambiguous, or multi-valued Exposure2012 fails closed for
-  that image.
-- Back up every real write and verify its SHA-256 against the original.
-- Write through a validated temp file and atomic replace.
-- Verify the target value and final hash after replacement.
-- Roll back after post-write validation failure and verify the restored hash.
-- Rollback failure is fatal and halts the batch.
-- Checkpoint after every image; settled images must not be processed twice.
-- Before a later-pass write, reconcile the current XMP value and hash against
-  the prior pass's verified final evidence.
-- Metadata synchronization must fail closed when safe catalog/sidecar
-  reconciliation cannot be proven. Do not require the owner to save metadata
-  without evidence that synchronization is necessary.
-- Numeric convergence and exposure bounds in target documents are pilot
-  defaults, not production constants, until representative Lightroom evidence
-  calibrates them.
+## AI Decision Scope
 
-## AI Decision Rules
+Every captured target pass bundles the canonical visual skills needed by the
+current contract, but `docs/AI_JUDGE_CONTRACT.md` defines the active MVP scope.
 
-Every captured target pass must bundle all content from these four skills.
-Until session/pass implementation replaces WO-029, current prepared jobs retain
-the same complete bundle requirement:
+For the current exposure-only MVP, AI must:
 
-- `.agents/skills/exposure-judgment/`
-- `.agents/skills/batch-consistency-review/`
-- `.agents/skills/image-relevance-triage/`
-- `.agents/skills/visual-quality-safety/`
+- read the bundled task/skills and manifest;
+- inspect contact sheets first for batch context/relative exposure, then
+  individual previews when needed;
+- identify intended subject/person priority and legitimate scene atmosphere;
+- judge exposure consistency, reference relationship and meaningful outliers;
+- return exactly one grounded PASS / ADJUST / REVIEW decision per in-scope
+  preview;
+- use zero delta for PASS/REVIEW and a finite bounded proposal for ADJUST;
+- never invent identities, paths, objects or scene details.
 
-The AI must:
+The current small-preview task must **not** perform culling or judge blur,
+focus, sharpness, image damage, relevance or duplicates. Preserved legacy
+quality/relevance skills do not activate those features in the MVP.
 
-- read `AI_TASK.md` and `AI_SKILLS.md` completely;
-- inspect the actual preview rather than infer from filenames;
-- identify the intended subject and person priority;
-- classify scene intent and preserve legitimate atmosphere;
-- assess subject/background exposure and highlight/shadow safety;
-- assess focus, blur, obstruction, accidental/test-shot evidence, relevance,
-  duplicate/supporting value, and technical usability;
-- group materially similar images and choose a reliable reference frame;
-- preserve manifest order and return exactly one decision per in-scope FOUND
-  image for the current pass;
-- recommend a bounded finite `delta_ev` and use `0.0` when no change is
-  justified;
-- return grounded PASS, ADJUST, or REVIEW decisions under the target contract;
-- never invent image IDs, paths, objects, or scene details.
+AI output is untrusted input until schema, exact-set identity, lineage,
+immutable package evidence and preview byte/SHA validation pass.
 
-AI output is untrusted input. Schema, exact-set identity, session/pass lineage,
-render-generation evidence, preview byte count, and preview SHA-256 validation
-are mandatory before use.
+## Execution Rules
 
-## Seven Execution Rules
+1. **Classify task** — identify scope, risk, affected capability, allowed files,
+   forbidden files and proof before editing.
+2. **Define done first** — record terminal evidence before implementation.
+3. **Use bounded evidence** — targeted search/read first; reuse unchanged
+   same-thread preflight and use delta checks when repository truth is stable.
+4. **Choose one recommendation** — do not push routine technical decisions back
+   to the owner.
+5. **Make the smallest complete change** authorized by the active Work Order.
+6. **Verify by execution** — run focused/full/integration/syntax/diff/status
+   checks required by the task; reports alone are not proof.
+7. **Reconcile truth at closeout** — capability/status/evidence/roadmap/current
+   Work Order must agree before declaring completion.
 
-1. **Task Classification** — classify scope, risk level, affected capabilities,
-   allowed files, forbidden files, and required evidence before editing.
-2. **Define Done First** — record acceptance criteria and proof requirements
-   before implementation.
-3. **Bounded Evidence Gathering** — reuse a completed same-thread read-first
-   preflight while its repository-truth fingerprints remain unchanged. After
-   that, use delta preflight for HEAD, authority pointer, Git classification,
-   and relevant-file status/hash.
-4. **Single Recommendation** — select one best bounded design; do not delegate
-   routine technical decisions back to the owner.
-5. **Surgical Change** — make the smallest complete change authorized by the
-   active Work Order.
-6. **Verify by Execution** — run focused, full, integration, syntax, diff, and
-   status validation required by the Work Order. Reports alone are not proof.
-7. **Outcome-First Reporting** — report implemented behavior, executed proof,
-   Git scope, and remaining risk without unnecessary narration.
+## Anti-Loop Work Order Policy
 
-## Four Common AI Failure Modes
+A new failure does not automatically mean a new Work Order.
 
-1. **Memory Over Repository Truth** — files, current HEAD, Git status, and
-   executed evidence always override memory or prior summaries.
-2. **Worker Reports Treated as Final Evidence** — inspect actual diffs,
-   validation output, artifacts, and repository state.
-3. **Leaving the Proof Chain Open** — no completion without acceptance,
-   tests, documentation reconciliation, allowed scope, and current-work truth.
-4. **Unauthorized Scope Expansion** — do not add unrelated refactors,
-   frameworks, dependencies, features, or cleanup.
+Classify the trigger first:
+
+- defect discovered while proving the active acceptance gate → fix under the
+  active Work Order when it is within the same capability/boundary;
+- stale/conflicting canonical documentation → reconcile during active closeout;
+- genuinely new capability, architecture boundary, safety model or explicit
+  owner product requirement → may justify a new Work Order;
+- post-MVP improvement → keep in `docs/ROADMAP.md` backlog until its phase is
+  activated.
+
+Before creating a new Work Order, the Controller must state:
+
+1. the roadmap gate it advances;
+2. why the active Work Order cannot safely own the work;
+3. the new capability/boundary being introduced;
+4. the terminal evidence that will close it.
+
+If these are not clear, do not create another Work Order. Do not create a
+separate Work Order only to reconcile documentation for the current gate.
+
+## Common AI Failure Modes
+
+- **Memory over repository truth** — current files, Git and executed evidence
+  override prior summaries.
+- **Worker report treated as proof** — inspect actual diff/evidence/state.
+- **Proof chain left open** — code complete without required evidence and truth
+  reconciliation is not complete.
+- **Unauthorized scope expansion** — do not add unrelated refactors,
+  frameworks, dependencies, features or cleanup.
+- **Roadmap drift** — do not treat the newest bug/WO as the entire product plan.
+- **Phantom backlog** — do not generate tasks from stale `PLANNED/BLOCKED`
+  entries before reconciling them against current implementation/evidence.
 
 ## Engineering and Git Rules
 
-- Work on one bounded Work Order at a time.
-- Do not redesign architecture outside explicit owner or Work Order authority.
-- Prefer the Python standard library when practical.
-- Add or update tests for every behavior change.
-- Do not use broad staging such as `git add .`.
-- Workers do not commit or push unless the active Work Order expressly permits
-  it.
-- Never commit runtime artifacts, previews, decisions, logs, XMP backups, or
-  secrets.
-- Do not claim `LIVE_VERIFIED` from code existence, static review, or synthetic
-  tests.
+- Work on one bounded active Work Order at a time.
+- Do not redesign architecture outside owner/Work Order authority.
+- Prefer existing dependencies and the smallest sufficient implementation.
+- Add/update tests for behavior changes where testable.
+- Do not use broad staging such as `git add .` in local execution workflows.
+- Workers do not commit/push unless explicitly authorized.
+- Do not force-push, rewrite shared history, discard owner changes or perform
+  destructive resets without explicit authority.
+- Never claim commit/push/PR/merge/test state that was not verified.
 
 ## Required Preflight
 
 Before editing, establish:
 
-- active Work Order;
-- affected capability IDs and current evidence level;
-- allowed and forbidden files;
-- expected behavior change;
-- required validation;
-- current Git status, dirty classification, and HEAD;
-- dry-run or real-write mode;
+- active Work Order and current roadmap gate;
+- affected capability IDs and evidence maturity;
+- allowed/forbidden files;
+- expected behavior change and required validation;
+- current HEAD and relevant Git status/dirty classification;
+- dry-run vs real Lightroom mutation mode;
 - exact safety boundary.
 
-Unresolved architecture conflict, unavailable required proof, destructive
-action, credentials, or paid API use without owner approval are stop
-conditions. Dirty state is handled by the classification below.
+Unresolved architecture conflict, unavailable required proof, destructive action,
+credentials, paid API use or unsafe Lightroom mutation without owner authority
+is a stop condition.
 
 ## On-Demand Repository Intelligence
 
-Serena and CodeGraph remain available as on-demand aids; neither is a default
-preflight or orientation requirement. Documentation-only work and ordinary
-bounded implementation proceed without either MCP when targeted search and
-bounded reads answer the concrete question.
-
-- Use the smallest sufficient tool: targeted search, then bounded reads or
-  ordinary symbol lookup, then Serena for material semantic navigation, and
-  CodeGraph for material dependency/caller/callee impact questions.
-- Record an unused Serena or CodeGraph capability as `NOT_REQUIRED`, never as
-  failed or unverified.
-- `BLOCKED_SERENA` or `BLOCKED_CODEGRAPH` is valid only when the concrete task
-  genuinely requires that capability, no smaller authoritative method can
-  answer the question safely, and continuing would materially risk correctness.
-- Never retrieve the same unchanged source body through multiple mechanisms
-  without a concrete reason. Stop retrieval once sufficient evidence exists.
-- Do not repeat `initial_instructions`, project activation, configuration
-  reads, or broad graph exploration when project identity and relevant truth
-  are already established.
+Serena and CodeGraph are optional aids, not default preflight requirements.
+Use the smallest sufficient method: targeted search → bounded reads/symbol lookup
+→ Serena for material semantic navigation → CodeGraph for material dependency
+impact. An unused capability is `NOT_REQUIRED`, not failed. Do not retrieve the
+same unchanged source through multiple mechanisms without a concrete reason.
 
 ## Dirty Worktree Classification
 
-Classify every dirty path before deciding whether work may continue:
+- `NON_BLOCKING` — identified pre-existing owner/local change is unrelated and
+  can be preserved/excluded without modification.
+- `BLOCKING` — dirty state overlaps task authority/proof so ownership or result
+  attribution is ambiguous.
+- `CRITICAL` — secrets, destructive/unauthorized mutation, corrupted safety
+  evidence or user photo/Catalog/cache risk.
 
-- `NON_BLOCKING` — a pre-existing owner/local change is explicitly identified,
-  unrelated to task files and proof, and can be preserved without edit,
-  restore, stash, stage, commit, or accidental inclusion. Continue with an
-  explicit exclusion.
-- `BLOCKING` — a dirty path overlaps allowed task files, authority, generated
-  proof, validation inputs, or the expected diff such that ownership or result
-  attribution is ambiguous. Stop until resolved or the owner supplies a safe
-  scoped decision.
-- `CRITICAL` — dirty state indicates secrets, destructive or unauthorized
-  mutation, corrupted safety evidence, catalog/cache/photo/XMP risk, or a state
-  that cannot be preserved safely. Stop immediately.
-
-Git status containing `M`, `A`, `D`, or `??` is evidence to classify, not by
-itself a stop condition. Never overwrite, discard, stash, stage, or commit an
-owner change without explicit authority.
-
-## Read-First Reuse and Delta Preflight
-
-A completed read-first/preflight in the same thread may be reused when HEAD,
-active Work Order pointer, relevant authority files, and task context are
-unchanged and remain available. Before each subsequent implementation step,
-check only Git status/classification, HEAD, active Work Order pointer,
-and relevant-file status/hash.
-
-Repeat full reads only when HEAD, active Work Order, a relevant file, tool
-context, or available conversation context changed, or when repository policy
-explicitly requires a fresh read. A material safety, correctness,
-authorization, or proof risk is a stop condition; repeated reading without a
-truth change is not.
+Never overwrite, stash, restore, stage or commit an owner change without
+appropriate authority.
 
 ## Documentation and Knowledge Capture
 
-`docs/INDEX.md` is the canonical document index. Every Work Order must review
-and truthfully classify affected documents as `UPDATED`,
-`REVIEWED_NO_CHANGE`, `NOT_APPLICABLE`, or `BLOCKED`.
+`docs/INDEX.md` defines canonical placement. Prefer updating an existing
+canonical document over creating another status/roadmap/evidence summary.
 
-Capture durable information needed by a future maintainer:
+Every Work Order truthfully classifies affected documents as `UPDATED`,
+`REVIEWED_NO_CHANGE`, `NOT_APPLICABLE` or `BLOCKED`.
 
-- behavior and architecture changed;
-- why the selected design was accepted;
-- invariants, ownership, configuration, and schema changes;
-- validation actually executed;
-- known limitations and remaining risks;
-- decisions that must not be reopened without new evidence.
+Capture durable behavior, architecture, accepted rationale, executed validation,
+known limitations and decisions that should not reopen without new evidence.
+Do not record speculative narration or private reasoning.
 
-Do not record speculative narration or private reasoning. Prefer an existing
-canonical document over a duplicate summary.
-
-## Status-Truth Rules
+## Status Truth
 
 - Code existence supports at most `IMPLEMENTED`.
-- Passing focused tests supports at most `TESTED`.
-- Cross-component validation supports `INTEGRATED`.
-- Representative Lightroom Classic operation with real project data is
-  required for `LIVE_VERIFIED`.
-- Worker claims alone never promote capability status.
-- Unknown evidence is recorded as unknown, not guessed.
-- A status downgrade is allowed when evidence does not support the prior level.
+- Focused automated proof supports at most `TESTED`.
+- Cross-component automated/integration proof supports `INTEGRATED`.
+- Representative Lightroom Classic operation is required for
+  `LIVE_VERIFIED`.
+- A real observation may prove only part of a capability; record the remaining
+  gate explicitly instead of over-promoting.
+- Worker claims alone never promote status.
+- Unknown evidence remains unknown; downgrade stale status when required.
 
 ## Completion Gate
 
 A Work Order closes only when:
 
-- acceptance criteria are satisfied;
-- focused, full, and integration validation required by the Work Order pass;
-- syntax/compile checks, `git diff --check`, and Git scope checks pass;
-- forbidden files and runtime artifacts are absent from the diff;
+- its acceptance criteria are satisfied or a precise terminal stop condition is
+  recorded;
+- required automated/live validation is actually executed;
+- diff/syntax/scope checks required by the task pass;
+- forbidden/runtime/private artifacts are absent from the tracked change;
 - documentation impact review is complete;
-- canonical documents match implemented truth;
-- capability matrix, validation register, project status, active Work Order,
-  and current-work pointer are reconciled;
-- remaining risks are explicit;
-- final Git state satisfies the Work Order closeout policy.
-
-Code complete without documentation and evidence reconciliation is not
-complete.
+- canonical documents match implemented evidence;
+- roadmap phase, capability matrix, validation register, project status, active
+  Work Order and current pointer agree;
+- remaining risks/post-MVP work are explicit rather than silently promoted into
+  another Work Order.
 
 ## Final Report
 
-Report only:
-
-- Work Order;
-- files changed;
-- behavior implemented;
-- validation actually performed and results;
-- documentation reviewed/updated;
-- current Work Order status;
-- remaining risks or stop condition;
-- commit/branch/PR/push state.
-
-Do not claim success without executed evidence.
+Report only verified outcomes: active Work Order, files changed, behavior,
+validation actually performed, documentation reconciliation, current status,
+remaining risk/stop condition, and Git/PR/push state. Do not claim success
+without executed evidence.

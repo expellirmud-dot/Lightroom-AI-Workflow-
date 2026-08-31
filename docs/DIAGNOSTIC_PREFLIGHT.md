@@ -1,113 +1,130 @@
 # Lightroom Folder Diagnostic Contract
 
-`DIAGNOSE_CURRENT_FOLDER` is the first implementation seam for the approved
-Exposure Session architecture. WO-031 implements the read-only plug-in, CLI,
-bridge, cache probe, XMP-readiness probe, and report path. Automated evidence
-is green; a real Lightroom owner run remains pending.
+## Status boundary
+
+`DIAGNOSE_CURRENT_FOLDER` was implemented in WO-031 before the canonical
+WO-034+ mutation route moved from XMP synchronization to Lightroom Catalog
+`Exposure2012`.
+
+The diagnostic remains useful read-only evidence for folder enumeration,
+identity, preview-cache, runtime, CLI and bridge readiness. Its legacy
+`xmp_readiness` / `metadata_sync` observations must **not** be interpreted as
+canonical Catalog-session prerequisites.
+
+Implementation compatibility note: the current WO-031 diagnostic code can still
+surface legacy XMP/metadata findings as blocking `overall_readiness`. That is a
+known stale diagnostic classification, not current architecture truth. During
+MVP closure, do not create a new Work Order solely from `XMP_*` or
+`METADATA_SYNC_UNPROVEN` when the active WO-037+ Catalog workflow does not use
+the sidecar route. Treat that mismatch as non-critical legacy diagnostic debt
+unless it actually blocks the active Gate A/B workflow.
 
 ## Purpose
 
-One real Lightroom run should reveal every independently discoverable problem
-instead of failing one stage at a time. Diagnostics are read-only with respect
-to photographs, XMP, Lightroom catalog, and live preview cache.
+One read-only Lightroom run should reveal independently discoverable folder,
+identity, cache and runtime problems without mutating photographs, Catalog,
+sidecars or live preview cache.
 
 ## Outputs
 
-Every completed invocation writes both:
+Every completed invocation writes:
 
-- `preflight.json` for deterministic processing;
+- `preflight.json` for deterministic evidence;
 - `diagnostic.txt` for owner review.
 
-The plug-in dialog shows a bounded summary and the report path. Reports must be
-written even when direct photo count or eligible RAW count is zero, unless the
-runtime report location itself is unavailable.
+Diagnostic completion means the report was produced truthfully; it does not
+authorize AI or mutation.
 
 ## Stage model
 
-Each stage returns `PASS`, `WARN`, `FAIL`, or `SKIPPED_DEPENDENCY` plus stable
-reason codes and evidence. A failed stage does not suppress independent later
-stages. Dependent work is skipped explicitly rather than attempted blindly.
+Each stage returns `PASS`, `WARN`, `FAIL` or `SKIPPED_DEPENDENCY` plus stable
+reason codes/evidence. Independent stages should continue after another stage
+fails so the owner receives a complete bounded report.
 
-## Required evidence
+## Canonical Catalog-session readiness evidence
 
 ### Lightroom context
 
-- plug-in version and bridge protocol version;
-- active catalog path as reported by Lightroom, without opening the catalog;
-- every active source's type, name, and path;
-- exact active-folder cardinality and selected folder path;
-- direct `getPhotos(false)` count.
+- plug-in/bridge protocol identity;
+- active catalog path as reported by Lightroom, without opening the database;
+- active source type/name/path;
+- exact source-folder scope and recursive/direct counts as applicable;
+- stable Lightroom local IDs/UUIDs/source paths.
 
 ### Eligibility
 
-- observed `fileFormat` histogram including value type and nil/empty values;
-- virtual-copy, video, unsupported-format, empty-path, offline/missing-file,
-  and duplicate-path counts;
+- observed file-format histogram and value types;
+- virtual-copy/video/unsupported/empty/offline/duplicate counts;
 - eligible proprietary-RAW master count;
-- bounded sample filenames, local IDs, UUIDs, paths, and relevant raw metadata
-  per category;
-- canonical path collision and source-folder containment findings.
-
-### XMP and metadata synchronization readiness
-
-- sidecar existence and one unambiguous finite Exposure2012 value;
-- Lightroom metadata synchronization evidence available through the supported
-  SDK/runtime seam;
-- whether sync safety is proven, disproven, or unknown;
-- exact evidence that would require an owner metadata-save action.
-
-Unknown sync safety is fail closed for session/apply readiness. It must not be
-translated into an unconditional instruction to Save Metadata when no evidence
-shows that action is necessary.
+- bounded identity samples;
+- source containment/canonical path conflicts.
 
 ### Preview cache
 
-- configured preview-cache path and its relationship to the active catalog;
-- `previews.db` and `root-pixels.db` existence, size, and modification evidence;
-- read-only open and bounded SQLite integrity result;
-- required table/column availability;
-- eligible identity mapping totals: FOUND, MISSING, AMBIGUOUS, DB_ERROR;
-- bounded sample extraction/JPEG validation evidence when eligible identities
-  exist.
+- configured cache path and relationship to the active catalog;
+- required DB existence/read-only accessibility/schema;
+- bounded SQLite integrity result;
+- eligible identity mapping totals and JPEG byte/header evidence.
 
-The live `.lrdata` is never written. Any database consistency work uses the
-existing read-only snapshot boundary.
+The live `.lrdata` is never written.
 
-### Runtime, CLI, and bridge
+### Runtime / CLI / bridge
 
-- configured repository/runtime paths and write readiness of the authorized
-  runtime diagnostic location;
-- `uv` and `lr-ai-exposure` resolution/version readiness;
-- configuration-check result without printing secrets;
-- request/result path readiness, protocol version, exit-status/result-status
-  consistency, and UTF-8 JSON round trip;
-- capability readiness for later session/pass operations, reported as planned
-  until implemented.
+- authorized runtime path/write readiness;
+- `uv` / CLI/config readiness without printing secrets;
+- request/result protocol and UTF-8 JSON round trip;
+- result/evidence path integrity.
 
-## Summary and severity
+These stages remain relevant to the canonical package/session route.
 
-The report contains aggregate counts and a complete issue list ordered by
-severity and stage. It distinguishes:
+## Catalog Exposure readiness
 
-- `READY_FOR_SESSION` - every required precondition is proven;
-- `NOT_READY_FIXABLE` - bounded owner/runtime action can resolve the issue;
-- `NOT_READY_UNSUPPORTED` - current inputs are outside the sidecar workflow;
-- `SAFETY_BLOCKED` - identity, metadata, cache, authorization, or proof is not
-  safe enough to proceed.
+Canonical Prepare/Apply captures current `Exposure2012` through Lightroom SDK
+Develop state. Sidecar existence is not the authority for the current iterative
+baseline.
 
-Diagnostic success means the report completed truthfully. It does not mean the
-folder is ready, and it never authorizes AI or XMP mutation.
+If the active Prepare/Apply command cannot capture or reconcile the required
+Catalog Develop value, that command must fail closed with its own current
+runtime evidence. Do not substitute an XMP value for missing Catalog truth.
 
-## Implemented boundary
+## Legacy XMP / metadata observations
 
-- The plug-in writes only its diagnostic request/result staging files and does
-  not call Prepare, Apply, AI, metadata refresh, or XMP mutation paths.
-- Python opens preview-cache SQLite files with `mode=ro`, performs a bounded
-  `quick_check(1)`, validates required tables/columns, and reads bounded JPEG
-  header/byte-count evidence without extracting files.
-- XMP readiness uses the existing strict Exposure2012 parser without backup,
-  temp, replace, or rollback operations.
-- Metadata synchronization is reported as `UNPROVEN` until a supported
-  Lightroom evidence seam exists. This fails closed for later mutation but
-  does not instruct the owner to Save Metadata without evidence.
-- The current automated boundary is `INTEGRATED`, not `LIVE_VERIFIED`.
+WO-031 also probes:
+
+- sidecar existence / parsable `crs:Exposure2012`;
+- historical metadata synchronization safety.
+
+These remain useful only when diagnosing the preserved legacy XMP workflow.
+For canonical WO-037+ sessions:
+
+- missing/malformed XMP does not by itself make Catalog Prepare unsafe;
+- `METADATA_SYNC_UNPROVEN` does not require the owner to Save Metadata;
+- no XMP Save/Read ritual is required before Catalog `Exposure2012` apply;
+- legacy stage failures must not be promoted into a new canonical implementation
+  requirement without evidence that the active command depends on them.
+
+## Readiness interpretation
+
+For current planning, distinguish:
+
+- `CANONICAL_SESSION_READY` — source identity, eligible RAWs, cache/package
+  inputs and required runtime/bridge evidence are sufficient for the current
+  Catalog workflow;
+- `CANONICAL_SESSION_BLOCKED` — a current Catalog/package prerequisite is
+  missing/unsafe;
+- `LEGACY_XMP_NOT_READY` — only sidecar/synchronization evidence is missing;
+  this does not block the canonical Catalog route;
+- `DIAGNOSTIC_IMPLEMENTATION_STALE` — the old WO-031 aggregate readiness maps a
+  legacy XMP warning into a blocking overall status even though the canonical
+  route no longer depends on it.
+
+Until the optional diagnostic implementation itself is reconciled, Controller
+planning must use the actual active command boundary, `docs/ROADMAP.md`, current
+Work Order and canonical architecture rather than generating remediation work
+from the stale aggregate label alone.
+
+## Safety
+
+The diagnostic is read-only. It never calls Prepare/Apply/AI, never requests a
+Develop mutation, never writes `.lrdata`, never opens the Catalog DB directly,
+and never writes/backs up/replaces XMP.

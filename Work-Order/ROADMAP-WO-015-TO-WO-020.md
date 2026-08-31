@@ -1,37 +1,40 @@
-# Lightroom Cache Workflow Roadmap — WO-015 to WO-020
+# HISTORICAL ROADMAP — WO-015 to WO-020
 
-## Goal
-Replace Lightroom-rendered AI preview exports with read-only extraction from the Lightroom preview cache, while preserving deterministic mapping, safety, traceability, and guarded XMP exposure updates.
+STATUS: COMPLETED_SUPERSEDED
+CURRENT_ROADMAP: `docs/ROADMAP.md`
 
-## Sequence
+This file preserves the historical cache-workflow sequence only. It is **not**
+the current Project Roadmap and must not be used to activate new Work Orders.
+For current phase, next gate and Work Order activation rules, read
+`docs/ROADMAP.md`, `docs/PROJECT_STATUS.md` and
+`Work-Order/CURRENT_WORK_ORDER.md`.
 
-1. **WO-015 — Lightroom Preview Cache Identity Mapping**  
-   Prove selected photo → cache identity → exact JPEG.
+## Historical goal
 
-2. **WO-016 — Read-Only Lightroom Cache Preview Extractor**  
-   Turn the mapping into a deterministic batch extractor.
+Replace Lightroom-rendered AI preview exports with read-only extraction from the
+Lightroom preview cache while preserving deterministic mapping, safety,
+traceability and guarded exposure updates.
 
-3. **WO-017 — Cache Preview Job Manifest Handoff**  
-   Produce a complete validated job contract without Lightroom preview export.
+## Historical sequence
 
-4. **WO-018 — Single-Pass AI Triage and Exposure Judgment**  
-   Use one cached preview for relevance, quality, and exposure.
+1. **WO-015 — Lightroom Preview Cache Identity Mapping**
+2. **WO-016 — Read-Only Lightroom Cache Preview Extractor**
+3. **WO-017 — Cache Preview Job Manifest Handoff**
+4. **WO-018 — Single-Pass AI Triage and Exposure Judgment**
+5. **WO-019 — Guarded XMP Exposure Apply Pilot**
+6. **WO-020 — End-to-End Cache-to-Lightroom Pilot**
 
-5. **WO-019 — Guarded XMP Exposure Apply Pilot**  
-   Apply only approved `crs:Exposure2012` changes to copied test photos.
+These Work Orders are historical evidence. Later accepted decisions replaced the
+XMP-centered target with the canonical Catalog-authoritative Exposure Session
+and explicit package workflow.
 
-6. **WO-020 — End-to-End Cache-to-Lightroom Pilot**  
-   Validate the full bounded workflow on 5–25 copied test photos.
+## Preserved historical safety boundaries
 
-## Authority Rule
-Only one Work Order may be active at a time. Future Work Orders remain blocked until the preceding Work Order is closed with evidence.
+- never modify `.lrcat` directly;
+- never write `.lrdata`;
+- never modify RAW files;
+- generated cache snapshots/previews/runtime artifacts are not committed;
+- final delivery export remains user-controlled.
 
-## Permanent Safety Boundaries
-- Never modify `.lrcat`.
-- Never modify `.lrdata`.
-- Never modify RAW files.
-- XMP mutation is limited to `crs:Exposure2012`.
-- Cache access is read-only and must fail closed.
-- Generated cache snapshots, extracted JPEGs, and runtime artifacts are not committed.
-- No automatic second preview at 2048 pixels.
-- Final delivery export remains a separate user-controlled Lightroom operation.
+Historical XMP-specific requirements apply only when an explicitly active legacy
+sidecar path uses them. They do not override the current canonical Catalog route.

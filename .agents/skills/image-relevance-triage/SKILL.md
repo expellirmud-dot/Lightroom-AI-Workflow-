@@ -1,39 +1,32 @@
 ---
 name: image-relevance-triage
-description: Judge event relevance, documentary value, accidental/test-shot evidence, duplicates, and whether exposure processing should continue under the current saved-job schema.
+description: Preserved relevance-triage guidance; dormant for the current exposure-only small-preview task unless AI_TASK.md explicitly activates relevance assessment.
 ---
 
 # Image Relevance Triage
 
-Assess relevance from the actual image and its batch context. Rejection is a
-suggestion only; this project never deletes or rejects photographs in
-Lightroom.
+`AI_TASK.md` and `decision-schema.json` are authoritative.
 
-## Required reasoning
+## Current MVP mode — dormant
 
-1. Determine whether the image belongs to the same event, subject, location, or
-   narrative context as its batch.
-2. Distinguish primary, supporting, and candid documentary value.
-3. Identify likely test shots, accidental captures, irrelevant frames, and
-   duplicates using multiple visible indicators rather than filenames.
-4. Separate an intentional candid or unusual composition from an unintended
-   capture.
-5. Consider whether the image remains worth exposure processing even when it
-   has a technical weakness.
-6. Use REVIEW for ambiguous or conflicting evidence.
+The current contact-sheet/small-preview Exposure Session task does **not**
+authorize relevance, duplicate, accidental/test-shot or keep/reject judgment.
+This skill is bundled for compatibility/progressive evolution but must not
+silently activate those features.
 
-## Current output mapping
+For the current MVP:
 
-- Relevant primary, supporting, or candid image: `relevance_verdict=KEEP`.
-- Ambiguous test shot, possible accidental capture, uncertain duplicate, or
-  uncertain event relationship: `relevance_verdict=REVIEW`.
-- Confidently irrelevant, accidental, duplicate with no independent value, or
-  unusable frame: `relevance_verdict=SKIP`.
-- Record visible evidence in `subject_rationale` and the final classification
-  rationale in `reason`.
-- Do not emit historical extra fields such as `relevance_class`,
-  `event_relation`, `test_shot_likelihood`, `accidental_likelihood`,
-  `duplicate_of`, or `quality_flags`; incorporate that evidence into the
-  accepted rationale fields.
+- set `relevance_verdict=KEEP` for every in-scope decision;
+- do not classify relevance, documentary value, duplicates, accidental frames
+  or test shots;
+- do not use `SKIP`/relevance `REVIEW` to settle an exposure problem;
+- unresolved exposure evidence belongs in `action=REVIEW` under the exposure
+  contract;
+- do not infer keep/reject value from filename or small preview limitations.
 
-`AI_TASK.md` and `decision-schema.json` are authoritative for output fields.
+## Future activation boundary
+
+Broader relevance triage may be used only when a future `AI_TASK.md` explicitly
+activates it and the generated schema/preview evidence supports that task.
+Until then, historical relevance examples/references are non-authoritative for
+current decision output.

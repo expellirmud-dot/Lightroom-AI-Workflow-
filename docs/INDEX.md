@@ -9,8 +9,16 @@ This is the canonical index of maintained project authority.
 3. Safety contracts
 4. Canonical workflow and architecture
 5. AI/data contracts and accepted decisions
-6. Tests and implementation
-7. User documentation
+6. Roadmap, capability/status and executed-evidence registers
+7. Tests and implementation
+8. User documentation
+
+`docs/ROADMAP.md` is the only current Project Roadmap. Files under
+`Work-Order/` whose names contain `ROADMAP` are historical execution artifacts
+unless `Work-Order/CURRENT_WORK_ORDER.md` explicitly activates them.
+
+`docs/ROADMAP.md` controls project direction and phase gates; it does not
+override an active Work Order or implementation/safety truth.
 
 ## Required read set
 
@@ -19,45 +27,70 @@ preflight for `AGENTS.md`, this index, `Work-Order/CURRENT_WORK_ORDER.md`, the
 active Work Order, and every document whose trigger matches the task. Use delta
 preflight while repository-truth fingerprints remain unchanged.
 
+For planning/next-work decisions, also read `docs/ROADMAP.md`,
+`docs/PROJECT_STATUS.md` and the relevant capability/evidence rows before
+creating another Work Order.
+
 ## Maintained documents
 
 | Document | Purpose | Read/update trigger |
 |---|---|---|
-| `AGENTS.md` | repository-wide governance and runtime invariants | every task; governance or workflow change |
-| `docs/FOLDER_JOB_WORKFLOW.md` | approved Exposure Session/pass target lifecycle and current-runtime boundary | workflow, plugin, session, pass, AI handoff, render loop, or apply change |
-| `docs/ARCHITECTURE.md` | components, ownership, data flow, IPC | architecture or integration change |
-| `docs/DIAGNOSTIC_PREFLIGHT.md` | diagnostic-first Lightroom folder readiness contract | diagnostics, eligibility, cache, CLI, bridge, or metadata-readiness change |
-| `docs/XMP_SAFETY.md` | allowed mutation and transaction contract | any XMP-related change |
-| `docs/AI_JUDGE_CONTRACT.md` | external AI inputs, decision schema, validation | AI, schema, skill, batching, or confidence change |
-| `docs/DECISIONS.md` | accepted durable design decisions | material design accepted or superseded |
-| `docs/CAPABILITY_MATRIX.md` | capability maturity truth | capability status change |
-| `docs/VALIDATION_REGISTER.md` | executed validation evidence | new validation |
-| `docs/PROJECT_STATUS.md` | current phase, risks, next gate | phase or risk change |
-| `README.md` | user setup and operation | user workflow or command change |
+| `AGENTS.md` | repository-wide governance, runtime invariants and anti-loop execution rules | every task; governance or workflow change |
+| `docs/ROADMAP.md` | current project phase, exit gates, post-MVP backlog and Work Order activation policy | planning, phase transition, new Work Order |
+| `docs/FOLDER_JOB_WORKFLOW.md` | canonical Exposure Session/pass lifecycle | workflow, plug-in, session, pass, AI handoff, render loop or apply change |
+| `docs/ARCHITECTURE.md` | components, ownership, data flow and IPC | architecture or integration change |
+| `docs/DIAGNOSTIC_PREFLIGHT.md` | diagnostic-first Lightroom folder readiness contract | diagnostics, eligibility, cache, CLI or bridge readiness change |
+| `docs/XMP_SAFETY.md` | canonical Catalog mutation safety plus preserved legacy XMP safety | any mutation-boundary or XMP-related change |
+| `docs/AI_JUDGE_CONTRACT.md` | current external AI task/schema semantics and validation boundary | AI, schema, skill, batching or confidence change |
+| `docs/DECISIONS.md` | accepted durable design/governance decisions | material design accepted or superseded |
+| `docs/CAPABILITY_MATRIX.md` | capability maturity truth | capability status/evidence boundary change |
+| `docs/VALIDATION_REGISTER.md` | actually executed validation evidence | new validation or evidence reconciliation |
+| `docs/PROJECT_STATUS.md` | current phase, active gate, risks and next proof | phase, gate or risk change |
+| `README.md` | user setup and current canonical operation | user workflow or command change |
 | `Work-Order/CURRENT_WORK_ORDER.md` | pointer to the only active Work Order | task transition |
-| `Work-Order/WO-*.md` | bounded implementation authority and evidence | its own task |
-| `.agents/skills/exposure-judgment/SKILL.md` | subject-aware exposure judgment | exposure rules change |
-| `.agents/skills/batch-consistency-review/SKILL.md` | grouping and reference consistency | batch consistency change |
-| `.agents/skills/image-relevance-triage/SKILL.md` | relevance/test-shot/accidental triage | relevance rules change |
-| `.agents/skills/visual-quality-safety/SKILL.md` | blur/focus/highlight safety | quality rules change |
-| `.agents/skills/project-read-first/SKILL.md` | repository preflight, reuse, delta checks, and dirty classification | every repository-changing task; preflight protocol change |
+| `Work-Order/WO-*.md` | bounded implementation authority and historical evidence | its own task |
+| `.agents/skills/exposure-judgment/SKILL.md` | current exposure judgment guidance | exposure rules/schema change |
+| `.agents/skills/batch-consistency-review/SKILL.md` | current exposure grouping/reference guidance | batch consistency/schema change |
+| `.agents/skills/image-relevance-triage/SKILL.md` | dormant compatibility guidance unless task explicitly activates relevance | explicit post-MVP relevance scope change |
+| `.agents/skills/visual-quality-safety/SKILL.md` | exposure-risk guidance; broader quality triage dormant unless task activates it | exposure-risk or explicit post-MVP quality scope change |
+| `.agents/skills/project-read-first/SKILL.md` | preflight, reuse, delta checks and dirty classification | every repository-changing task; preflight protocol change |
 
 ## Placement rules
 
+- Project direction / phase / next gate → `docs/ROADMAP.md`
+- Current snapshot / blockers → `docs/PROJECT_STATUS.md`
+- Capability maturity → `docs/CAPABILITY_MATRIX.md`
+- Executed proof → `docs/VALIDATION_REGISTER.md`
 - Runtime/session workflow → `docs/FOLDER_JOB_WORKFLOW.md`
 - Component boundaries → `docs/ARCHITECTURE.md`
 - Diagnostic readiness → `docs/DIAGNOSTIC_PREFLIGHT.md`
-- XMP safety → `docs/XMP_SAFETY.md`
+- Mutation/XMP safety → `docs/XMP_SAFETY.md`
 - AI schema and judgment → `docs/AI_JUDGE_CONTRACT.md`
 - Durable rationale → `docs/DECISIONS.md`
 - Task scope/evidence → active Work Order
 
-Do not create duplicate status or authority documents.
+Do not create duplicate status, roadmap, evidence or authority documents.
+
+## Work Order anti-loop check
+
+Before creating a new Work Order, classify the trigger:
+
+- defect inside the active acceptance gate → current Work Order remediation;
+- documentation/instruction mismatch → current Work Order closeout
+  reconciliation;
+- new capability/boundary/product requirement → candidate new Work Order;
+- future enhancement → roadmap backlog.
+
+A new Work Order must identify the roadmap gate it advances and an explicit
+terminal evidence condition.
 
 ## Closeout checklist
 
-- Review `README.md` and all affected documents in this index.
-- Record executed evidence only after commands actually pass.
-- Reconcile capability status, project status, Work Order, and current pointer.
-- Confirm no conflicting authority remains.
-- Confirm runtime artifacts and backups are not tracked.
+- Review `README.md` and every affected maintained document above.
+- Record executed evidence only after commands or live checks actually occur.
+- Reconcile capability status, project status, roadmap phase, Work Order and
+  current pointer.
+- Confirm no conflicting current authority remains.
+- Confirm historical Work Orders/roadmaps are not being treated as active.
+- Confirm runtime artifacts, user photographs, backups and credentials are not
+  tracked.

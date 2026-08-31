@@ -2,16 +2,21 @@
 
 Canonical executed-evidence register for Lightroom AI Exposure Assist.
 
-This register records only evidence that was actually executed and whose scope is understood. Historical rows containing `pending`, `THIS_COMMIT`, or claims that contradicted later repository/runtime truth were removed during WO-029. Git history remains available for forensic detail.
+LAST_RECONCILED: 2026-08-31
+
+Only evidence that was actually executed or directly observed is recorded here.
+A Work Order statement without enough execution detail may document intent or
+implementation, but it does not silently promote capability maturity.
 
 ## Evidence levels
 
 - **Automated** — focused/full pytest, compile, CLI smoke, static contracts.
 - **Integrated** — multiple production components exercised together.
-- **Live Lightroom** — real Lightroom Classic, real catalog selection/cache, and representative runtime artifacts.
-- **Live XMP Apply** — real prepared job, real sidecar transaction, Lightroom metadata read-back.
+- **Live Lightroom** — real Lightroom Classic with real catalog/cache/runtime
+  artifacts.
+- **Live Catalog Apply** — real Develop mutation/observation through Lightroom.
 
-Automated evidence cannot by itself prove Lightroom Lua runtime behavior.
+Automated evidence cannot by itself prove Lightroom-hosted Lua/runtime behavior.
 
 ## Trusted historical baseline
 
@@ -29,7 +34,7 @@ Automated evidence cannot by itself prove Lightroom Lua runtime behavior.
 
 | ID | Date | Evidence | Result | Commit |
 |---|---|---|---|---|
-| VLD-088 | 2026-07-29 | XMP transaction tests | backup, SHA-256, write verification, rollback paths passed | `a65b953` |
+| VLD-088 | 2026-07-29 | XMP transaction tests | backup, SHA-256, write verification and rollback paths passed | `a65b953` |
 | VLD-089 | 2026-07-29 | two-key apply authorization tests | passed | `a65b953` |
 | VLD-090 | 2026-07-29 | full suite | 185 passed | `a65b953` |
 
@@ -45,97 +50,131 @@ Automated evidence cannot by itself prove Lightroom Lua runtime behavior.
 
 | ID | Date | Evidence | Result | Commit |
 |---|---|---|---|---|
-| VLD-107 | 2026-07-29 | Real Lightroom selection → cache preview → external decision import | `REAL_LIGHTROOM_SMOKE_PASS`; 1 decision; `ANALYZE_ONLY`; applied 0; no XMP mutation | `243c405` |
+| VLD-107 | 2026-07-29 | Real Lightroom selection → cache preview → decision import | `REAL_LIGHTROOM_SMOKE_PASS`; one decision; ANALYZE_ONLY; applied 0 | `243c405` |
 | VLD-108 | 2026-07-29 | Full suite at closeout | 196 passed, 2 skipped | `243c405` |
 
-WO-028 proved the real Lightroom identity/cache/decision path. It did not prove the new WO-029 full-folder Prepare/Apply commands.
+WO-028 proved real Lightroom identity/cache/decision plumbing, not the later
+whole-folder/session workflow.
 
 ## WO-029 — Prepared current-folder lifecycle
 
-Automated evidence applies to branch `wo-029-folder-job-lifecycle` at head `4fd50d6faeb3f4b1e3ad8184961ce1ca94bfc553`, GitHub Actions run `30413267495` (run 50).
+Automated branch evidence was recorded at head
+`4fd50d6faeb3f4b1e3ad8184961ce1ca94bfc553`, Actions run `30413267495`.
 
-| ID | Date | Evidence | Result | Scope |
-|---|---|---|---|---|
-| VLD-109 | 2026-07-29 | Focused prepared-job tests on Windows Python 3.12 | success | folder lifecycle, self-contained skill bundle, immutable artifact hashes, saved-job CLI/apply, plug-in contracts |
-| VLD-110 | 2026-07-29 | Focused prepared-job tests on Windows Python 3.13 | success | same scope |
-| VLD-111 | 2026-07-29 | Full pytest suite on Windows Python 3.12 and 3.13 | success on both matrix jobs | all tracked tests |
-| VLD-112 | 2026-07-29 | CLI config smoke on Windows Python 3.12 and 3.13 | success | canonical `manual_app` external-file configuration |
-| VLD-113 | 2026-07-29 | Integration suite on Windows Python 3.12 and 3.13 | success | cross-component Python workflow |
-| VLD-114 | 2026-07-29 | `compileall` for `src` and `tests` | success on both matrix jobs | Python syntax/import surface |
-| VLD-115 | 2026-07-29 | `git diff --check` | success on both matrix jobs | tracked diff hygiene |
-| VLD-116 | 2026-07-29 | clean working-tree check | success on both matrix jobs | no runtime/private artifacts created by CI |
-| VLD-117 | 2026-07-29 | Immutable prepared-job integrity test | success on both matrix jobs | altered task/skills/schema/manifest/selection inputs fail closed before decision import/apply |
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-109 | 2026-07-29 | Focused prepared-job tests, Windows 3.12 | success: lifecycle, skill bundle, hashes, saved-job CLI/apply, plug-in contracts |
+| VLD-110 | 2026-07-29 | Focused prepared-job tests, Windows 3.13 | same scope, success |
+| VLD-111 | 2026-07-29 | Full pytest, Windows 3.12/3.13 | success both jobs |
+| VLD-112 | 2026-07-29 | CLI config smoke | success both jobs |
+| VLD-113 | 2026-07-29 | Integration suite | success both jobs |
+| VLD-114 | 2026-07-29 | `compileall` source/tests | success both jobs |
+| VLD-115 | 2026-07-29 | `git diff --check` | success both jobs |
+| VLD-116 | 2026-07-29 | clean-tree/private-artifact gate | success both jobs |
+| VLD-117 | 2026-07-29 | immutable job integrity/tamper test | success both jobs |
+| VLD-118 | 2026-08-30 | Owner-operated Lightroom legacy Prepare/Apply plug-in | commands loaded; Prepare returned zero eligible RAW; later whole-folder/session work superseded this blocker |
 
-Both Windows matrix jobs concluded `success`. Focused, full, config, integration, compile, diff, and clean-tree steps all concluded `success`.
+WO-029 remains historical/legacy evidence; its missing live gates are not
+requirements that automatically reopen the canonical WO-037+ architecture.
 
-### Post-merge real Lightroom observation
+## WO-030 — Target documentation / governance
 
-| ID | Date | Evidence | Result | Scope |
-|---|---|---|---|---|
-| VLD-118 | 2026-08-30 | Owner-operated Lightroom plug-in 1.1.0 build 2 | both Prepare/Apply menu commands loaded; Prepare stopped with `The active Lightroom folder contains no eligible proprietary-RAW master photos.` | proves menu availability and live eligibility failure only; Python/cache/CLI/apply not reached |
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-119 | 2026-08-30 | project-read-first tests + live preflight self-test | 8 passed; `NON_BLOCKING`, exclusions recorded, READY; governance only |
+| VLD-120 | 2026-08-30 | focused current-runtime regression guards | 18 passed; static/compatibility scope |
+| VLD-121 | 2026-08-30 | compile + documentation diff hygiene | passed; no Lightroom runtime proof |
 
-## WO-029 unresolved live gates at supersession
+## WO-031 — Diagnose Current Folder
 
-- Open exactly one real Lightroom folder and run **Prepare Current Folder**.
-- Confirm the plug-in enumerates all eligible proprietary-RAW masters without manual photo selection.
-- Confirm one cache handoff produces `manifest.json`, all available previews, `AI_TASK.md`, `AI_SKILLS.md`, schema, state, immutable artifact hashes, and the job-scoped decisions folder.
-- Give only that prepared job folder to an external vision AI and produce the exact decision set.
-- Run **Apply Prepared Job** against the matching active folder.
-- Confirm backup paths/hashes, old/delta/new exposure, terminal settlement for every eligible image, rollback safety, and Lightroom metadata refresh.
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-122 | 2026-08-30 | focused diagnostic/plug-in/CLI/prepared-job/XMP tests | 61 passed, 1 optional Lua-parser skip |
+| VLD-123 | 2026-08-30 | full pytest suite | 218 passed, 2 skipped |
+| VLD-124 | 2026-08-30 | config smoke, compileall, diagnostics, diff/scope inspection | passed; integration evidence only |
 
-These gates did not pass before PR #1 merged. WO-029 is now superseded rather
-than active. Its missing proof must not be inherited by the target Exposure
-Session architecture.
+## WO-033 — On-Demand Repository Intelligence Governance
 
-## WO-030 documentation evidence
-
-WO-030 defines target documentation and governance only. No row in this section
-claims session/pass, diagnostic, rerender, metadata-sync, or real XMP runtime
-behavior.
-
-| ID | Date | Evidence | Result | Scope |
-|---|---|---|---|---|
-| VLD-119 | 2026-08-30 | `tests/test_project_read_first_skill.py` and live preflight-script self-test | 8 passed; script returned `DIRTY_CLASSIFICATION=NON_BLOCKING`, explicit exclusions, correct `origin/main`, and `PREFLIGHT_DECISION=READY` | governance/read-first behavior only |
-| VLD-120 | 2026-08-30 | focused current-runtime regression guards | 18 passed | static Lightroom plug-in, prepared-job lifecycle, saved-job CLI compatibility |
-| VLD-121 | 2026-08-30 | source/test compile and documentation diff hygiene | compileall passed for source/tests; `git diff --check` passed with line-ending normalization warnings only | syntax and diff hygiene; no runtime execution |
-
-## Current limitations
-
-- CI statically inspects Lua contracts; the GitHub runner does not prove the Lightroom-hosted Lua runtime.
-- Real apply requires an existing XMP sidecar containing one unambiguous finite `crs:Exposure2012` value.
-- DNG/JPEG/TIFF/PSD/video/virtual-copy inputs are intentionally excluded from the sidecar-only writable target set.
-- The legacy Google API provider remains compatibility code, but it is not the canonical production route and its quota is not a WO-029 blocker.
-
-## WO-031 - Diagnose Current Folder
-
-| ID | Date | Evidence | Result | Scope |
-|---|---|---|---|---|
-| VLD-122 | 2026-08-30 | Focused diagnostic, plug-in, CLI, prepared-job, XMP, and transaction tests | 61 passed, 1 skipped because no Lua interpreter is installed | zero-eligible completion, multi-issue aggregation, invalid-config aggregation, fileFormat/sample preservation, independent cache stages, read-only XMP, Prepare/Apply regression guards |
-| VLD-123 | 2026-08-30 | Full pytest suite | 218 passed, 2 skipped | complete automated repository regression; skips were the pre-existing legacy integration marker and optional Lua parser |
-| VLD-124 | 2026-08-30 | Config smoke, Python compileall for source/tests, Serena diagnostics, `git diff --check`, and Git scope inspection | passed; no diagnostics in the new Python module; line-ending normalization warnings only | CLI/config readiness, syntax, tracked diff hygiene, allowed WO-031 scope, `.serena/project.yml` preserved and excluded |
-
-These rows support `INTEGRATED` for CAP-043 only. They do not prove the
-Lightroom-hosted Lua path, the current problem folder, metadata synchronization,
-or any real XMP mutation.
-
-## WO-033 - On-Demand Repository Intelligence Governance
-
-| ID | Date | Evidence | Result | Scope |
-|---|---|---|---|---|
-| VLD-125 | 2026-08-30 | TDD RED run for `tests/test_project_read_first_skill.py` | 4 expected governance-contract failures | proved the old policy lacked on-demand, `NOT_REQUIRED`, conditional blocking, and anti-duplication contracts |
-| VLD-126 | 2026-08-30 | Focused governance suite plus preflight script | 12 passed; script emitted both MCP statuses as `NOT_REQUIRED` and `PREFLIGHT_DECISION=READY` | project-read-first policy and default preflight only; neither MCP invoked |
-| VLD-127 | 2026-08-30 | Full pytest suite | 243 passed, 2 skipped, 2 environment/dependency warnings | complete automated repository regression after adding the local `tests` package marker; skips are legacy integration and unavailable Lua interpreter |
-| VLD-128 | 2026-08-30 | `python -m compileall -q src tests` and `git diff --check` | passed; line-ending normalization warnings only | Python syntax and tracked diff hygiene |
-
-WO-033 changes governance and test import resolution only. It does not provide
-new Lightroom-hosted runtime, session, cache, AI, or XMP evidence.
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-125 | 2026-08-30 | TDD RED governance run | four expected policy-contract failures |
+| VLD-126 | 2026-08-30 | focused governance + preflight | 12 passed; Serena/CodeGraph correctly `NOT_REQUIRED`; READY |
+| VLD-127 | 2026-08-30 | full pytest | 243 passed, 2 skipped, 2 environment/dependency warnings |
+| VLD-128 | 2026-08-30 | compileall + `git diff --check` | passed |
 
 ## WO-038 — Contact-sheet package pipeline
 
-| ID | Date | Evidence | Result | Scope |
-|---|---|---|---|---|
-| VLD-129 | 2026-08-31 | TDD RED then focused contact-sheet/session/CLI/plug-in regressions | RED: missing contact-sheet index as expected; GREEN: 10 tests passed | 4×4 ordered sheets/index, partial final sheet, validated JPEG input, cleanup, task scope, tamper rejection, and preserved command separation |
-| VLD-130 | 2026-08-31 | `python -m pytest -q`, `python -m compileall -q src tests`, `lr-ai-exposure --check-config`, `git diff --check` | all commands exited 0; pytest showed its two pre-existing dependency warnings plus a post-run temp cleanup permission warning; diff check showed only line-ending warnings | complete local automated regression, syntax, config, and diff hygiene; no Lightroom host, external AI, cache-original, RAW, XMP, or Catalog operation |
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-129 | 2026-08-31 | TDD RED then focused contact-sheet/session/CLI/plug-in regressions | expected RED; GREEN 10 tests passed |
+| VLD-130 | 2026-08-31 | full pytest, compileall, config smoke, diff check | all commands exited 0; local automated/integration proof only |
 
-WO-038 supports `INTEGRATED` for CAP-051 through local automated evidence. It
-does not establish `LIVE_VERIFIED` contact sheets in Lightroom Classic.
+WO-038 supports `INTEGRATED` contact-sheet creation/integrity, not model quality.
+
+## Reconciled missing current evidence
+
+The following executed evidence existed in accepted Work Orders but was missing
+from this canonical register. It is added here without changing its scope.
+
+### WO-034 — Catalog Exposure runtime hardening
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-131 | 2026-08-30 | GitHub Actions `33326239821`, Windows Python 3.12/3.13 | PASS: focused/full, config, integration, compile, diff and clean-tree gates; Catalog-authoritative iterative implementation, no live Lightroom proof |
+
+### WO-035 — Durable AI handoff workflow
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-132 | 2026-08-30 | GitHub Actions `33328089473`, Windows Python 3.12/3.13 | PASS: canonical session/handoff automation; no provider quality/live mutation claim |
+
+### WO-036 — Lightroom live-test harness
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-133 | 2026-08-30 | post-merge GitHub Actions run #80 | success; deterministic pass-all/one-adjust test seeder certified; does not replace Lightroom live proof |
+
+### WO-037 — Decoupled AI package workflow
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-134 | 2026-08-30 | PR certification run #85 (`33340357782`), Windows Python 3.12/3.13 | PASS: explicit Prepare / Import-Apply / Prepare Next architecture, full regression/certification; CI not Lightroom host |
+
+### WO-039 — Catalog apply commit barrier
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-135 | 2026-08-31 | GitHub Actions run #91, Windows Python 3.12/3.13 | PASS: post-commit bounded verification, absolute-target/idempotent retry, fail-closed confirmation and legacy technical-state recovery; fixed path not yet live-rechecked |
+| VLD-136 | 2026-08-31 | Live Lightroom session `sess-1788136092` before WO-039 fix | 324-image session reached apply; 21 requested absolute targets were later observed present in Develop, while same-callback verification recorded stale values and produced `PASS=303 / REVIEW=21 / verified applies=0`; this is defect-discovery evidence, not proof of the corrected barrier |
+
+VLD-136 supersedes the interpretation that the project is still blocked at the
+old zero-eligible whole-folder stage. It proves real whole-folder/session/apply
+progress, but it must not be re-labeled as a successful WO-039 verification.
+
+## Current live acceptance still pending
+
+Current owner-operated proof must establish:
+
+1. re-run `Import / Apply AI Results` on the affected session;
+2. recognize all 21 already-present targets without a second delta;
+3. recover only the recorded technical failure IDs;
+4. produce `Verified Catalog applies: 21`, `PASS: 303`, `REVIEW: 0` and
+   `RERENDER_REQUIRED`;
+5. after Lightroom rerender, run `Prepare Next AI Package` and prove a fresh
+   generation is accepted.
+
+Only after those observations may the corresponding post-commit/iterative-loop
+capabilities be promoted to complete `LIVE_VERIFIED` status.
+
+## Known evidence gaps / deferred proof
+
+- WO-032 states that whole-folder traversal and iterative schema changes were
+  implemented/tested, but this register does not invent a missing exact command,
+  run ID or test count. Later live session evidence independently supersedes the
+  earlier whole-folder blocker.
+- GitHub CI statically/automatically exercises Lua contracts but cannot replace
+  Lightroom-hosted runtime proof.
+- AI model/provider photographic quality and photographer calibration are
+  intentionally deferred beyond the current technical closure gate.
+- Legacy XMP/metadata synchronization evidence remains historical and is not a
+  prerequisite for the canonical Catalog-authoritative iterative route.

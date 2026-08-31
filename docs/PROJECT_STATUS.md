@@ -1,107 +1,110 @@
 # Project Status
 
 LAST_UPDATED: 2026-08-31
-PROJECT_PHASE: Lightroom Live Verification Pending
-CURRENT_WORK_ORDER: NONE
+PROJECT_PHASE: MVP_CLOSURE_LIVE_CERTIFICATION
+CURRENT_WORK_ORDER: Work-Order/WO-039-CATALOG-APPLY-COMMIT-BARRIER.md
 LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-038-CONTACT-SHEET-PACKAGE-PIPELINE.md
-CURRENT_BRANCH: main after PR #5 merge; Git remains authority for moving HEAD
+CURRENT_BRANCH: main; Git is authority for moving HEAD
 
-## Current implementation truth
+## Current truth
 
-The automated-tested iterative session runtime now has an explicit decoupled package workflow:
-
-```text
-Prepare AI Package
--> Python read-only Lightroom preview-cache extraction
--> PACKAGE_READY
--> plug-in exits
-
-External AI Runner
--> runs separately against the saved package
--> writes decisions only
-
-Import / Apply AI Results
--> exact decision validation
--> guarded Catalog Exposure2012-only apply and observed confirmation
--> SESSION_COMPLETE or RERENDER_REQUIRED
--> plug-in exits
-
-Prepare Next AI Package
--> explicit command after rerender
--> existing render barrier
--> next immutable package
--> PACKAGE_READY
-```
-
-The Lightroom plug-in does not own a resident AI listener, polling loop, provider session, browser automation or API key.
-
-## WO-038 contact-sheet package pipeline
-
-WO-038 adds Python-owned package artifacts without changing Lightroom menu or
-apply behavior:
-
-- validates each extracted FOUND JPEG by manifest byte/SHA evidence and a Pillow
-  decode;
-- creates ordered 4×4 JPEG contact sheets and `contact-sheet-index.json` before
-  package task/schema/state are written;
-- directs the external AI task to inspect sheets first for batch order and
-  relative brightness, then individual previews only when necessary;
-- restricts the MVP task to exposure and prevents small-preview blur/focus/
-  sharpness/relevance/culling judgments;
-- validates sheet/index integrity before readiness, removes temporary snapshot
-  DBs, and rejects a tampered sheet before decision import.
-
-The preview source remains the existing 320px RootPixels JPEG. A read-only
-forensic check found only that payload in the authorized snapshots; PyramidLevel
-metadata advertised larger tiers but did not provide their bytes.
-
-## WO-037 implementation
-
-WO-037 adds:
-
-- `PrepareAIPackage.lua` — Pass 1 identity/capture/package command;
-- `ImportApplyAIResults.lua` — explicit result import/apply command;
-- `PrepareNextAIPackage.lua` — explicit later-pass capture command;
-- `SessionPackageSupport.lua` — shared Lightroom identity/selection/Exposure2012 apply helpers;
-- canonical `Info.lua` routing to the new commands while retaining WO-029 single-pass commands as Legacy;
-- static regressions protecting command separation, no resident listener and Exposure2012-only Catalog mutation;
-- architecture/workflow/decision/user documentation aligned to the durable filesystem package boundary.
-
-The historical `IterativeSession.lua` / `ResumeIterativeSession.lua` files remain for compatibility but are not registered as the canonical menu workflow.
-
-The plug-in metadata remains version 1.2.0 build 1 so it stays aligned with the existing diagnostic payload contract; WO-037 changes routing rather than the diagnostic protocol.
-
-## Automated evidence
-
-- WO-036 post-merge run #80 succeeded on `main`.
-- WO-037 PR #5 certification run #85 (`33340357782`) succeeded on Windows Python 3.12 and 3.13.
-- Both matrix jobs passed focused prepared-job regressions, the full pytest suite, CLI config smoke, integration suite, compile, diff check and clean working-tree/private-artifact check.
-- The first WO-037 PR run failed only because old static tests still required the superseded Resume menu/version assumptions; those contracts were updated and the subsequent run passed.
-
-This supports CI certification/integration only. It does not prove the new Lua command routing inside a real Lightroom Classic host.
-
-## Safety preserved
-
-- no direct `.lrcat`, `.lrcat-wal` or `.lrcat-shm` access;
-- no `.lrdata` writes;
-- Python remains the read-only cache snapshot/extractor;
-- external AI has decision-only authority;
-- only Catalog Exposure2012 is writable through the canonical iterative apply path;
-- Import / Apply never prepares another pass implicitly;
-- next-pass capture remains gated by prior verified apply evidence and the existing Python render barrier;
-- AI provider/model quality testing remains deferred.
-
-## Next gate
-
-Perform one bounded Lightroom Classic live test using the new explicit commands and the existing WO-036 deterministic no-AI decision seeder:
+The canonical iterative workflow is implemented and CI-certified through
+WO-039. It is no longer a WO-029-only prepared-folder prototype.
 
 ```text
-Prepare AI Package
--> seed PASS-only or one +0.10 EV test decision set
--> Import / Apply AI Results
--> verify Lightroom-observed result
--> allow rerender
--> Prepare Next AI Package only if a second-pass proof is required
+Diagnose Current Folder (optional/advisory)
+→ Prepare AI Package
+→ PACKAGE_READY
+→ external AI or deterministic test decision producer
+→ Import / Apply AI Results
+→ guarded Catalog Exposure2012 apply
+→ bounded post-commit Lightroom verification
+→ SESSION_COMPLETE or RERENDER_REQUIRED
+→ Prepare Next AI Package after rerender
 ```
 
-Do not claim `LIVE_VERIFIED` until that Lightroom-hosted evidence is captured.
+The Lightroom plug-in is short-lived and owns explicit Lightroom-side commands.
+Python owns read-only preview-cache extraction, immutable package/session data,
+decision validation, convergence/safety planning and render freshness. External
+AI has decision-only authority. The canonical iterative route does not require
+XMP Save/Read Metadata synchronization.
+
+## Evidence already established
+
+- Real Lightroom identity/cache Analyze Only was proven historically.
+- Whole-folder/session/package implementation and canonical command separation
+  are covered by automated/integration evidence.
+- WO-037 Windows certification passed on Python 3.12 and 3.13.
+- WO-038 contact-sheet package creation/integrity passed focused and full
+  automated validation.
+- A representative live session reached a 324-image decision/apply stage.
+- Lightroom actually held the 21 requested absolute `Exposure2012` target
+  values after apply.
+
+The last point exposed a verification defect rather than a failed mutation:
+verification occurred too early inside Lightroom write access, so the old code
+observed stale values and incorrectly converted technical verification failures
+to photographic REVIEW.
+
+## Current gate — WO-039
+
+WO-039 moves verification outside the write callback, uses bounded post-commit
+polling, makes retries absolute-target/idempotent, keeps technical failures out
+of photographic REVIEW, and repairs only the affected legacy technical state.
+GitHub Actions run #91 passed on Windows/Python 3.12 and 3.13.
+
+Remaining owner-operated acceptance:
+
+```text
+re-run Import / Apply AI Results
+→ recognize 21 existing targets without a second delta
+→ PASS 303 / REVIEW 0
+→ RERENDER_REQUIRED
+→ allow Lightroom to rerender
+→ Prepare Next AI Package
+→ prove a fresh generation
+```
+
+Do not claim the post-commit barrier or complete iterative loop
+`LIVE_VERIFIED` until this bounded recheck succeeds.
+
+## Reconciled legacy conflicts
+
+Canonical project instructions/safety/AI contracts now distinguish the WO-037+
+Catalog route from legacy WO-029 XMP behavior and align the visual instruction
+bundle with the generated current schema (`action`, `scene_group_id`,
+`is_reference`). Relevance/blur/focus/culling instructions are dormant for the
+current exposure-only small-preview task.
+
+The optional WO-031 diagnostic implementation still contains legacy
+XMP/metadata-sync aggregate readiness semantics that can overstate a
+`SAFETY_BLOCKED` result for the current Catalog architecture. Treat those
+legacy-only codes as **non-blocking diagnostic debt** during MVP closure unless
+they actually block Gate A/B. Do not activate a separate Work Order solely from
+that stale aggregate label.
+
+## Phase policy
+
+This project is currently in **MVP closure/live certification**, not general
+feature expansion.
+
+Until WO-039 and the next-render proof close:
+
+- do not activate a new Work Order for a defect that belongs to the current
+  acceptance gate;
+- reconcile stale project instructions/documents as part of WO-039 closeout;
+- keep AI model/provider quality, broader image triage, UX expansion, packaging
+  and optional provider automation in `docs/ROADMAP.md` backlog;
+- create a new Work Order only for a genuinely new capability/boundary after the
+  Controller identifies the roadmap gate it advances.
+
+## Current risks / unknowns
+
+- WO-039 fixed verification has CI evidence but still needs Lightroom-hosted
+  recheck on the affected live session.
+- The next-pass render freshness barrier still needs representative Lightroom
+  proof after the corrected apply confirmation.
+- Optional WO-031 aggregate diagnostic readiness still carries legacy XMP sync
+  assumptions; current canonical Prepare/Apply does not.
+- AI photographic quality/calibration remains intentionally deferred and is not
+  a blocker for technical MVP closure.

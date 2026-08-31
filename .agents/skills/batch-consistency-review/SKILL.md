@@ -1,33 +1,41 @@
 ---
 name: batch-consistency-review
-description: Group materially similar images, choose reliable visual references, and keep exposure decisions consistent without flattening legitimate scene differences.
+description: Group materially similar exposure contexts, choose reliable visual references, and keep exposure decisions consistent without flattening legitimate scene differences.
 ---
 
 # Batch Consistency Review Skill
 
-Apply this skill across the complete prepared folder, not as isolated
-single-image judgments.
+Apply this skill across the prepared pass using contact sheets first, not as
+isolated single-image judgments.
+
+`AI_TASK.md` and `decision-schema.json` are authoritative for output fields.
 
 ## Required reasoning
 
-1. Group images by materially similar scene, lighting, location, subject, and
+1. Group images by materially similar lighting, location, subject and
    photographic intent.
 2. Do not force one exposure baseline across different lighting environments.
-3. Choose a representative reference frame for each group. Do not use a poor,
-   blocked, blurred, clipped, or atypical image as the reference.
-4. Compare subject exposure, background intent, and proposed `delta_ev` within
+3. Choose a useful exposure reference; avoid atypical/clipped frames when that
+   would distort the exposure comparison.
+4. Compare subject exposure, background intent and proposed `delta_ev` within
    each group.
-5. Preserve legitimate changes caused by composition, spotlighting, backlight,
-   night atmosphere, or intentional silhouette.
-6. Downgrade uncertain or inconsistent corrections to REVIEW.
-7. Flag unexplained large adjacent exposure jumps for REVIEW.
+5. Preserve legitimate composition, spotlight, backlight, night atmosphere and
+   silhouette differences.
+6. Use `action: REVIEW` with zero delta when exposure consistency is genuinely
+   unresolved.
+7. Flag unexplained large relative exposure jumps through the rationale rather
+   than inventing fields.
 
 ## Current output mapping
 
-- Store a stable group name in `batch_consistency_group`.
-- Describe the comparison and reference-frame reasoning in `scene_rationale`
-  and `reason`.
-- Do not emit extra JSON fields such as `group_id`, `reference_image_id`, or
-  `action`; `AI_TASK.md` and `decision-schema.json` define the only accepted
-  output fields.
-- The same inputs and ordering should produce the same grouping choices.
+- Store the stable current context label in `scene_group_id`.
+- Set `is_reference=true` only for a suitable reference image under the current
+  pass task/schema.
+- Describe comparison/reference reasoning in `scene_rationale` and `reason`.
+- `action` is a required current field; it is not historical.
+- Do not emit `batch_consistency_group`, `group_id`, `reference_image_id`,
+  `reference_image_ids`, `group_conflict` or `suggested_split_key` unless a
+  future generated schema explicitly permits them.
+
+Grouping/reference fields provide exposure context only; they never authorize
+mutation.

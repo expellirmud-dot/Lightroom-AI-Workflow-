@@ -17,8 +17,10 @@ inspection later showed the requested targets were actually present, including
 ## Goal
 
 Make Catalog mutation/verification transactionally safe, retryable and
-recoverable without double-applying exposure, and prevent technical Lightroom
-verification failures from becoming photographic REVIEW decisions.
+recoverable without double-applying exposure, prevent technical Lightroom
+verification failures from becoming photographic REVIEW decisions, and close
+the current MVP live-certification gate without spawning a new remediation
+Work Order for the same acceptance path.
 
 ## Required behavior
 
@@ -38,15 +40,46 @@ verification failures from becoming photographic REVIEW decisions.
    technical REVIEW states are reset before successful reconfirmation.
 7. Canonical `Import / Apply AI Results` must rebuild apply results from current
    Catalog truth on each retry instead of trusting a stale result JSON.
+8. Technical verification failure remains technical evidence; it must never be
+   converted into photographic REVIEW merely to settle a session.
 
-## Files
+## Authorized scope
 
-- `lightroom-plugin/AIExposureAssist.lrplugin/CatalogApplyBarrier.lua` (new)
+Implementation scope:
+
+- `lightroom-plugin/AIExposureAssist.lrplugin/CatalogApplyBarrier.lua`
 - `lightroom-plugin/AIExposureAssist.lrplugin/ImportApplyAIResults.lua`
 - `src/lr_ai_exposure/catalog_confirm.py`
-- `tests/test_catalog_apply_commit_barrier.py` (new)
-- `Work-Order/WO-039-CATALOG-APPLY-COMMIT-BARRIER.md`
+- `tests/test_catalog_apply_commit_barrier.py`
+
+Owner-authorized closeout reconciliation scope:
+
+- `AGENTS.md`
+- `docs/INDEX.md`
+- `docs/ROADMAP.md`
+- `docs/PROJECT_STATUS.md`
+- `docs/CAPABILITY_MATRIX.md`
+- `docs/VALIDATION_REGISTER.md`
+- `docs/DECISIONS.md`
+- `docs/ARCHITECTURE.md`
+- `docs/FOLDER_JOB_WORKFLOW.md`
+- `docs/XMP_SAFETY.md`
+- `docs/DIAGNOSTIC_PREFLIGHT.md`
+- `docs/AI_JUDGE_CONTRACT.md`
+- `.agents/skills/exposure-judgment/SKILL.md`
+- `.agents/skills/batch-consistency-review/SKILL.md`
+- `.agents/skills/image-relevance-triage/SKILL.md`
+- `.agents/skills/visual-quality-safety/SKILL.md`
+- `Work-Order/ROADMAP-WO-015-TO-WO-020.md`
+- `README.md`
 - `Work-Order/CURRENT_WORK_ORDER.md`
+- this Work Order
+
+The reconciliation extension exists to align current authority/instruction
+truth and remove superseded task pressure. It does not authorize unrelated
+feature work, a new provider, or architecture redesign. The still-stale WO-031
+diagnostic aggregate code is documented as non-blocking legacy debt rather than
+silently changed without a dedicated executed test cycle.
 
 ## Automated traps
 
@@ -62,9 +95,13 @@ Tests must fail if:
 ## CI evidence
 
 GitHub Actions run #91 (`Lightroom AI Workflow Certification`) passed on both
-Windows/Python 3.12 and 3.13. The full pytest suite, integration suite, source
-and test compilation, config smoke test, diff check and clean-tree artifact gate
-all passed.
+Windows/Python 3.12 and 3.13 for the implementation commit. The full pytest
+suite, integration suite, source/test compilation, config smoke, diff check and
+clean-tree artifact gate passed.
+
+Documentation/instruction reconciliation after that implementation does not
+claim a new runtime validation row until CI actually executes on the reconciled
+commit.
 
 ## Live acceptance
 
@@ -77,4 +114,32 @@ Using the existing `sess-1788136092` after installing/pulling the fix:
 4. Result must be `Verified Catalog applies: 21`, `PASS: 303`, `REVIEW: 0`,
    followed by `RERENDER_REQUIRED` rather than `Session Complete`.
 5. `Prepare Next AI Package` must then be allowed to prepare the unsettled
-   rerender/recheck pass.
+   rerender/recheck pass after Lightroom produces a fresh render generation.
+
+## Anti-loop closeout rule
+
+A defect discovered while executing the live acceptance above belongs to
+WO-039 when it is a direct defect of Catalog apply confirmation, recovery,
+rerender transition, or the already-authorized acceptance path.
+
+Do not create WO-040 merely to continue proving or repairing this same gate.
+A new Work Order is justified only if evidence reveals a genuinely new
+capability, architecture boundary, safety model, or owner product requirement
+that WO-039 cannot safely own.
+
+Stale/conflicting canonical instructions/documentation discovered during
+closeout are fixed under this Work Order and are not a separate feature.
+
+## Closeout
+
+WO-039 may close only when:
+
+- automated evidence remains green for the implementation/reconciliation state
+  actually being delivered;
+- the live acceptance above succeeds or a precise unresolved stop condition is
+  recorded;
+- canonical project documents/instructions are reconciled to current evidence;
+- capability maturity does not exceed executed proof;
+- the active Work Order pointer and project phase agree;
+- remaining post-MVP work is placed in `docs/ROADMAP.md` rather than activated
+  automatically.

@@ -1,35 +1,37 @@
 ---
 name: visual-quality-safety
-description: Assess highlight/shadow safety, focus, blur, obstruction, and whether automatic exposure correction is technically safe under the current saved-job schema.
+description: Protect exposure automation from material highlight/shadow risk; broader blur/focus/quality triage is dormant for the current small-preview MVP unless AI_TASK.md explicitly activates it.
 ---
 
 # Visual Quality Safety
 
-Assess whether exposure correction is technically safe and useful. This skill
-never deletes a photograph and never writes XMP.
+`AI_TASK.md` and `decision-schema.json` are authoritative for the active pass.
+This skill must not expand the current task beyond exposure.
 
-## Required checks
+## Current MVP checks
 
-- Important highlights or skin texture are irreversibly clipped.
-- Important shadows or the primary subject are unreadable.
-- Severe blur, missed focus, obstruction, or partial capture removes intended
-  subject value.
-- A proposed positive delta would worsen highlight clipping.
-- A proposed negative delta would crush important shadows.
-- Exposure correction cannot make the image meaningfully usable.
-- Visible evidence conflicts or confidence is too low for automation.
+Assess only exposure-safety evidence that is meaningful from the available
+Lightroom-rendered preview:
 
-## Current output mapping
+- a positive exposure change would materially worsen important highlight
+  clipping;
+- a negative exposure change would materially crush important subject/shadow
+  detail;
+- the exposure evidence is too ambiguous for a safe automatic correction.
 
-- Technically safe for automatic exposure processing:
-  `quality_verdict=KEEP`.
-- Uncertain focus, recoverability, clipping, obstruction, or conflicting
-  evidence: `quality_verdict=REVIEW`.
-- Technically unusable for exposure processing: `quality_verdict=SKIP`.
-- Set `highlight_risk=true` or `shadow_risk=true` whenever the corresponding
-  risk is material; either flag prevents automatic apply.
-- Describe visible technical evidence in `subject_rationale`,
-  `scene_rationale`, and `reason`.
-- Do not emit a historical `quality_action` or `action` field.
+For the current exposure-only small-preview task:
 
-`AI_TASK.md` and `decision-schema.json` are authoritative for output fields.
+- set `quality_verdict=KEEP`;
+- do not judge blur, missed focus, obstruction, sharpness, image damage or
+  whether the photograph is usable/should be kept;
+- set `highlight_risk=true` or `shadow_risk=true` only when the corresponding
+  exposure risk is material;
+- use `action=REVIEW` with zero delta for unresolved exposure safety;
+- describe the exposure-safety evidence in the permitted rationale/reason
+  fields.
+
+## Future activation boundary
+
+Broader technical-quality triage may be used only when a future `AI_TASK.md`
+explicitly activates it with suitable evidence/schema. Historical quality
+examples/references do not override the current task.

@@ -1,107 +1,119 @@
-# XMP Safety Rules - Exposure Session Target
+# Mutation Safety Contract — Canonical Catalog Route and Legacy XMP
 
-## Status and preserved boundary
+## Status
 
-The existing transactional XMP implementation remains the safety foundation.
-Session/pass lineage and rerender rules in this document are approved target
-contracts and remain `PLANNED` until implemented and validated.
+The canonical WO-034+ iterative route is **Lightroom Catalog-authoritative**.
+It does not require XMP Save Metadata / Read Metadata synchronization before an
+Exposure Session can run.
 
-The only property the program may modify is `crs:Exposure2012`:
+This file remains a high-authority safety contract because it also preserves the
+older transactional XMP rules for legacy WO-029 commands. The two mutation
+models must not be mixed.
+
+## Canonical iterative mutation boundary
+
+For `Prepare AI Package` / `Import / Apply AI Results` / `Prepare Next AI
+Package`:
+
+- Lightroom is the authoritative renderer and Catalog-visible Develop state.
+- The only writable Develop property is `Exposure2012`.
+- Catalog database files are never opened or modified directly.
+- RAW/JPEG originals and `.lrdata` remain immutable.
+- External AI has no mutation authority.
+- Python plans/validates; Lightroom SDK performs the actual Develop mutation.
+
+PASS, REVIEW and zero-change outcomes never request a Develop mutation.
+
+## Canonical Catalog apply gate
+
+Before an ADJUST may mutate Lightroom, reconcile:
+
+- exact session ID, pass ID, pass number and parent lineage;
+- frozen source-folder/image identity and exact current pass manifest/decision
+  set;
+- immutable task/skill/schema/manifest/preview/package evidence;
+- current Catalog `Exposure2012` against the expected pre-apply value;
+- bounded finite policy, confidence/risk and deterministic authorization.
+
+Any material identity, lineage, schema, package or Catalog-drift mismatch fails
+closed before mutation.
+
+The apply plan uses an **absolute target**:
 
 ```text
-new_exposure = existing_exposure + validated_delta_ev
+target_exposure2012 = validated expected absolute Catalog value
 ```
 
-PASS, REVIEW, and zero delta never write XMP. RAW/JPEG/DNG/TIFF/PSD originals,
-Lightroom catalogs, live preview caches, EXIF, and every non-Exposure2012 field
-remain immutable to this application.
+Inside Lightroom write access, the plug-in may request only:
 
-## Session and pass gate
+```lua
+photo:applyDevelopSettings({ Exposure2012 = target })
+```
 
-Before a pass reaches mutation, reconcile:
+## Post-commit verification barrier
 
-- exact session ID, pass ID, pass number, and `parent_pass_id`;
-- frozen eligible selection and exact current pass manifest/decision sets;
-- Lightroom local ID, UUID, canonical RAW/XMP paths, and source containment;
-- immutable task, skill, schema, group, policy, manifest, render, and preview
-  artifact hashes;
-- current XMP Exposure2012 and SHA-256 against the prior pass's expected final
-  evidence or the session baseline;
-- ADJUST action, confidence, risk, per-pass/cumulative policy, oscillation, and
-  explicit two-key authorization.
+Real Lightroom evidence established that an immediate `getDevelopSettings()`
+read inside the same `withWriteAccessDo()` callback may still show the old
+value. Therefore:
 
-Any material mismatch fails closed before XMP transaction code is reached.
+1. the write callback validates the precondition and requests the target;
+2. verification occurs only after the callback returns;
+3. verification polling is bounded;
+4. an already-present absolute target is idempotently verified on retry without
+   applying another delta;
+5. session confirmation advances only when every required planned item is
+   `APPLIED_VERIFIED`;
+6. timeout/apply/read failures remain technical outcomes and never become
+   photographic REVIEW merely to converge the session.
 
-## Pilot policy
+## Canonical render freshness barrier
 
-Initial design values of `0.10 EV` tolerance, `+/-1.0 EV` per pass,
-`+/-2.0 EV` cumulative, and `maximum_passes = 4` are **PILOT DEFAULTS**.
-They must be session policy data, not hard-coded production safety truth.
+A confirmed adjusted pass ends at `RERENDER_REQUIRED`. A later pass may be
+prepared only when:
 
-Absolute Exposure2012 bounds remain independently validated. Representative
-Lightroom evidence is required before production calibration.
+1. current Catalog `Exposure2012` matches the session's expected value;
+2. a valid new Lightroom preview generation is captured;
+3. render/preview evidence is linked to the new pass and passes integrity
+   checks.
 
-## Transaction procedure
+Stale/unproven rendering fails closed. XMP state is not part of this canonical
+render gate.
 
-Every authorized non-zero write preserves the established procedure:
+## Convergence / oscillation safety
 
-1. Parse the existing sidecar and require one unambiguous finite
-   Exposure2012 value.
-2. Verify current value/hash against expected session/pass evidence.
-3. Read and hash the original bytes.
-4. Create a pass-attributed byte-preserving backup and prove its SHA-256.
-5. Surgically change only the Exposure2012 serialization in a validated
-   temporary file beside the target.
-6. Atomically replace the original.
-7. Parse the target, verify the exact expected value, and record final SHA-256.
-8. Roll back from the verified backup after post-replace failure and prove the
-   restored hash.
-9. Halt the batch/session on rollback failure.
-10. Atomically checkpoint after every image.
+Python enforces cumulative exposure history, bounds, quantization,
+oscillation/no-progress and pass limits. AI proposes photographic decisions but
+does not own mutation authority or convergence policy.
 
-Evidence includes session/pass/image IDs, target and backup paths, old/delta/new
-exposure, cumulative delta, original/backup/final hashes, status, and rollback
-information.
+A technical execution failure is not a photographic REVIEW decision. A genuine
+photographic REVIEW remains non-mutating.
 
-Settled records are immutable within one pass. The same image may be adjusted
-in a later pass only through new lineage, fresh render proof, and reconciliation
-against the previous pass's verified final XMP evidence.
+## Legacy transactional XMP boundary
 
-## Metadata synchronization barrier
+The historical WO-029 sidecar workflow remains available only for compatibility.
+When a legacy command explicitly invokes the XMP route, its established safety
+procedure still applies:
 
-Changing only Exposure2012 bytes does not by itself prove that importing an XMP
-sidecar into Lightroom will leave all other catalog develop state unchanged.
-Before session/apply, the coordinator must classify synchronization safety as:
+1. Require exactly one finite `crs:Exposure2012` in the sidecar.
+2. Verify current value/hash against the authorized legacy job evidence.
+3. Read/hash original bytes.
+4. Create and verify a backup.
+5. Change only `crs:Exposure2012` in a validated temporary file.
+6. Atomically replace the sidecar.
+7. Parse and verify the exact target/final hash.
+8. Roll back from the verified backup after post-write failure.
+9. Halt on rollback failure.
+10. Checkpoint legacy job settlement deterministically.
 
-- `SYNC_PROVEN` - evidence shows catalog/sidecar state is safe;
-- `SYNC_REQUIRED` - evidence shows an owner metadata-save/readiness action is
-  necessary;
-- `SYNC_UNPROVEN` - available evidence cannot prove safety.
+Legacy sidecar mutation never authorizes changes to RAW/JPEG/DNG/TIFF/PSD
+originals, EXIF or any non-Exposure2012 field.
 
-Only `SYNC_PROVEN` may proceed automatically. `SYNC_REQUIRED` explains the
-specific evidence and required bounded owner action. `SYNC_UNPROVEN` fails
-closed without assuming that Save Metadata is always necessary.
+## Legacy metadata synchronization
 
-## Lightroom render freshness barrier
+Catalog/sidecar synchronization safety matters only when using a legacy XMP
+mutation/read-back workflow. It is **not** a prerequisite for the canonical
+Catalog-authoritative iterative route.
 
-After `APPLIED_VERIFIED`, Lightroom refreshes metadata and becomes responsible
-for the next rendered preview. An adjusted image may re-enter AI analysis only
-when all of these match:
-
-1. XMP/read-back evidence equals expected Exposure2012;
-2. the next preview capture has a new pass/render generation identity linked
-   to the applied pass;
-3. refreshed preview evidence, including bytes and SHA-256, is valid for that
-   generation.
-
-Preview hash alone is insufficient. Missing, stale, unchanged, ambiguous, or
-unlinked evidence produces REVIEW or a dependent-pass stop. The system must
-never compound a correction using an unproven render.
-
-## Convergence and oscillation safety
-
-Python, not AI or the plug-in, enforces cumulative history. A meaningful sign
-reversal, revisit of a prior exposure state, repeated no-progress residual, or
-pilot-limit exhaustion removes automatic write authority and settles the image
-as REVIEW. Independent safe groups may continue unless a session-wide identity,
-authorization, checkpoint, or rollback invariant failed.
+Do not create a new metadata-sync Work Order merely because an old diagnostic,
+legacy Work Order or historical XMP document reports `SYNC_UNPROVEN`. First
+classify whether the active command actually uses the legacy sidecar path.

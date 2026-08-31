@@ -1,106 +1,127 @@
-# Vision Judgment Contract - Exposure Session Passes
+# Vision Judgment Contract — Exposure Session Passes
 
-## Status
+## Status / execution authority
 
-This remains the approved target contract. WO-038 implements its contact-sheet
-package input and the current MVP exposure-only task; the broader target
-session/group contract still requires representative Lightroom evidence.
+The current canonical MVP contract is the **captured pass**:
+
+- `AI_TASK.md` — current task/mode instructions;
+- `decision-schema.json` — exact generated JSON schema;
+- `AI_SKILLS.md` — supporting visual guidance;
+- `manifest.json`, contact sheets and previews — immutable evidence.
+
+This document records durable semantics. If it ever disagrees with the generated
+pass schema/task, fail closed and reconcile the source/documentation; do not
+invent fields from this document.
+
+The current MVP is exposure-only. Photographer/model-quality calibration and
+broader relevance/blur/focus/culling work are post-MVP unless explicitly
+activated by a later task.
 
 ## Provider-neutral input
 
-The vision producer receives one immutable pass package containing the pass
-task, bundled visual skills, ordered manifest, decision schema, session/group
-context, contact sheets/index, render evidence, and Lightroom-rendered JPEGs.
+A vision producer receives one immutable pass package containing task, bundled
+skills, ordered manifest, generated decision schema, contact sheets/index and
+Lightroom-rendered JPEG previews.
 
-The producer may be a file-capable agent, local/free vision model adapter, or
-optional API adapter. Provider identity is evidence metadata, not authority.
-The producer never receives XMP, catalog, cache, or apply permission.
+The producer may be a file-capable agent, local/free vision model, desktop/web
+application or optional API adapter. Provider identity is evidence metadata, not
+authority. The producer never receives Catalog/cache/original-photo mutation
+permission.
 
 ## Required judgment
 
-The producer must inspect prepared contact sheets first for order, batch
-context, and relative brightness, then actual preview bytes when needed. The
-current MVP task is exposure-only and must judge:
+For each in-scope FOUND preview:
 
-- intended subject and person priority;
-- scene/event intent and legitimate atmosphere;
-- persistent scene group and reference-frame relationship;
-- subject/background exposure and meaningful outlier status;
-- highlight/shadow safety for the exposure decision;
-- residual exposure correction for the current rendered generation;
-- whether evidence supports PASS, ADJUST, or REVIEW.
+1. inspect contact sheets first for order/batch context and relative brightness;
+2. open individual previews only when needed for the exposure decision;
+3. identify the intended subject/person priority and legitimate scene intent;
+4. compare materially similar exposure context/reference frames;
+5. assess subject/background exposure and highlight/shadow exposure risk;
+6. return PASS, bounded ADJUST or photographic REVIEW.
 
-Filename-only inference, invented content, unsupported precision, and silent
-group reassignment are forbidden. The MVP task must not assess blur, focus,
-sharpness, image damage, relevance, duplicates, or whether a frame should be
-kept from its small previews.
+Do not infer from filename alone or invent visual facts.
 
-## Target decision object
+The current small-preview task must **not** judge blur, focus, sharpness, image
+damage, relevance, duplicates or whether a frame should be kept. For this MVP,
+`relevance_verdict` and `quality_verdict` are compatibility fields and the
+producer sets them to `KEEP`; unresolved exposure evidence uses
+`action: REVIEW`.
 
-One strict JSON object is required per in-scope FOUND preview:
+## Exact current decision object
+
+`SinglePassDecision` / generated `decision-schema.json` currently requires:
 
 ```json
 {
-  "session_id": "session-...",
-  "pass_id": "pass-...",
-  "pass_number": 2,
-  "parent_pass_id": "pass-...",
   "image_id": "4042206",
-  "group_id": "indoor-stage-01",
-  "reference_image_ids": ["4042198", "4042201"],
   "action": "PASS | ADJUST | REVIEW",
+  "relevance_verdict": "KEEP",
+  "quality_verdict": "KEEP",
   "delta_ev": 0.0,
   "confidence": 0.92,
   "highlight_risk": false,
   "shadow_risk": false,
-  "group_conflict": false,
-  "suggested_split_key": null,
   "subject_rationale": "grounded subject observation",
-  "scene_rationale": "grounded scene/reference observation",
-  "reason_codes": ["WITHIN_GROUP_TOLERANCE"]
+  "scene_rationale": "grounded scene/exposure comparison",
+  "scene_group_id": "indoor-stage-01",
+  "is_reference": false,
+  "reason": "concise final rationale"
 }
 ```
 
-Pass 1 uses `parent_pass_id: null`. PASS and REVIEW require `delta_ev: 0.0`.
-ADJUST requires a finite non-zero delta. Extra fields are rejected.
+Extra fields are rejected by the strict schema. `session_id`, `pass_id`,
+`pass_number`, `parent_pass_id`, `group_id`, `reference_image_ids`,
+`group_conflict`, `suggested_split_key` and historical
+`batch_consistency_group` are **not** current per-image decision fields unless a
+future generated schema explicitly adds them.
 
-## Group persistence and split
+Session/pass lineage lives in the immutable package/manifest/state rather than
+being duplicated into every decision JSON.
 
-Pass 1 establishes group membership and references. Later passes inherit them.
-When new visual evidence contradicts the group, AI sets `group_conflict: true`
-and returns REVIEW or proposes a bounded split key. Python alone validates and
-records a split with parent group, affected IDs, evidence, and effective pass.
-AI cannot silently rewrite `groups.json`.
+## Action / delta semantics
 
-## Pilot decision policy
+- `PASS` — no meaningful exposure correction; `delta_ev = 0.0`.
+- `ADJUST` — finite non-zero bounded exposure proposal.
+- `REVIEW` — unresolved/unsafe exposure evidence; `delta_ev = 0.0`.
 
-The policy snapshot may initially use `0.10 EV` meaningful tolerance,
-`0.05 EV` quantization, `+/-1.0 EV` per-pass limit, `+/-2.0 EV` cumulative
-limit, and four passes. These are **PILOT DEFAULTS**, not model instructions or
-production constants. The producer reports judgment; deterministic Python
-enforces the actual validated policy.
+Highlight/shadow risk flags describe exposure-safety risk. When the current task
+cannot safely authorize an exposure change, use REVIEW rather than inventing a
+quality/culling verdict.
+
+Deterministic Python validates confidence, risk, bounds, quantization, identity,
+lineage and convergence. AI never owns mutation authority.
+
+## Scene grouping / reference semantics
+
+`scene_group_id` is a stable exposure-context label for materially similar
+lighting/subject intent. `is_reference` marks a useful reference image for that
+context.
+
+Do not flatten legitimate differences between stage lighting, backlight, night
+atmosphere, silhouette or intentionally different compositions. Group fields
+are context only and never authorize mutation by themselves.
+
+The current schema does not authorize AI to silently rewrite persistent session
+state or emit a group-split protocol that is absent from `decision-schema.json`.
 
 ## Deterministic validation
 
-Before any apply, Python verifies:
+Before apply, Python verifies the captured package/manifest identity and exact
+FOUND decision set, strict schema, finite values, confidence/risk and current
+session/pass lineage. Unknown, missing, duplicate, malformed, escaping or
+identity-mismatched decision files fail closed before mutation.
 
-- exact session/pass/parent lineage and exact in-scope image set;
-- immutable task, skills, schema, group context, manifest, and preview hashes;
-- preview byte/SHA evidence and render-generation readiness;
-- action/delta consistency, finite values, confidence, risk flags, and bounds;
-- references belong to the declared persistent group;
-- prior/cumulative exposure history and oscillation/no-progress rules;
-- unknown, missing, duplicate, malformed, escaping, or identity-mismatched
-  decision files reject the affected pass before mutation.
+Low-confidence/risk handling performed by deterministic validation must not be
+confused with permission for the producer to perform off-scope culling or
+quality triage.
 
 ## Safe outcomes
 
-- PASS is terminal unless later session-wide evidence explicitly reopens the
-  image through a new immutable pass.
-- ADJUST is only a proposal until deterministic authorization succeeds.
-- REVIEW is non-mutating and records the reason for owner inspection.
-- Low confidence, risk, group conflict, stale/unproven render, oscillation,
-  no-progress, or pilot-limit exhaustion cannot be auto-applied.
+- PASS is non-mutating.
+- ADJUST remains a proposal until deterministic authorization and Lightroom
+  Catalog precondition checks succeed.
+- REVIEW is photographic/exposure uncertainty and is non-mutating.
+- Runtime/apply/verification failures are technical outcomes, not REVIEW.
 
-The AI writes only to the current pass decision output directory and must not
-modify captured inputs or any prior pass.
+AI model/provider quality evidence is deliberately separate from technical MVP
+closure. Listing it as future work does not activate a Work Order automatically.
