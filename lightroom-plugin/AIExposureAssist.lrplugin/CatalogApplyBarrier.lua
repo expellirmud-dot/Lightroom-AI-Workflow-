@@ -1,4 +1,5 @@
 local LrTasks = import "LrTasks"
+local Json = require "Json"
 
 local CatalogApplyBarrier = {}
 
@@ -30,7 +31,7 @@ function CatalogApplyBarrier.applyCatalogPlan(Support, catalog, photoMap, plan, 
     local pending = {}
 
     -- Lightroom may not expose a Develop mutation through getDevelopSettings()
-    -- until the write-access callback has returned.  The transaction therefore
+    -- until the write-access callback has returned. The transaction therefore
     -- only validates the precondition and requests the absolute target value.
     catalog:withWriteAccessDo("AI Exposure Assist — Exposure2012", function()
         for _, item in ipairs(plan.items or {}) do
@@ -84,7 +85,7 @@ function CatalogApplyBarrier.applyCatalogPlan(Support, catalog, photoMap, plan, 
         end
     end)
 
-    -- Verification is deliberately outside withWriteAccessDo.  Polling is
+    -- Verification is deliberately outside withWriteAccessDo. Polling is
     -- bounded so this short-lived command can never become a resident listener.
     local maxVerifyAttempts = 25
     local verifySleepSeconds = 0.10
@@ -132,7 +133,7 @@ function CatalogApplyBarrier.applyCatalogPlan(Support, catalog, photoMap, plan, 
         pass_number = plan.pass_number,
         results = results,
     }
-    Support.writeUtf8File(resultPath, Json and Json.encode(payload) or require("Json").encode(payload))
+    Support.writeUtf8File(resultPath, Json.encode(payload))
     return payload
 end
 
