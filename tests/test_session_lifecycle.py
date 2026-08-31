@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import io
 import sqlite3
 from pathlib import Path
+
+from PIL import Image
 
 from lr_ai_exposure.ai_judge import SinglePassDecision, Action, Verdict
 from lr_ai_exposure.session import load_session
@@ -26,6 +29,12 @@ def _write_dummy_xmp(path: Path, exposure: float = 0.0) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _jpeg_bytes(color: tuple[int, int, int]) -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (320, 213), color).save(output, format="JPEG", quality=85)
+    return output.getvalue()
+
+
 def _make_dummy_preview_db(lrdata_dir: Path, items: list[tuple[int, str, bytes | None]]) -> None:
     lrdata_dir.mkdir(parents=True, exist_ok=True)
     db_path = lrdata_dir / "previews.db"
@@ -46,7 +55,7 @@ def _make_dummy_preview_db(lrdata_dir: Path, items: list[tuple[int, str, bytes |
     conn_r = sqlite3.connect(root_db)
     cur_r = conn_r.cursor()
     cur_r.execute("CREATE TABLE IF NOT EXISTS RootPixels (uuid TEXT PRIMARY KEY, jpegData BLOB)")
-    default_jpeg = b"\xFF\xD8\xFF\xE0" + b"\x00" * 200 + b"\xFF\xD9"
+    default_jpeg = _jpeg_bytes((64, 128, 192))
     for _, uuid_val, custom_jpeg in items:
         cur_r.execute(
             "INSERT OR REPLACE INTO RootPixels (uuid, jpegData) VALUES (?, ?)",
@@ -91,8 +100,8 @@ def test_session_lifecycle_catalog_apply_and_frozen_decisions(tmp_path: Path) ->
 
     uuid1 = "uuid-1111"
     uuid2 = "uuid-2222"
-    jpeg_initial_1 = b"\xFF\xD8\xFF\xE0INITIAL_1" + b"\x00" * 200 + b"\xFF\xD9"
-    jpeg_initial_2 = b"\xFF\xD8\xFF\xE0INITIAL_2" + b"\x00" * 200 + b"\xFF\xD9"
+    jpeg_initial_1 = _jpeg_bytes((16, 32, 64))
+    jpeg_initial_2 = _jpeg_bytes((32, 64, 128))
     _make_dummy_preview_db(lrdata_dir, [(1, uuid1, jpeg_initial_1), (2, uuid2, jpeg_initial_2)])
 
     selection = {
@@ -182,7 +191,7 @@ def test_session_lifecycle_catalog_apply_and_frozen_decisions(tmp_path: Path) ->
     assert len(state.images["2"].history) == 1
     assert read_exposure_2012(xmp2) == -1.0
 
-    jpeg_rerender_2 = b"\xFF\xD8\xFF\xE0RERENDERED_2" + b"\x00" * 200 + b"\xFF\xD9"
+    jpeg_rerender_2 = _jpeg_bytes((128, 64, 32))
     _make_dummy_preview_db(lrdata_dir, [(1, uuid1, jpeg_initial_1), (2, uuid2, jpeg_rerender_2)])
     selection["photos"][1]["catalog_exposure2012"] = 0.85
     selection_path.write_text(json.dumps(selection), encoding="utf-8")

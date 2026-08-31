@@ -3,7 +3,7 @@
 LAST_UPDATED: 2026-08-31
 PROJECT_PHASE: Lightroom Live Verification Pending
 CURRENT_WORK_ORDER: NONE
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-037-DECOUPLED-AI-PACKAGE-WORKFLOW.md
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-038-CONTACT-SHEET-PACKAGE-PIPELINE.md
 CURRENT_BRANCH: main after PR #5 merge; Git remains authority for moving HEAD
 
 ## Current implementation truth
@@ -34,6 +34,26 @@ Prepare Next AI Package
 ```
 
 The Lightroom plug-in does not own a resident AI listener, polling loop, provider session, browser automation or API key.
+
+## WO-038 contact-sheet package pipeline
+
+WO-038 adds Python-owned package artifacts without changing Lightroom menu or
+apply behavior:
+
+- validates each extracted FOUND JPEG by manifest byte/SHA evidence and a Pillow
+  decode;
+- creates ordered 4×4 JPEG contact sheets and `contact-sheet-index.json` before
+  package task/schema/state are written;
+- directs the external AI task to inspect sheets first for batch order and
+  relative brightness, then individual previews only when necessary;
+- restricts the MVP task to exposure and prevents small-preview blur/focus/
+  sharpness/relevance/culling judgments;
+- validates sheet/index integrity before readiness, removes temporary snapshot
+  DBs, and rejects a tampered sheet before decision import.
+
+The preview source remains the existing 320px RootPixels JPEG. A read-only
+forensic check found only that payload in the authorized snapshots; PyramidLevel
+metadata advertised larger tiers but did not provide their bytes.
 
 ## WO-037 implementation
 

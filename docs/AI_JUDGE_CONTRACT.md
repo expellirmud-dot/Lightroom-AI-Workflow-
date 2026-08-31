@@ -2,15 +2,15 @@
 
 ## Status
 
-This is the approved target contract and is not implemented at the current
-source head. Existing `SinglePassDecision` files remain legacy-compatible
-inputs only until a separate implementation Work Order replaces them.
+This remains the approved target contract. WO-038 implements its contact-sheet
+package input and the current MVP exposure-only task; the broader target
+session/group contract still requires representative Lightroom evidence.
 
 ## Provider-neutral input
 
 The vision producer receives one immutable pass package containing the pass
 task, bundled visual skills, ordered manifest, decision schema, session/group
-context, reference images, render evidence, and Lightroom-rendered JPEGs.
+context, contact sheets/index, render evidence, and Lightroom-rendered JPEGs.
 
 The producer may be a file-capable agent, local/free vision model adapter, or
 optional API adapter. Provider identity is evidence metadata, not authority.
@@ -18,18 +18,22 @@ The producer never receives XMP, catalog, cache, or apply permission.
 
 ## Required judgment
 
-The producer must inspect actual preview bytes and judge:
+The producer must inspect prepared contact sheets first for order, batch
+context, and relative brightness, then actual preview bytes when needed. The
+current MVP task is exposure-only and must judge:
 
 - intended subject and person priority;
 - scene/event intent and legitimate atmosphere;
 - persistent scene group and reference-frame relationship;
 - subject/background exposure and meaningful outlier status;
-- highlight/shadow safety, focus, blur, obstruction, and technical usability;
+- highlight/shadow safety for the exposure decision;
 - residual exposure correction for the current rendered generation;
 - whether evidence supports PASS, ADJUST, or REVIEW.
 
 Filename-only inference, invented content, unsupported precision, and silent
-group reassignment are forbidden.
+group reassignment are forbidden. The MVP task must not assess blur, focus,
+sharpness, image damage, relevance, duplicates, or whether a frame should be
+kept from its small previews.
 
 ## Target decision object
 

@@ -52,6 +52,21 @@ Legacy `IterativeSession.lua` / `ResumeIterativeSession.lua` may remain temporar
 - Python must never infer job scope from cache contents alone; the Lightroom identity handoff is authoritative for which source images belong to the pass.
 - Extracted JPEG previews are Lightroom-rendered evidence for AI, not replacement renderings.
 
+## WO-038 contact-sheet decision
+
+- The current RootPixels JPEG extractor remains the selected source. A read-only
+  forensic check of session `sess-1788131769` found only 320px JPEG payloads in
+  the authorized DB snapshots; higher PyramidLevel tiers were metadata without
+  accessible bytes in those snapshots.
+- Python creates immutable 4×4 contact sheets and an ordered index from the
+  validated extracted previews before external AI handoff. This is not an AI
+  generation step.
+- Contact sheets are context-first input for exposure comparison. The AI opens
+  individual previews only when necessary and must not cull frames or judge
+  focus/blur/sharpness/relevance from the small package images.
+- Temporary cache DB snapshots are deleted only after package validation passes;
+  manifest preview SHA/byte evidence and sheet/index evidence remain.
+
 ## Session and pass decisions
 
 - Use `parent_pass_id`, not `parent_job_id`.

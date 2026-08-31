@@ -17,7 +17,9 @@ Lightroom: Prepare AI Package
 -> capture active-folder identities + current Catalog Exposure2012
 -> Python reads a validated read-only snapshot of Previews.lrdata
 -> extract Lightroom-rendered JPEG previews
+-> validate previews and build ordered 4×4 contact sheets + index
 -> save manifest + task + skills + schema + previews
+-> remove temporary cache DB snapshots after package validation
 -> PACKAGE_READY
 -> plug-in exits
 
@@ -49,7 +51,7 @@ There is no resident AI listener, polling loop, browser automation or API connec
 
 The AI sees JPEG previews already rendered by Lightroom after the user's current preset/Develop baseline. Those previews live in the Lightroom preview cache (`Previews.lrdata`), not in the `.lrcat` file itself.
 
-The plug-in does not query SQLite and does not decode `.lrdata`. It supplies stable Lightroom identity and current Exposure2012 to Python. Python then snapshots the configured preview cache read-only, maps those identities to cached previews, validates the JPEGs and stores them in the pass package.
+The plug-in does not query SQLite and does not decode `.lrdata`. It supplies stable Lightroom identity and current Exposure2012 to Python. Python then snapshots the configured preview cache read-only, maps those identities to cached previews, validates the JPEGs, builds ordered 4×4 contact sheets plus an index, and stores those artifacts in the pass package. The temporary snapshot DBs are removed only after package validation succeeds.
 
 This keeps responsibilities separate:
 
@@ -60,7 +62,7 @@ This keeps responsibilities separate:
 
 ## External AI
 
-The canonical AI boundary is the saved pass folder. Any file-capable vision application can be used later as long as it reads the bundled task/skills and writes the required JSON decisions.
+The canonical AI boundary is the saved pass folder. Any file-capable vision application can be used later as long as it reads the bundled task/skills and writes the required JSON decisions. It should inspect prepared contact sheets first for context and relative brightness, opening individual previews only when necessary. The current MVP task is exposure-only; it must not cull photos or assess blur, focus, sharpness, damage, duplicates, or relevance from small previews.
 
 No API key is required by the Lightroom plug-in or package/session engine. Provider-specific automation is optional and separate.
 

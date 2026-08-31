@@ -129,3 +129,13 @@ or any real XMP mutation.
 
 WO-033 changes governance and test import resolution only. It does not provide
 new Lightroom-hosted runtime, session, cache, AI, or XMP evidence.
+
+## WO-038 — Contact-sheet package pipeline
+
+| ID | Date | Evidence | Result | Scope |
+|---|---|---|---|---|
+| VLD-129 | 2026-08-31 | TDD RED then focused contact-sheet/session/CLI/plug-in regressions | RED: missing contact-sheet index as expected; GREEN: 10 tests passed | 4×4 ordered sheets/index, partial final sheet, validated JPEG input, cleanup, task scope, tamper rejection, and preserved command separation |
+| VLD-130 | 2026-08-31 | `python -m pytest -q`, `python -m compileall -q src tests`, `lr-ai-exposure --check-config`, `git diff --check` | all commands exited 0; pytest showed its two pre-existing dependency warnings plus a post-run temp cleanup permission warning; diff check showed only line-ending warnings | complete local automated regression, syntax, config, and diff hygiene; no Lightroom host, external AI, cache-original, RAW, XMP, or Catalog operation |
+
+WO-038 supports `INTEGRATED` for CAP-051 through local automated evidence. It
+does not establish `LIVE_VERIFIED` contact sheets in Lightroom Classic.

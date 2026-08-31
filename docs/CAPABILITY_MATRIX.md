@@ -69,6 +69,7 @@ required for `LIVE_VERIFIED`.
 | CAP-048 | Provider-neutral pass file contract | PLANNED | WO-030 | filesystem boundary and target schema documented | implementation with file agent and optional adapter |
 | CAP-049 | Metadata synchronization safety barrier | PLANNED | WO-030 | evidence-based SYNC_PROVEN/REQUIRED/UNPROVEN contract | Lightroom SDK/runtime proof |
 | CAP-050 | Risk-classified dirty state and delta preflight | TESTED | WO-030 | 8 focused governance tests plus real script self-test returned NON_BLOCKING/READY with explicit exclusions | maintain and use in next Work Order |
+| CAP-051 | Contact-sheet package creation and integrity | INTEGRATED | WO-038 | 4×4 ordered JPEG sheets/index, Pillow preview decode, tamper rejection, snapshot cleanup, session/CLI regression and full pytest evidence | representative Lightroom Prepare package |
 
 ## Current evidence boundary
 
@@ -77,3 +78,6 @@ Python path. PR #1 is merged at `main` head `68a020a`. The owner-observed real
 Prepare failure blocks CAP-041 and proves neither cache/CLI readiness nor the
 approved session/pass target. CAP-043 through CAP-049 remain `PLANNED` until a
 separate Work Order implements and executes the required proof.
+
+WO-038 adds `CAP-051` automated/integrated evidence only. It does not prove a
+Lightroom-hosted Prepare command, a real external AI judgment, or any mutation.

@@ -17,7 +17,9 @@ Lightroom — Prepare AI Package
 -> capture active-folder identity + Catalog Exposure2012
 -> Python snapshots Previews.lrdata read-only
 -> Python maps identities and extracts Lightroom-rendered JPEG previews
+-> Python validates previews and creates ordered 4×4 contact sheets
 -> durable immutable pass package
+-> temporary cache snapshots removed after package validation
 -> PACKAGE_READY
 -> Lightroom plug-in exits
 
@@ -54,7 +56,7 @@ filesystem condition, not an active Lightroom process state.
 |---|---|
 | Lightroom plug-in | active-folder diagnostics, Lightroom identity and Catalog Exposure2012 capture, explicit Prepare, explicit Import/Apply, explicit Prepare Next Package |
 | Cache extractor | read-only SQLite snapshots, ID-to-preview mapping, JPEG extraction, byte/hash evidence |
-| Session/package engine | immutable selection/pass lineage, self-contained task/skills/schema/manifest artifacts, exact-set decision validation, safe resume data |
+| Session/package engine | validates JPEG previews, creates ordered contact sheets/index, removes temporary snapshots after package validation, owns immutable task/skills/schema/manifest artifacts, exact-set decision validation, safe resume data |
 | External vision AI | actual visual inspection and decision JSON only; no Lightroom or mutation authority |
 | Optional AI adapters | transport a pass package to/from a chosen app/model; isolated from Lightroom and mutation code |
 | Deterministic Python | schema/identity validation, convergence, bounds, render barrier, evidence and planning |
@@ -77,8 +79,10 @@ needed for that pass is already persisted. It may write only pass-scoped
 The plug-in does not query SQLite or decode `.lrdata` itself. It supplies stable
 Lightroom identity (`id_local`, UUID, source path and Catalog Exposure2012) to
 Python. Python snapshots the configured `Previews.lrdata` databases read-only,
-reconciles identity, extracts the Lightroom-rendered JPEG, validates it, and
-records byte/SHA evidence.
+reconciles identity, extracts the Lightroom-rendered JPEG, validates it, records
+byte/SHA evidence, then creates 4×4 ordered contact sheets and their index from
+those validated bytes. Once package validation succeeds it deletes the temporary
+snapshot DBs; the preview evidence and sheet/index evidence remain in the pass.
 
 `.lrdata` is never a writable target.
 

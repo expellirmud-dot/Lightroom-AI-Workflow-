@@ -52,10 +52,13 @@ Python then:
 
 - snapshots the preview-cache SQLite databases read-only;
 - maps Lightroom identities to cache previews;
-- extracts and validates Lightroom-rendered JPEG previews;
-- records preview byte count and SHA-256;
+- extracts and validates Lightroom-rendered JPEG previews, including byte/SHA
+  evidence and Pillow decode;
+- builds ordered 4×4 contact sheets and `contact-sheet-index.json` from those
+  validated previews;
 - writes manifest, task, bundled skills, decision schema, pass state and decision
-  directory beneath the session/pass directory.
+  directory beneath the session/pass directory;
+- validates the complete package, then removes temporary `cache_snapshots/`.
 
 At this point the package is `PACKAGE_READY`. No AI provider is called and no
 Develop setting is changed.
@@ -75,6 +78,8 @@ runtime/sessions/<session-id>/
     |   |-- AI_SKILLS.md
     |   |-- decision-schema.json
     |   |-- previews/
+    |   |-- contact_sheets/
+    |   |-- contact-sheet-index.json
     |   `-- decisions/
     `-- 0002-<pass-id>/
 ```
@@ -88,12 +93,15 @@ The AI runner is a separate application/process and is not launched by the
 Lightroom plug-in. It must:
 
 - read `AI_TASK.md`, `AI_SKILLS.md` and `manifest.json`;
-- inspect the actual extracted Lightroom previews;
+- inspect contact sheets first for ordered batch context and relative exposure,
+  then individual extracted previews only when needed;
 - write exactly one valid decision per in-scope FOUND preview to `decisions/`;
 - never change manifest, preview, task, schema, session, Catalog, RAW or cache
   data.
 
 Provider/model/transport choice is outside the Lightroom command lifecycle.
+The current MVP task is exposure-only: it must not cull/reject images or judge
+blur, focus, sharpness, damage, duplicates, or relevance from small previews.
 
 ## Import / Apply AI Results
 

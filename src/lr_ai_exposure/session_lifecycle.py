@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,13 @@ from lr_ai_exposure.analysis_result import (
     write_analysis_evidence,
 )
 from lr_ai_exposure.cache_extractor import snapshot_cache_dbs, extract_batch
+from lr_ai_exposure.contact_sheets import (
+    CONTACT_SHEET_INDEX_NAME,
+    ContactSheetError,
+    build_contact_sheets,
+    validate_contact_sheet_package,
+    validate_extracted_previews,
+)
 from lr_ai_exposure.convergence import evaluate_pass_convergence
 from lr_ai_exposure.job import Manifest, ManifestEntry, write_manifest, read_manifest
 from lr_ai_exposure.job_lifecycle import (
@@ -63,18 +71,20 @@ def _task_markdown_for_pass(
 - Parent Pass ID: `{manifest.parent_pass_id or 'none (initial pass)'}`
 - Manifest: `{pass_dir / 'manifest.json'}`
 - Preview directory: `{pass_dir / 'previews'}`
+- Contact-sheet directory: `{pass_dir / 'contact_sheets'}`
+- Contact-sheet index: `{pass_dir / CONTACT_SHEET_INDEX_NAME}`
 - Decision directory: `{pass_dir / 'decisions'}`
 - Decision schema: `{pass_dir / 'decision-schema.json'}`
 - Bundled visual skills: `{skills_path}`
 - FOUND previews requiring decisions: **{len(found)}**
 
 ## Required operating model
-1. Read `AI_SKILLS.md` before judging images.
-2. Read `manifest.json` in manifest order.
-3. Inspect every FOUND preview in scope for this pass.
-4. Return grounded `action` (`PASS`, `ADJUST`, or `REVIEW`) per image.
-5. Write exactly one UTF-8 JSON file per FOUND image to `decisions/<image_id>.json`.
-6. Scene/group fields are contextual hints only; they do not authorize mutation.
+1. Read `AI_SKILLS.md` before judging images, then read `manifest.json` in manifest order.
+2. Inspect the prepared contact sheets first for batch context, order, and relative brightness. Open individual FOUND previews only when needed to resolve an exposure decision.
+3. This MVP is exposure-only: classify the exposure evidence as `TOO_DARK`, `PASS`, `TOO_BRIGHT`, or `REVIEW`, then translate it to the required JSON `action` and bounded `delta_ev` (`TOO_DARK` = positive ADJUST, `TOO_BRIGHT` = negative ADJUST, PASS/REVIEW = zero delta).
+4. You must not judge blur, focus, sharpness, damaged frames, duplicates, relevance, or whether an image should be kept from these small previews; do not reject an image for any of them. Set `relevance_verdict` and `quality_verdict` to `KEEP`; use `action: REVIEW` only for unresolved exposure evidence.
+5. Return one grounded `action` (`PASS`, `ADJUST`, or `REVIEW`) per FOUND image and write exactly one UTF-8 JSON file per FOUND image to `decisions/<image_id>.json`.
+6. Scene/group fields are exposure context only; they do not authorize mutation.
 
 ## Required JSON fields
 ```json
@@ -106,6 +116,37 @@ def _catalog_exposure_map(photos: list[dict[str, Any]]) -> dict[str, float]:
             continue
         values[image_id] = float(raw)
     return values
+
+
+def _validate_immutable_pass_package(pass_dir: Path, manifest: Manifest) -> None:
+    """Refuse external decisions when a captured package artifact was changed."""
+    state_path = pass_dir / "pass-state.json"
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SessionError(f"Prepared pass state is unreadable: {exc}") from exc
+    expected_hashes = state.get("artifact_sha256")
+    if not isinstance(expected_hashes, dict):
+        raise SessionError("Prepared pass state is missing artifact_sha256")
+    for name in _IMMUTABLE_JOB_ARTIFACTS:
+        path = pass_dir / name
+        expected = expected_hashes.get(name)
+        if not path.is_file() or not isinstance(expected, str) or _sha256_file(path) != expected:
+            raise SessionError(f"Prepared pass immutable artifact mismatch: {name}")
+    index_path = pass_dir / CONTACT_SHEET_INDEX_NAME
+    expected_index_hash = state.get("contact_sheet_index_sha256")
+    if (
+        not index_path.is_file()
+        or not isinstance(expected_index_hash, str)
+        or _sha256_file(index_path) != expected_index_hash
+    ):
+        raise SessionError("Prepared pass immutable artifact mismatch: contact-sheet-index.json")
+    if (pass_dir / "cache_snapshots").exists():
+        raise SessionError("Prepared pass still contains temporary cache snapshots")
+    try:
+        validate_contact_sheet_package(pass_dir, manifest)
+    except ContactSheetError as exc:
+        raise SessionError(f"Contact-sheet package validation failed: {exc}") from exc
 
 
 def prepare_session_pass(
@@ -234,6 +275,12 @@ def prepare_session_pass(
         total_ambiguous=total_ambiguous,
         total_failed=total_failed,
     )
+    try:
+        validated_previews = validate_extracted_previews(pass_dir, manifest)
+        contact_sheet_index_path = build_contact_sheets(pass_dir, validated_previews)
+    except ContactSheetError as exc:
+        raise SessionError(f"Contact-sheet preparation failed: {exc}") from exc
+
     manifest_path = write_manifest(pass_dir, manifest)
 
     render_barrier_results: dict[str, str] = {}
@@ -256,6 +303,11 @@ def prepare_session_pass(
         _task_markdown_for_pass(pass_dir, manifest, skills_path, actual_session_id, pass_number),
     )
 
+    try:
+        contact_sheet_index = validate_contact_sheet_package(pass_dir, manifest)
+    except ContactSheetError as exc:
+        raise SessionError(f"Contact-sheet package validation failed: {exc}") from exc
+
     artifact_sha256 = {
         name: _sha256_file(pass_dir / name)
         for name in _IMMUTABLE_JOB_ARTIFACTS
@@ -274,6 +326,10 @@ def prepare_session_pass(
         "decision_schema": str(schema_path),
         "ai_task": str(task_path),
         "ai_skills": str(skills_path),
+        "contact_sheet_directory": str(pass_dir / "contact_sheets"),
+        "contact_sheet_index": str(contact_sheet_index_path),
+        "contact_sheet_count": len(contact_sheet_index["sheets"]),
+        "contact_sheet_index_sha256": _sha256_file(contact_sheet_index_path),
         "artifact_sha256": artifact_sha256,
         "total_selected": manifest.total_selected,
         "total_found": manifest.total_found,
@@ -281,6 +337,8 @@ def prepare_session_pass(
         "mutation_mode": "LIGHTROOM_CATALOG_EXPOSURE2012",
     }
     _atomic_write_json(pass_dir / "pass-state.json", pass_state)
+
+    shutil.rmtree(snapshot_dir)
 
     session_state.passes.append(pass_id)
     write_session_state(session_dir, session_state)
@@ -306,6 +364,8 @@ def prepare_session_pass(
         "decision_directory": str(pass_dir / "decisions"),
         "decision_schema": str(schema_path),
         "ai_task": str(task_path),
+        "contact_sheet_directory": str(pass_dir / "contact_sheets"),
+        "contact_sheet_index": str(contact_sheet_index_path),
         "total_selected": manifest.total_selected,
         "total_found": manifest.total_found,
         "render_barrier": render_barrier_results,
@@ -327,6 +387,7 @@ def analyze_session_pass(
     pass_id = session_state.passes[pass_number - 1]
     pass_dir = _get_pass_dir(session_dir, pass_number, pass_id)
     manifest = read_manifest(pass_dir)
+    _validate_immutable_pass_package(pass_dir, manifest)
 
     configured_settings = configure_external_file_provider(settings, pass_dir)
     decisions = analyze_job_single_pass(manifest, pass_dir, configured_settings)

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import io
 import sqlite3
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from lr_ai_exposure.main import main
 from lr_ai_exposure.catalog_confirm import main as catalog_confirm_main
@@ -20,6 +22,12 @@ def _write_dummy_xmp(path: Path, exposure: float = 0.0) -> None:
 </x:xmpmeta>
 """
     path.write_text(content, encoding="utf-8")
+
+
+def _jpeg_bytes() -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (320, 213), (64, 128, 192)).save(output, format="JPEG", quality=85)
+    return output.getvalue()
 
 
 def _make_dummy_preview_db(lrdata_dir: Path, uuid_val: str) -> None:
@@ -41,7 +49,7 @@ def _make_dummy_preview_db(lrdata_dir: Path, uuid_val: str) -> None:
     conn_r = sqlite3.connect(root_db)
     cur_r = conn_r.cursor()
     cur_r.execute("CREATE TABLE IF NOT EXISTS RootPixels (uuid TEXT PRIMARY KEY, jpegData BLOB)")
-    default_jpeg = b"\xFF\xD8\xFF\xE0" + b"\x00" * 200 + b"\xFF\xD9"
+    default_jpeg = _jpeg_bytes()
     cur_r.execute(
         "INSERT OR REPLACE INTO RootPixels (uuid, jpegData) VALUES (?, ?)",
         (uuid_val, default_jpeg),
