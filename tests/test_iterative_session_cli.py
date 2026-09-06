@@ -36,10 +36,10 @@ def _make_dummy_preview_db(lrdata_dir: Path, uuid_val: str) -> None:
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS ImageCacheEntry (id INTEGER PRIMARY KEY, imageId INTEGER, uuid TEXT UNIQUE, digest TEXT)"
+        "CREATE TABLE IF NOT EXISTS ImageCacheEntry (id INTEGER PRIMARY KEY, imageId INTEGER, uuid TEXT UNIQUE, digest TEXT, orientation TEXT)"
     )
     cur.execute(
-        "INSERT OR REPLACE INTO ImageCacheEntry (imageId, uuid, digest) VALUES (1, ?, 'digest_1')",
+        "INSERT OR REPLACE INTO ImageCacheEntry (imageId, uuid, digest, orientation) VALUES (1, ?, 'digest_1', 'AB')",
         (uuid_val,),
     )
     conn.commit()

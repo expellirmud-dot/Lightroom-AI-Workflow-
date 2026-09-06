@@ -2,16 +2,34 @@
 
 ## Status boundary
 
-The canonical Exposure Session/package runtime is implemented and has automated
-cross-component evidence through WO-039. A representative Lightroom live session
-has already reached a 324-image decision/apply stage and showed that the 21
-requested absolute `Exposure2012` targets were present in Lightroom.
+The canonical Exposure Session/package runtime is implemented and technical-MVP
+live verification closed through WO-039. Representative Lightroom evidence
+proved real absolute Catalog `Exposure2012` confirmation, `RERENDER_REQUIRED`,
+and fresh Pass 2 package generation.
 
-The remaining current boundary is narrower: WO-039's corrected post-commit
-verification must be rechecked in Lightroom, followed by a real fresh-render
-`Prepare Next AI Package` proof. Do not treat the canonical session runtime as
-merely `PLANNED`, but do not claim the complete iterative loop `LIVE_VERIFIED`
-until those gates close.
+WO-040 completed a post-MVP correctness remediation at the visual-evidence boundary and is `LIVE_VERIFIED`.
+The Lightroom preview cache stores raw root-pixel JPEG bytes separately from an
+`ImageCacheEntry.orientation` code. Canonical extraction now preserves the raw
+render fingerprint for freshness while rotating only the durable package JPEG to
+Lightroom's intended display orientation before contact-sheet construction.
+
+## WO-041 iteration correctness boundary
+
+The canonical component ownership is unchanged, but iteration settlement is now
+scene-complete:
+
+- each session freezes one source-folder identity/path set; later captures must
+  exactly match it or start a new session;
+- each accepted pass contains the complete frozen image set so PASS and REVIEW
+  decisions remain re-auditable;
+- explicit scene verdict fields are AI evidence; deterministic Python checks
+  their structural consistency but does not decide photographic correctness;
+- render freshness is required only for prior ADJUST images; stale hashes are a
+  technical `WAITING_FOR_RERENDER` condition and never mutate photographic state;
+- convergence is true only when every session image is PASS.
+
+The Lightroom plug-in surfaces these distinctions in version `1.2.11`. WO-041
+remains pending representative live Lightroom validation.
 
 ## Canonical runtime flow
 
@@ -22,8 +40,9 @@ Lightroom — Diagnose Current Folder
 Lightroom — Prepare AI Package
 → capture source-folder/image identity + Catalog Exposure2012
 → Python snapshots Previews.lrdata read-only
-→ identity mapping + Lightroom-rendered JPEG extraction
-→ preview byte/SHA/decode validation
+→ identity mapping + Lightroom-rendered JPEG extraction + orientation lookup
+→ preserve raw render SHA; normalize durable preview orientation
+→ normalized preview byte/SHA/decode validation
 → ordered 4×4 contact sheets + index
 → immutable pass package
 → temporary cache snapshots removed after package validation
@@ -64,7 +83,7 @@ connection or unbounded Catalog verification loop.
 | Component | Responsibility |
 |---|---|
 | Lightroom plug-in | active-folder diagnostics; Lightroom identity/Catalog Exposure2012 capture; explicit Prepare, Import/Apply and Prepare Next commands; Catalog mutation request and post-commit observation |
-| Cache extractor | validated read-only SQLite snapshots, ID-to-preview mapping, JPEG extraction and byte/SHA evidence |
+| Cache extractor | validated read-only SQLite snapshots, ID-to-preview/orientation mapping, raw render fingerprint, orientation-normalized durable JPEG extraction and byte/SHA evidence |
 | Session/package engine | immutable session/pass lineage, selection/manifest, task/skills/schema, contact sheets/index, package integrity and durable evidence |
 | External vision AI | visual exposure judgment and decision JSON only; no Lightroom/cache/mutation authority |
 | Optional AI adapters | transport outside the core; provider-specific and isolated |
@@ -88,10 +107,15 @@ modify captured inputs or Lightroom state.
 
 The plug-in never queries SQLite or decodes `.lrdata`. It supplies stable
 Lightroom identity and current Catalog `Exposure2012`. Python snapshots the
-configured preview-cache databases read-only, reconciles identity, extracts the
-Lightroom-rendered JPEG, validates byte/SHA/decode evidence, and builds ordered
-contact sheets/index. Once package validation succeeds, temporary snapshot DBs
-are removed while durable preview/package evidence remains.
+configured preview-cache databases read-only, reconciles the exact
+`ImageCacheEntry` UUID/orientation record, extracts `RootPixels.jpegData`, and
+hashes those raw bytes as the render-generation fingerprint. For supported
+non-mirrored Lightroom rotations (`AB`, `BC`, `CD`, `DA`), only the durable
+package JPEG is normalized to display orientation; mirrored/unknown codes fail
+closed. The normalized artifact then receives its own byte/SHA/decode integrity
+evidence and is the source for ordered contact sheets/index. Once package
+validation succeeds, temporary snapshot DBs are removed while durable
+preview/package evidence remains.
 
 `.lrdata` is never a writable target.
 
@@ -136,6 +160,13 @@ A confirmed non-converged pass ends at `RERENDER_REQUIRED`. The user later runs
 `Prepare Next AI Package`. That command captures current Catalog state and calls
 the next-pass preparation path, where Python must prove a fresh render
 generation before admitting previews.
+
+Freshness uses the raw Lightroom root-pixel SHA (`source_preview_sha256`) rather
+than the orientation-normalized package artifact SHA. Historical pre-WO-040
+manifests fall back to their `preview_sha256`, which was byte-identical to the
+raw root-pixel JPEG under the old extractor. This preserves existing session
+lineage while preventing orientation normalization itself from being mistaken
+for a new Lightroom render.
 
 Failure to prove freshness fails closed; it does not reuse stale previews or
 invoke AI.

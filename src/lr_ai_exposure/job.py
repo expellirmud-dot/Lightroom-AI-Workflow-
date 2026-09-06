@@ -59,6 +59,8 @@ class ManifestEntry:
     uuid: Optional[str] = None
     preview_bytes: int = 0
     preview_sha256: Optional[str] = None
+    preview_orientation: Optional[str] = None
+    source_preview_sha256: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -241,6 +243,8 @@ def write_manifest(job_dir: Path, manifest: Manifest) -> Path:
                 "uuid": e.uuid,
                 "preview_bytes": e.preview_bytes,
                 "preview_sha256": e.preview_sha256,
+                "preview_orientation": e.preview_orientation,
+                "source_preview_sha256": e.source_preview_sha256,
             }
             for e in manifest.entries
         ],
@@ -301,6 +305,8 @@ def read_manifest(job_dir: Path) -> Manifest:
                     uuid=item.get("uuid"),
                     preview_bytes=int(item.get("preview_bytes", 0)),
                     preview_sha256=item.get("preview_sha256"),
+                    preview_orientation=item.get("preview_orientation"),
+                    source_preview_sha256=item.get("source_preview_sha256"),
                 )
             )
         except (TypeError, ValueError) as exc:

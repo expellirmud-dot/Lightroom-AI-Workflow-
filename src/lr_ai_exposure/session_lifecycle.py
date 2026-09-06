@@ -9,7 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from lr_ai_exposure.ai_judge import SinglePassDecision, analyze_job_single_pass
+from lr_ai_exposure.ai_judge import (
+    SinglePassDecision,
+    analyze_job_single_pass,
+    validate_scene_decision_set,
+)
 from lr_ai_exposure.analysis_result import (
     serialize_decisions,
     serialize_evidence,
@@ -54,6 +58,20 @@ def _get_pass_dir(session_dir: Path, pass_number: int, pass_id: str) -> Path:
     return session_dir / "passes" / f"{pass_number:04d}-{pass_id}"
 
 
+def _session_decision_schema() -> dict[str, Any]:
+    """Return the canonical session schema with explicit scene outcome fields required."""
+    schema = SinglePassDecision.model_json_schema()
+    required = list(schema.get("required", []))
+    for field_name in ("scene_group_id", "scene_exposure_verdict", "scene_delta_ev", "is_reference"):
+        if field_name not in required:
+            required.append(field_name)
+        prop = schema.get("properties", {}).get(field_name)
+        if isinstance(prop, dict):
+            prop.pop("default", None)
+    schema["required"] = required
+    return schema
+
+
 def _task_markdown_for_pass(
     pass_dir: Path,
     manifest: Manifest,
@@ -76,35 +94,113 @@ def _task_markdown_for_pass(
 - Decision directory: `{pass_dir / 'decisions'}`
 - Decision schema: `{pass_dir / 'decision-schema.json'}`
 - Bundled visual skills: `{skills_path}`
-- FOUND previews requiring decisions: **{len(found)}**
+- FOUND previews requiring evaluation: **{len(found)}**
 
-## Required operating model
-1. Read `AI_SKILLS.md` before judging images, then read `manifest.json` in manifest order.
-2. Inspect the prepared contact sheets first for batch context, order, and relative brightness. Open individual FOUND previews only when needed to resolve an exposure decision.
-3. This MVP is exposure-only: classify the exposure evidence as `TOO_DARK`, `PASS`, `TOO_BRIGHT`, or `REVIEW`, then translate it to the required JSON `action` and bounded `delta_ev` (`TOO_DARK` = positive ADJUST, `TOO_BRIGHT` = negative ADJUST, PASS/REVIEW = zero delta).
-4. You must not judge blur, focus, sharpness, damaged frames, duplicates, relevance, or whether an image should be kept from these small previews; do not reject an image for any of them. Set `relevance_verdict` and `quality_verdict` to `KEEP`; use `action: REVIEW` only for unresolved exposure evidence.
-5. Return one grounded `action` (`PASS`, `ADJUST`, or `REVIEW`) per FOUND image and write exactly one UTF-8 JSON file per FOUND image to `decisions/<image_id>.json`.
-6. Scene/group fields are exposure context only; they do not authorize mutation.
+## Outcome contract
+
+The goal is a photographically appropriate Exposure2012 result across the whole job, with materially similar images in the same lighting/intent scene remaining visually coherent. You may choose your own efficient visual reasoning method; the package does not prescribe a step-by-step thought process.
+
+The following outcomes are mandatory:
+
+- **Evaluate every FOUND image.** Coverage means every image was genuinely judged; it does **not** mean every image must change.
+- **PASS is successful no-change.** Use `PASS` with `delta_ev: 0.0` when the image is already appropriately exposed and consistent with its scene. Never adjust merely to demonstrate coverage.
+- **State the absolute scene conclusion.** Every decision must include `scene_exposure_verdict` (`TOO_DARK`, `BALANCED`, `TOO_BRIGHT`, or `REVIEW`) and `scene_delta_ev`, an approximate shared correction signal for that scene. All members assigned to one `scene_group_id` must agree on those two scene-level values.
+- **Consistency alone is not enough.** A scene where every image is similarly too bright or too dark is not BALANCED merely because the images match each other.
+- **Do not ignore outliers.** Before completing the pass, ensure there is no unexplained exposure outlier inside a materially similar scene. Legitimate lighting/composition differences may be separated into different scene groups.
+- **Per-image freedom remains.** `delta_ev` is the image-specific proposal. It may differ from `scene_delta_ev`, and a genuinely correct image may remain PASS even when nearby images need adjustment.
+- **Exposure only.** Do not judge blur, focus, sharpness, damaged frames, duplicates, relevance, or keep/cull quality from these previews. Set `relevance_verdict` and `quality_verdict` to `KEEP`; use `action: REVIEW` only for unresolved exposure evidence.
+- External AI has decision authority only. It must not modify Lightroom, Catalog/cache data, originals, manifest, task, skills, schema, or session state.
+
+Inspect the prepared contact sheets for batch/scene context and open individual FOUND previews whenever useful. The required result is the outcome above, not a prescribed inspection sequence.
 
 ## Required JSON fields
 ```json
 {{
   "image_id": "<manifest image_id>",
   "action": "PASS | ADJUST | REVIEW",
-  "relevance_verdict": "KEEP | REVIEW | SKIP",
-  "quality_verdict": "KEEP | REVIEW | SKIP",
+  "relevance_verdict": "KEEP",
+  "quality_verdict": "KEEP",
   "delta_ev": 0.0,
   "confidence": 0.0,
   "highlight_risk": false,
   "shadow_risk": false,
   "subject_rationale": "grounded subject observation",
-  "scene_rationale": "grounded context and exposure observation",
-  "scene_group_id": "context label",
+  "scene_rationale": "grounded scene/exposure observation",
+  "scene_group_id": "stable context label",
+  "scene_exposure_verdict": "TOO_DARK | BALANCED | TOO_BRIGHT | REVIEW",
+  "scene_delta_ev": 0.0,
   "is_reference": false,
   "reason": "concise final rationale"
 }}
 ```
+
+Scene signal rules: `TOO_DARK` uses positive `scene_delta_ev`; `TOO_BRIGHT` uses negative `scene_delta_ev`; `BALANCED` and `REVIEW` use `0.0`. `scene_delta_ev` is context/evidence, not mutation authority. Only per-image `action: ADJUST` + validated `delta_ev` can enter Catalog planning.
 """
+
+
+def _normalize_path(value: str) -> str:
+    return os.path.normcase(os.path.abspath(value))
+
+
+def _validate_frozen_session_scope(
+    session_state: Any,
+    photos: list[dict[str, Any]],
+    source_folder: str,
+) -> None:
+    """Fail closed if a later Lightroom capture no longer matches the frozen session set."""
+    if _normalize_path(str(source_folder)) != _normalize_path(session_state.source_folder):
+        raise SessionError(
+            "SESSION_SCOPE_CHANGED: active source folder differs from the frozen session. "
+            "Start a new session for the changed folder scope."
+        )
+
+    current: dict[str, dict[str, Any]] = {}
+    for photo in photos:
+        image_id = str(photo.get("id_local", ""))
+        if not image_id or image_id in current:
+            raise SessionError("SESSION_SCOPE_CHANGED: current Lightroom image identities are missing or duplicated")
+        current[image_id] = photo
+
+    expected_ids = set(session_state.images)
+    current_ids = set(current)
+    if current_ids != expected_ids:
+        added = sorted(current_ids - expected_ids)
+        removed = sorted(expected_ids - current_ids)
+        raise SessionError(
+            "SESSION_SCOPE_CHANGED: Lightroom image set no longer matches the frozen session "
+            f"(added={len(added)}, removed={len(removed)}). Start a new session."
+        )
+
+    for image_id in sorted(expected_ids):
+        frozen = session_state.images[image_id]
+        photo = current[image_id]
+        current_path = str(photo.get("path", ""))
+        if not current_path or _normalize_path(current_path) != _normalize_path(frozen.raw_path):
+            raise SessionError(
+                f"SESSION_SCOPE_CHANGED: image {image_id} path differs from the frozen session. Start a new session."
+            )
+        current_uuid = str(photo.get("uuid", "") or "")
+        if frozen.uuid and current_uuid and current_uuid != frozen.uuid:
+            raise SessionError(
+                f"SESSION_SCOPE_CHANGED: image {image_id} UUID differs from the frozen session. Start a new session."
+            )
+
+
+def _validate_next_pass_lineage(
+    session_state: Any,
+    pass_number: int,
+    parent_pass_id: str | None,
+) -> None:
+    expected_pass = len(session_state.passes) + 1
+    if pass_number != expected_pass:
+        raise SessionError(
+            f"Pass number {pass_number} is invalid for current lineage; expected {expected_pass}"
+        )
+    expected_parent = session_state.passes[-1] if session_state.passes else None
+    if parent_pass_id != expected_parent:
+        raise SessionError(
+            f"Parent pass mismatch: expected {expected_parent!r}, found {parent_pass_id!r}"
+        )
 
 
 def _catalog_exposure_map(photos: list[dict[str, Any]]) -> dict[str, float]:
@@ -187,25 +283,16 @@ def prepare_session_pass(
         actual_session_id = session_id
         session_dir = resolve_session_dir(runtime_path, actual_session_id)
         session_state = load_session(session_dir)
+        _validate_next_pass_lineage(session_state, pass_number, parent_pass_id)
+        _validate_frozen_session_scope(session_state, photos, source_folder)
 
     pass_id = _format_pass_id(pass_number)
     pass_dir = _get_pass_dir(session_dir, pass_number, pass_id)
     pass_dir.mkdir(parents=True, exist_ok=True)
     (pass_dir / "decisions").mkdir(parents=True, exist_ok=True)
 
-    if pass_number == 1:
-        in_scope_photos = photos
-    else:
-        adjust_ids = {image_id for image_id, img in session_state.images.items() if img.status == "ADJUST"}
-        ref_ids = {
-            image_id
-            for image_id, img in session_state.images.items()
-            if img.is_reference and img.status == "PASS"
-        }
-        target_ids = adjust_ids | ref_ids
-        in_scope_photos = [p for p in photos if str(p.get("id_local")) in target_ids]
-        if not in_scope_photos and not session_state.is_converged:
-            in_scope_photos = photos
+    # Later passes re-audit the complete frozen session image set.
+    in_scope_photos = photos
 
     pass_selection_payload = dict(selection_data)
     pass_selection_payload["job_id"] = actual_session_id
@@ -260,6 +347,8 @@ def prepare_session_pass(
                 uuid=res.get("uuid"),
                 preview_bytes=preview_bytes,
                 preview_sha256=preview_sha256,
+                preview_orientation=res.get("orientation"),
+                source_preview_sha256=res.get("source_preview_sha256"),
             )
         )
 
@@ -291,12 +380,36 @@ def prepare_session_pass(
             _catalog_exposure_map(in_scope_photos),
             tolerance=float(session_state.policy.get("catalog_exposure_tolerance", 0.01)),
         )
-        write_session_state(session_dir, session_state)
+        waiting_ids = sorted(
+            image_id
+            for image_id, result in render_barrier_results.items()
+            if result.startswith("WAITING_FOR_RERENDER")
+        )
+        blocked = {
+            image_id: result
+            for image_id, result in render_barrier_results.items()
+            if result.startswith("BLOCKED_RENDER")
+        }
+        if waiting_ids or blocked:
+            # This pass has not crossed the admission barrier and is not durable lineage.
+            shutil.rmtree(pass_dir, ignore_errors=True)
+            if waiting_ids and not blocked:
+                examples = ", ".join(waiting_ids[:8])
+                raise SessionError(
+                    "WAITING_FOR_RERENDER: Lightroom previews are not fresh for "
+                    f"{len(waiting_ids)} adjusted image(s). Example IDs: {examples}. "
+                    "No image was converted to REVIEW and no new pass was admitted; wait for Lightroom and retry."
+                )
+            examples = ", ".join(f"{k}={v}" for k, v in list(sorted(blocked.items()))[:8])
+            raise SessionError(
+                "RENDER_BARRIER_BLOCKED: render freshness cannot be proven. "
+                f"{examples}. No new pass was admitted."
+            )
 
     skill_bundle = _build_ai_skill_bundle(project_root)
     skills_path = _atomic_write_text(pass_dir / "AI_SKILLS.md", skill_bundle)
     schema_path = _atomic_write_json(
-        pass_dir / "decision-schema.json", SinglePassDecision.model_json_schema()
+        pass_dir / "decision-schema.json", _session_decision_schema()
     )
     task_path = _atomic_write_text(
         pass_dir / "AI_TASK.md",
@@ -391,6 +504,7 @@ def analyze_session_pass(
 
     configured_settings = configure_external_file_provider(settings, pass_dir)
     decisions = analyze_job_single_pass(manifest, pass_dir, configured_settings)
+    validate_scene_decision_set(decisions, require_explicit_scene_fields=True)
 
     mode = f"SESSION_PASS_{pass_number}"
     dp = write_ai_decisions(
@@ -540,6 +654,7 @@ def apply_session_pass(
         "planned_count": len(items),
         "catalog_apply_plan": str(plan_path),
         "requires_catalog_apply": bool(items),
+        "requires_rerender": bool(items),
         "applied_count": len(items),
         "applied_image_ids": planned_ids,
         "apply_evidence": str(plan_path),
@@ -619,7 +734,9 @@ def confirm_session_apply(
         if verified:
             entry = manifest_by_id.get(image_id)
             if entry and entry.preview_sha256:
-                session_state.images[image_id].last_preview_sha256 = entry.preview_sha256
+                session_state.images[image_id].last_preview_sha256 = (
+                    entry.source_preview_sha256 or entry.preview_sha256
+                )
             applied_image_ids.append(image_id)
         else:
             session_state.images[image_id] = copy.deepcopy(original_state.images[image_id])
@@ -627,8 +744,8 @@ def confirm_session_apply(
             failed_image_ids.append(image_id)
             convergence_summary["results"][image_id] = "REVIEW_CATALOG_APPLY_UNVERIFIED"
 
-    session_state.is_converged = all(
-        img.status in {"PASS", "REVIEW"} for img in session_state.images.values()
+    session_state.is_converged = bool(session_state.images) and all(
+        img.status == "PASS" for img in session_state.images.values()
     )
     write_session_state(session_dir, session_state)
 
@@ -662,7 +779,12 @@ def confirm_session_apply(
 
     pass_count = sum(1 for img in session_state.images.values() if img.status == "PASS")
     review_count = sum(1 for img in session_state.images.values() if img.status == "REVIEW")
-    next_pass = None if session_state.is_converged else pass_number + 1
+    max_passes = int(session_state.policy.get("maximum_passes", 4))
+    next_pass = (
+        None
+        if session_state.is_converged or pass_number >= max_passes
+        else pass_number + 1
+    )
     return {
         "session_id": session_id,
         "pass_number": pass_number,
@@ -671,6 +793,7 @@ def confirm_session_apply(
         "pass_count": pass_count,
         "review_count": review_count,
         "is_converged": session_state.is_converged,
+        "requires_rerender": bool(applied_image_ids),
         "applied_image_ids": applied_image_ids,
         "failed_image_ids": failed_image_ids,
         "next_pass_number": next_pass,

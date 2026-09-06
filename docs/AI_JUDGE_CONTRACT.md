@@ -2,54 +2,56 @@
 
 ## Status / execution authority
 
-The current canonical MVP contract is the **captured pass**:
+The canonical external-AI contract is the immutable captured pass:
 
-- `AI_TASK.md` — current task/mode instructions;
-- `decision-schema.json` — exact generated JSON schema;
+- `AI_TASK.md` — active task and outcome requirements;
+- `decision-schema.json` — exact generated JSON schema for the pass;
 - `AI_SKILLS.md` — supporting visual guidance;
-- `manifest.json`, contact sheets and previews — immutable evidence.
+- `manifest.json`, contact sheets and previews — immutable Lightroom-rendered evidence.
 
-This document records durable semantics. If it ever disagrees with the generated
-pass schema/task, fail closed and reconcile the source/documentation; do not
-invent fields from this document.
+If this document disagrees with the generated pass task/schema, fail closed and
+reconcile the repository. Do not invent missing fields.
 
-The current MVP is exposure-only. Photographer/model-quality calibration and
-broader relevance/blur/focus/culling work are post-MVP unless explicitly
-activated by a later task.
+The current product scope is Exposure2012 only. External AI owns visual judgment
+and decision JSON only. Python owns deterministic validation/safety. Lightroom
+remains the authoritative renderer and Catalog-visible Develop state.
 
-## Provider-neutral input
+## Judgment goal
 
-A vision producer receives one immutable pass package containing task, bundled
-skills, ordered manifest, generated decision schema, contact sheets/index and
-Lightroom-rendered JPEG previews.
+The finished job should have photographically appropriate overall Exposure, and
+images that materially share scene lighting/intent should remain visually
+coherent.
 
-The producer may be a file-capable agent, local/free vision model, desktop/web
-application or optional API adapter. Provider identity is evidence metadata, not
-authority. The producer never receives Catalog/cache/original-photo mutation
-permission.
+This is an outcome contract, not a mandatory chain-of-thought or inspection
+recipe. The producer may use contact sheets, individual previews, measurements,
+or any efficient visual reasoning method available to it, provided the required
+outcomes below are satisfied.
 
-## Required judgment
+## Required outcomes
 
-For each in-scope FOUND preview:
+For every FOUND image:
 
-1. inspect contact sheets first for order/batch context and relative brightness;
-2. open individual previews only when needed for the exposure decision;
-3. identify the intended subject/person priority and legitimate scene intent;
-4. compare materially similar exposure context/reference frames;
-5. assess subject/background exposure and highlight/shadow exposure risk;
-6. return PASS, bounded ADJUST or photographic REVIEW.
+- it must be genuinely evaluated;
+- a correct no-change judgment is valid and desirable;
+- an Exposure change is proposed only when justified;
+- unresolved/unsafe photographic exposure evidence is returned as REVIEW;
+- no image may be silently omitted merely because another image is the scene reference.
 
-Do not infer from filename alone or invent visual facts.
+For every `scene_group_id`:
 
-The current small-preview task must **not** judge blur, focus, sharpness, image
-damage, relevance, duplicates or whether a frame should be kept. For this MVP,
-`relevance_verdict` and `quality_verdict` are compatibility fields and the
-producer sets them to `KEEP`; unresolved exposure evidence uses
-`action: REVIEW`.
+- the producer must state one explicit **absolute** scene exposure conclusion;
+- members must not contain unexplained exposure outliers;
+- scene consistency alone is insufficient: an entire scene that is consistently
+too bright or too dark is still incorrect;
+- legitimate photographic differences may justify different per-image deltas or
+separate scene groups.
 
-## Exact current decision object
+A reference image is comparison context only. The producer must not assume the
+reference itself is correctly exposed.
 
-`SinglePassDecision` / generated `decision-schema.json` currently requires:
+## Canonical session decision object
+
+The current session pass requires one JSON decision per FOUND image:
 
 ```json
 {
@@ -62,66 +64,100 @@ producer sets them to `KEEP`; unresolved exposure evidence uses
   "highlight_risk": false,
   "shadow_risk": false,
   "subject_rationale": "grounded subject observation",
-  "scene_rationale": "grounded scene/exposure comparison",
+  "scene_rationale": "grounded scene/exposure observation",
   "scene_group_id": "indoor-stage-01",
+  "scene_exposure_verdict": "TOO_DARK | BALANCED | TOO_BRIGHT | REVIEW",
+  "scene_delta_ev": 0.0,
   "is_reference": false,
   "reason": "concise final rationale"
 }
 ```
 
-Extra fields are rejected by the strict schema. `session_id`, `pass_id`,
-`pass_number`, `parent_pass_id`, `group_id`, `reference_image_ids`,
-`group_conflict`, `suggested_split_key` and historical
-`batch_consistency_group` are **not** current per-image decision fields unless a
-future generated schema explicitly adds them.
+The canonical session schema marks the scene fields explicitly required. Extra
+fields are rejected. Session/pass lineage remains in immutable package/session
+state rather than being duplicated into each decision.
 
-Session/pass lineage lives in the immutable package/manifest/state rather than
-being duplicated into every decision JSON.
+## Action semantics
 
-## Action / delta semantics
+- `PASS` — the image was evaluated and needs no Exposure change;
+  `delta_ev = 0.0`.
+- `ADJUST` — the image was evaluated and needs a finite non-zero bounded
+  Exposure change.
+- `REVIEW` — the image was evaluated but photographic Exposure remains
+  unresolved/unsafe for automatic change; `delta_ev = 0.0`.
 
-- `PASS` — no meaningful exposure correction; `delta_ev = 0.0`.
-- `ADJUST` — finite non-zero bounded exposure proposal.
-- `REVIEW` — unresolved/unsafe exposure evidence; `delta_ev = 0.0`.
+Coverage is **evaluation coverage**, not mutation coverage. Never adjust an
+image merely to demonstrate that it was processed.
 
-Highlight/shadow risk flags describe exposure-safety risk. When the current task
-cannot safely authorize an exposure change, use REVIEW rather than inventing a
-quality/culling verdict.
+Low-confidence or material exposure-safety risk may deterministically downgrade
+an adjustment to non-mutating REVIEW. Any such downgrade clears the mutation
+delta.
 
-Deterministic Python validates confidence, risk, bounds, quantization, identity,
-lineage and convergence. AI never owns mutation authority.
+## Absolute scene fields
+
+`scene_exposure_verdict` expresses the absolute conclusion for the complete
+scene context:
+
+- `TOO_DARK` → positive `scene_delta_ev`;
+- `BALANCED` → `scene_delta_ev = 0.0`;
+- `TOO_BRIGHT` → negative `scene_delta_ev`;
+- `REVIEW` → `scene_delta_ev = 0.0`.
+
+`scene_delta_ev` is an approximate shared scene-level signal and is **not**
+mutation authority. Each image's validated `action=ADJUST` and `delta_ev` remain
+the only AI proposal that can enter deterministic Catalog planning.
+
+Python validates that decisions assigned to the same `scene_group_id` do not
+contradict one another on these scene-level fields. Python does not decide
+whether the photographic scene verdict itself is artistically correct.
 
 ## Scene grouping / reference semantics
 
-`scene_group_id` is a stable exposure-context label for materially similar
-lighting/subject intent. `is_reference` marks a useful reference image for that
-context.
+`scene_group_id` represents materially similar lighting and photographic intent.
+`is_reference` marks a useful comparison frame only.
 
-Do not flatten legitimate differences between stage lighting, backlight, night
-atmosphere, silhouette or intentionally different compositions. Group fields
-are context only and never authorize mutation by themselves.
+Do not flatten legitimate differences such as changed lighting, spotlight,
+backlight, silhouette, night atmosphere, or materially different composition.
+Do not use reference matching as a substitute for absolute scene judgment.
 
-The current schema does not authorize AI to silently rewrite persistent session
-state or emit a group-split protocol that is absent from `decision-schema.json`.
+## Exposure-only boundary
+
+The current small-preview task must not judge blur, focus, sharpness, image
+damage, duplicates, relevance, or keep/cull quality. For the Exposure task,
+`relevance_verdict` and `quality_verdict` remain compatibility fields set to
+`KEEP`.
 
 ## Deterministic validation
 
-Before apply, Python verifies the captured package/manifest identity and exact
-FOUND decision set, strict schema, finite values, confidence/risk and current
-session/pass lineage. Unknown, missing, duplicate, malformed, escaping or
-identity-mismatched decision files fail closed before mutation.
+Before any apply, Python verifies package integrity, exact FOUND decision set,
+strict schema, image identity, finite values, scene-field structural
+consistency, confidence/risk policy, bounds, session/pass lineage and Catalog
+preconditions.
 
-Low-confidence/risk handling performed by deterministic validation must not be
-confused with permission for the producer to perform off-scope culling or
-quality triage.
+Missing, unknown, duplicate, malformed, contradictory, escaping or
+identity-mismatched decisions fail closed before mutation.
+
+## Iterative meaning
+
+A later accepted pass re-audits the complete frozen session image set, including
+prior PASS and REVIEW images. Prior PASS is therefore not a permanent lock; it
+can be reconsidered when the scene conclusion changes.
+
+Only images actually adjusted in the prior confirmed pass require proof of a
+fresh Lightroom rerender before the next pass is admitted. Stale preview
+evidence is a technical WAIT state, not photographic REVIEW.
+
+`SESSION_COMPLETE` means every image in the frozen session is photographic PASS.
+Unresolved REVIEW or a technical wait/block condition is not completion.
 
 ## Safe outcomes
 
 - PASS is non-mutating.
-- ADJUST remains a proposal until deterministic authorization and Lightroom
-  Catalog precondition checks succeed.
-- REVIEW is photographic/exposure uncertainty and is non-mutating.
-- Runtime/apply/verification failures are technical outcomes, not REVIEW.
+- ADJUST remains untrusted input until deterministic authorization and Lightroom
+  Catalog checks succeed.
+- REVIEW is photographic uncertainty and non-mutating.
+- Runtime, render, apply or verification failures are technical outcomes, not
+  photographic REVIEW.
 
-AI model/provider quality evidence is deliberately separate from technical MVP
-closure. Listing it as future work does not activate a Work Order automatically.
+AI model/provider quality remains a post-MVP calibration problem separate from
+core safety and workflow correctness.

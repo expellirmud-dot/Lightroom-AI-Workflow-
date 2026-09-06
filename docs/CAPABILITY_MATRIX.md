@@ -2,8 +2,8 @@
 
 Canonical capability register for Lightroom AI Exposure Assist.
 
-LAST_RECONCILED: 2026-08-31
-CURRENT_PHASE: TECHNICAL_MVP_COMPLETE
+LAST_RECONCILED: 2026-09-06
+CURRENT_PHASE: POST_MVP_PRODUCT_IMPROVEMENT
 
 ## Status definitions
 
@@ -45,10 +45,10 @@ Lightroom evidence is required for `LIVE_VERIFIED`.
 | CAP-017 | Canonical Lightroom command registration | LIVE_VERIFIED | WO-006, WO-029, WO-037, WO-039 | Prepare, Import/Apply and Prepare Next surfaces exercised in real Lightroom | maintain |
 | CAP-018 | Preview validation | INTEGRATED | WO-008, WO-016, WO-023, WO-038 | byte/SHA/Pillow/package checks integrated | maintain |
 | CAP-019 | Deterministic mock/test judge | TESTED | WO-009, WO-036 | deterministic no-AI decision tooling supports bounded live testing | maintain |
-| CAP-020 | Subject-aware exposure judgment contract | TESTED | WO-010.1, WO-038 | exposure skill/task contract aligned to current MVP | post-MVP photographer calibration |
-| CAP-021 | Scene-intent exposure classification | TESTED | WO-010.1, WO-038 | task/skill contract exists for exposure context | post-MVP calibration |
-| CAP-022 | Exposure grouping/reference selection | TESTED | WO-010.1, WO-032 | grouping/reference schema and guidance implemented/tested | representative AI review later |
-| CAP-023 | Batch exposure consistency | TESTED | WO-010.1, WO-027, WO-038 | bounded consistency logic and contact-sheet context exist | representative AI calibration later |
+| CAP-020 | Subject-aware exposure judgment contract | TESTED | WO-010.1, WO-038, WO-041 | outcome-based Exposure contract now distinguishes evaluated PASS from mutation and avoids prescribed reasoning sequence | representative photographer/live calibration |
+| CAP-021 | Scene-intent exposure classification | TESTED | WO-010.1, WO-038, WO-041 | canonical session decisions now carry explicit absolute scene exposure verdict + scene signal | representative AI/live calibration |
+| CAP-022 | Exposure grouping/reference selection | TESTED | WO-010.1, WO-032, WO-041 | reference is comparison context only; scene correctness no longer depends on anchor matching | representative AI review |
+| CAP-023 | Batch exposure consistency | TESTED | WO-010.1, WO-027, WO-038, WO-041 | complete scene coverage + contradiction validation implemented; photographic quality still needs live review | representative AI calibration |
 | CAP-024 | Image relevance classification | DEFERRED | WO-010.2 | legacy skill preserved; current small-preview MVP forbids relevance/culling judgment | post-MVP only by explicit requirement |
 | CAP-025 | Accidental/test-shot detection | DEFERRED | WO-010.2 | legacy skill preserved but outside current exposure-only task | post-MVP only by explicit requirement |
 | CAP-026 | Blur/focus/visual-quality triage | DEFERRED | WO-010.2 | current small-preview MVP explicitly forbids this judgment | post-MVP only by explicit requirement |
@@ -74,6 +74,8 @@ Lightroom evidence is required for `LIVE_VERIFIED`.
 | CAP-050 | Risk-classified dirty state / delta preflight | TESTED | WO-030, WO-033 | governance tests and preflight self-test passed | maintain |
 | CAP-051 | Contact-sheet package creation / integrity | LIVE_VERIFIED | WO-038, WO-039 | real Lightroom `Prepare Next AI Package` completed Pass 2 `PACKAGE_READY`; package pipeline remains integrity-gated automatically | post-MVP AI-use calibration only |
 | CAP-052 | Catalog absolute-target apply + post-commit verification | LIVE_VERIFIED | WO-034, WO-039 | Gate A live: 21 existing absolute targets verified idempotently, PASS 303 / REVIEW 0, RERENDER_REQUIRED | maintain |
+| CAP-053 | Lightroom preview orientation-correct AI package evidence | LIVE_VERIFIED | WO-040 | fresh Lightroom session `sess-1788485733`: 34/34 valid previews, 26 landscape + 8 intended portrait outputs, 3 contact sheets; uploaded sheets match runtime SHA-256 and visual review confirms 34/34 intended orientation | maintain; AI judgment quality remains separate |
+| CAP-054 | Scene-complete Exposure evaluation and safe iteration settlement | INTEGRATED | WO-041 | focused/full/integration tests prove explicit scene outcomes, PASS=no-change, complete later-pass re-audit, scope-drift fail-closed, stale-rerender WAIT without REVIEW contamination, and all-PASS-only convergence; historical runtime reconciled read-only | Owner live Lightroom validation with plug-in 1.2.11 |
 
 ## Technical MVP evidence boundary
 
@@ -92,5 +94,4 @@ The technical MVP is therefore complete. Capabilities intentionally left at
 `TESTED` or `INTEGRATED` are deterministic internals or post-MVP quality areas
 whose maturity should not be inflated simply to make every row `LIVE_VERIFIED`.
 
-There is no active technical Work Order. Future work must be selected from the
-post-MVP roadmap by product need rather than generated from stale matrix gaps.
+The technical MVP remains closed. WO-040 is now `LIVE_VERIFIED`; preview orientation correctness is proven independently from AI photographic judgment quality.

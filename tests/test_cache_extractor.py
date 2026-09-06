@@ -12,9 +12,9 @@ def dummy_lrdata(tmp_path):
     pdb_path = lrdata / "previews.db"
     pdb = sqlite3.connect(str(pdb_path))
     pdb.execute("CREATE TABLE ImageCacheEntry (imageId REAL, uuid TEXT, digest TEXT, orientation TEXT)")
-    pdb.execute("INSERT INTO ImageCacheEntry VALUES (101.0, 'UUID-101', 'digest', 'A')")
-    pdb.execute("INSERT INTO ImageCacheEntry VALUES (102.0, 'UUID-102', 'digest', 'A')")
-    pdb.execute("INSERT INTO ImageCacheEntry VALUES (103.0, 'UUID-103', 'digest', 'A')")
+    pdb.execute("INSERT INTO ImageCacheEntry VALUES (101.0, 'UUID-101', 'digest', 'AB')")
+    pdb.execute("INSERT INTO ImageCacheEntry VALUES (102.0, 'UUID-102', 'digest', 'AB')")
+    pdb.execute("INSERT INTO ImageCacheEntry VALUES (103.0, 'UUID-103', 'digest', 'AB')")
     pdb.commit()
     pdb.close()
 

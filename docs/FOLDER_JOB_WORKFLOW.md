@@ -2,16 +2,19 @@
 
 ## Current evidence boundary
 
-The explicit package/session workflow is implemented and CI-certified through
-WO-039. Representative Lightroom evidence has reached a 324-image decision and
-Catalog-apply stage. The 21 requested absolute Exposure2012 targets were observed
-in Lightroom, but the pre-WO-039 code verified too early inside the write
-callback and recorded stale values.
+The canonical package/session workflow is implemented, CI-certified and
+representative-live-verified through WO-039. Technical MVP Gate A/B closed on
+2026-08-31 with real Catalog apply confirmation, `RERENDER_REQUIRED`, and a
+fresh Pass 2 `PACKAGE_READY` transition.
 
-WO-039 fixes that verification boundary in CI. The remaining live gate is to
-re-run the affected Import/Apply recovery and then prove a fresh next-pass render
-generation. The workflow is therefore in MVP closure/live certification rather
-than initial implementation.
+WO-040 was an Owner-selected post-MVP visual-evidence correctness gate and is now closed `LIVE_VERIFIED`. Real Pass
+1 package `sess-1788482026` exposed a narrower defect: `RootPixels.jpegData`
+contains unrotated JPEG pixels while `ImageCacheEntry.orientation` carries the
+Lightroom display rotation. The old extractor dropped that orientation, causing
+some package previews/contact-sheet tiles to appear sideways. WO-040 normalizes
+only the durable package preview and preserves the raw Lightroom render
+fingerprint separately for freshness checks. No Catalog/original/XMP mutation is
+part of this remediation.
 
 ## Goal
 
@@ -21,6 +24,26 @@ process that package later, and return only structured exposure decisions for a
 guarded Catalog `Exposure2012` apply.
 
 The Lightroom plug-in never stays alive waiting for AI.
+
+## Active post-MVP gate — WO-041
+
+WO-041 changes iteration semantics without changing the provider-neutral or
+Catalog-authoritative architecture:
+
+- coverage means every image is evaluated, not every image is adjusted;
+- canonical session decisions include an absolute scene exposure verdict and
+  scene-level correction signal;
+- later passes re-audit the complete frozen session image set;
+- only images actually adjusted in the prior confirmed pass require fresh render
+  proof;
+- unchanged adjusted previews return `WAITING_FOR_RERENDER` and no new pass is
+  admitted; photographic REVIEW state is left unchanged;
+- an added/removed/replaced image in the Lightroom folder scope stops the old
+  session with `SESSION_SCOPE_CHANGED` and requires a new session;
+- `SESSION_COMPLETE` requires every frozen-session image to be photographic PASS.
+
+Plug-in metadata for this behavior is version `1.2.11`. The Work Order remains
+ACTIVE until representative Lightroom live validation is completed.
 
 ## User workflow
 
@@ -62,9 +85,14 @@ Python then:
 
 - snapshots preview-cache SQLite databases read-only;
 - maps Lightroom identities to cached previews;
-- extracts and validates Lightroom-rendered JPEG previews including byte/SHA
-  evidence and Pillow decode;
-- builds ordered 4×4 contact sheets and `contact-sheet-index.json`;
+- extracts Lightroom-rendered JPEG bytes and resolves the same cache record's
+  orientation (`AB`/`BC`/`CD`/`DA` for the supported non-mirrored rotations);
+- preserves a SHA-256 fingerprint of the raw `RootPixels` JPEG for render
+  freshness, then normalizes only the durable package JPEG to Lightroom display
+  orientation;
+- validates normalized preview byte/SHA/Pillow evidence and records raw-render plus normalized-artifact hashes in the manifest; orientation is consumed during deterministic extraction;
+- builds ordered 4×4 contact sheets from those normalized durable previews and
+  writes `contact-sheet-index.json`;
 - writes manifest, task, bundled skills, decision schema, pass state and
   `decisions/` beneath the session/pass directory;
 - validates the complete package and removes temporary cache snapshots.
@@ -154,18 +182,19 @@ A later pass may run only when:
 
 The command captures current Catalog `Exposure2012` and invokes the existing
 next-pass preparation path. Python enforces render freshness before accepting a
-new preview generation. Stale/unproven rendering fails closed.
+new preview generation. Since WO-040, freshness compares the raw Lightroom
+root-pixel fingerprint rather than the orientation-normalized package artifact
+hash, preventing a rotation/re-encode from falsely proving a rerender.
+Stale/unproven rendering fails closed.
 
 Successful later-pass preparation ends at `PACKAGE_READY`. External AI again
 runs separately.
 
 ## Decision meanings
 
-- `PASS` — no meaningful exposure change; delta is zero.
-- `ADJUST` — a bounded exposure change is proposed and may enter deterministic
-  planning.
-- `REVIEW` — photographic evidence is unsafe/unresolved for automatic action;
-  no mutation.
+- `PASS` — evaluated and no Exposure change is needed; delta is zero.
+- `ADJUST` — evaluated and a bounded Exposure change is proposed; it may enter deterministic planning.
+- `REVIEW` — evaluated but photographic Exposure remains unresolved/unsafe for automatic action; no mutation.
 
 Technical runtime/apply/verification failures are not REVIEW decisions.
 
@@ -186,18 +215,19 @@ Technical runtime/apply/verification failures are not REVIEW decisions.
 
 ## Current terminal gate
 
-Before starting a new implementation Work Order for this path, close or record a
-precise stop condition for the current live gate:
+No preview-orientation gate remains. WO-040 closed on fresh Lightroom session `sess-1788485733` with 34/34 valid previews and visual confirmation across all three contact sheets:
 
 ```text
-WO-039 re-run Import / Apply
-→ 21 APPLIED_VERIFIED without second delta
-→ PASS 303 / REVIEW 0
-→ RERENDER_REQUIRED
-→ Lightroom rerender
-→ Prepare Next AI Package
-→ fresh generation accepted
+read-only ImageCacheEntry orientation reconciliation
+→ automated AB/BC/CD/DA normalization + fail-closed unsupported cases
+→ raw render fingerprint preserved separately from normalized artifact SHA
+→ full regression/integration/config/compile/diff gates green
+→ normal Lightroom Prepare AI Package
+→ 34/34 previews present
+→ three uploaded contact sheets SHA-match runtime artifacts
+→ 34/34 visually confirmed in Lightroom-intended orientation
+→ WO-040 COMPLETE_LIVE_VERIFIED
 ```
 
-A defect inside this same acceptance path is remediation of the active gate by
-default, not an automatic reason to create another Work Order.
+The pre-fix `sess-1788482026` package remains immutable evidence and must not be
+rewritten in place or used for AI exposure decisions.

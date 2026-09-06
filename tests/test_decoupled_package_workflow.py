@@ -90,3 +90,17 @@ def test_canonical_iterative_commands_do_not_access_catalog_database_or_write_lr
     assert ".lrcat-shm" not in combined.lower()
     assert "sqlite" not in combined.lower()
     assert "previews.lrdata" not in combined.lower() or "read-only" in combined.lower()
+
+
+def test_wo041_plugin_revision_and_user_states_are_explicit():
+    info = _read("Info.lua")
+    assert "major = 1" in info
+    assert "minor = 2" in info
+    assert "revision = 11" in info
+    next_text = _read("PrepareNextAIPackage.lua")
+    apply_text = _read("ImportApplyAIResults.lua")
+    assert "WAITING_FOR_RERENDER" in next_text
+    assert "No new pass was created and no image was changed to REVIEW" in next_text
+    assert "SESSION_COMPLETE" in apply_text
+    assert "AI_RECHECK_REQUIRED" in apply_text
+    assert "SESSION_STOPPED_REVIEW_REQUIRED" in apply_text

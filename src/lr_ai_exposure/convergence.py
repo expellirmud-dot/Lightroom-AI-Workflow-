@@ -24,11 +24,10 @@ def evaluate_pass_convergence(
     decisions: list[SinglePassDecision],
     pass_id: str,
 ) -> dict[str, Any]:
-    """Evaluate frozen decisions against policy and update a session-state instance.
+    """Evaluate frozen decisions and update a session-state instance.
 
-    Callers that are only planning an apply should pass a deep copy of the
-    authoritative state. Session history is committed only after Lightroom
-    confirms the Catalog mutation.
+    PASS means evaluated/no-change. REVIEW is unresolved and may be judged again
+    in a later pass. Only an all-PASS session is converged.
     """
     tolerance = float(state.policy.get("tolerance", 0.10))
     quantization = float(state.policy.get("quantization", 0.05))
@@ -39,8 +38,6 @@ def evaluate_pass_convergence(
     current_pass_number = _pass_number_for_id(state, pass_id)
 
     applied_count = 0
-    review_count = 0
-    pass_count = 0
     results: dict[str, str] = {}
     quantized_deltas: dict[str, float] = {}
 
@@ -53,14 +50,8 @@ def evaluate_pass_convergence(
         img.scene_group_id = decision.scene_group_id
         img.is_reference = decision.is_reference
 
-        if img.status == "REVIEW":
-            review_count += 1
-            results[image_id] = "SKIPPED_ALREADY_REVIEW"
-            continue
-
         if decision.action == Action.REVIEW:
             img.status = "REVIEW"
-            review_count += 1
             results[image_id] = "REVIEW"
             continue
 
@@ -69,25 +60,19 @@ def evaluate_pass_convergence(
 
         if decision.action == Action.PASS or abs(delta) <= tolerance:
             img.status = "PASS"
-            pass_count += 1
             results[image_id] = "PASS"
             continue
 
         if abs(delta) > max_auto_delta:
             img.status = "REVIEW"
-            review_count += 1
             results[image_id] = "REVIEW_BOUNDS_EXCEEDED"
             continue
 
         if abs(img.cumulative_delta_ev + delta) > max_cumulative:
             img.status = "REVIEW"
-            review_count += 1
             results[image_id] = "REVIEW_CUMULATIVE_EXCEEDED"
             continue
 
-        # Oscillation is intentionally conservative: one meaningful sign flip is
-        # recorded, but automatic authority is removed only after repeated
-        # evidence or a revisit of a prior exposure state.
         if img.history:
             last_hist = img.history[-1]
             if abs(last_hist.delta_ev) > tolerance and abs(delta) > tolerance:
@@ -109,13 +94,11 @@ def evaluate_pass_convergence(
 
         if img.oscillations >= 2:
             img.status = "REVIEW"
-            review_count += 1
             results[image_id] = "REVIEW_OSCILLATION"
             continue
 
         if current_pass_number >= max_passes:
             img.status = "REVIEW"
-            review_count += 1
             results[image_id] = "REVIEW_MAX_PASSES"
             continue
 
@@ -141,20 +124,14 @@ def evaluate_pass_convergence(
         applied_count += 1
         results[image_id] = "ADJUST"
 
-    all_settled = all(img.status in {"PASS", "REVIEW"} for img in state.images.values())
-    if current_pass_number >= max_passes or applied_count == 0 or all_settled:
-        for img in state.images.values():
-            if img.status == "ADJUST":
-                img.status = "REVIEW"
-                results[img.image_id] = "REVIEW_MAX_PASSES"
-        state.is_converged = True
-    else:
-        state.is_converged = False
+    state.is_converged = bool(state.images) and all(
+        img.status == "PASS" for img in state.images.values()
+    )
 
     return {
         "applied": applied_count,
-        "review": review_count,
-        "pass": pass_count,
+        "review": sum(1 for img in state.images.values() if img.status == "REVIEW"),
+        "pass": sum(1 for img in state.images.values() if img.status == "PASS"),
         "results": results,
         "quantized_deltas": quantized_deltas,
         "is_converged": state.is_converged,

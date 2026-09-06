@@ -65,16 +65,15 @@ def analyze_single_image_google(
         "You are an expert AI photo editor acting as a strict single-pass judge for a photo.\n"
         "Analyze the provided image and output a SinglePassDecision JSON object.\n\n"
         "Guidelines:\n"
-        "1. Assess relevance (KEEP, REVIEW, SKIP). Is the subject clear and intended?\n"
-        "2. Assess quality (KEEP, REVIEW, SKIP). Is it sharply in focus? Downgrade if blurry.\n"
-        "3. Evaluate exposure (delta_ev). Provide the EV adjustment needed to perfectly expose the subject (-3.0 to +3.0).\n"
-        "4. Flag highlight_risk (true/false) if there are blown-out skies or bright spots that cannot be recovered.\n"
-        "5. Flag shadow_risk (true/false) if important shadows are completely crushed.\n"
-        "6. Provide a short reason and rationale for subject and scene.\n"
-        "7. Provide a scene_group_id string (e.g. 'indoor-warm', 'outdoor-overcast').\n"
-        "8. Set action to PASS if no adjustment is needed, ADJUST if delta_ev should be applied, REVIEW if unsure.\n"
-        "9. Set is_reference to true if this image is the best reference for the scene group.\n"
-        "10. Output valid JSON matching the exact schema. Do NOT include image_id, confidence is optional."
+        "Evaluate exposure only; do not perform relevance, blur/focus, or keep/cull triage.\n"
+        "Set relevance_verdict and quality_verdict to KEEP.\n"
+        "PASS means this image was evaluated and needs no Exposure change; use delta_ev=0.\n"
+        "ADJUST means a non-zero bounded per-image Exposure correction is justified.\n"
+        "REVIEW means exposure remains unresolved; use delta_ev=0.\n"
+        "Provide scene_group_id plus an absolute scene_exposure_verdict: TOO_DARK, BALANCED, TOO_BRIGHT, or REVIEW.\n"
+        "Provide scene_delta_ev as the approximate shared scene correction: positive for TOO_DARK, negative for TOO_BRIGHT, zero for BALANCED/REVIEW.\n"
+        "Consistency alone is insufficient: a uniformly bright/dark scene can still be incorrectly exposed.\n"
+        "Set is_reference when useful, provide grounded rationales, and output exact JSON. Do NOT include image_id."
     )
 
     schema = {
@@ -90,13 +89,16 @@ def analyze_single_image_google(
             "subject_rationale": {"type": "STRING"},
             "scene_rationale": {"type": "STRING"},
             "scene_group_id": {"type": "STRING"},
+            "scene_exposure_verdict": {"type": "STRING", "enum": ["TOO_DARK", "BALANCED", "TOO_BRIGHT", "REVIEW"]},
+            "scene_delta_ev": {"type": "NUMBER"},
             "is_reference": {"type": "BOOLEAN"},
             "reason": {"type": "STRING"}
         },
         "required": [
             "action", "relevance_verdict", "quality_verdict", "delta_ev",
             "confidence", "highlight_risk", "shadow_risk", "subject_rationale",
-            "scene_rationale", "scene_group_id", "is_reference", "reason"
+            "scene_rationale", "scene_group_id", "scene_exposure_verdict",
+            "scene_delta_ev", "is_reference", "reason"
         ]
     }
 

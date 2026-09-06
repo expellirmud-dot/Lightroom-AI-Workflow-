@@ -24,11 +24,11 @@ def _write_cache(lrdata_dir: Path, photos: list[dict[str, str]]) -> None:
     lrdata_dir.mkdir()
     with sqlite3.connect(lrdata_dir / "previews.db") as connection:
         connection.execute(
-            "CREATE TABLE ImageCacheEntry (imageId INTEGER, uuid TEXT, digest TEXT)"
+            "CREATE TABLE ImageCacheEntry (imageId INTEGER, uuid TEXT, digest TEXT, orientation TEXT)"
         )
         connection.executemany(
-            "INSERT INTO ImageCacheEntry VALUES (?, ?, ?)",
-            [(int(photo["id_local"]), photo["uuid"], "digest") for photo in photos],
+            "INSERT INTO ImageCacheEntry VALUES (?, ?, ?, ?)",
+            [(int(photo["id_local"]), photo["uuid"], "digest", "AB") for photo in photos],
         )
     with sqlite3.connect(lrdata_dir / "root-pixels.db") as connection:
         connection.execute("CREATE TABLE RootPixels (uuid TEXT, jpegData BLOB)")
@@ -74,8 +74,9 @@ def test_prepare_builds_ordered_contact_sheet_package_and_removes_snapshots(tmp_
     assert all((pass_dir / sheet["sheet_path"]).is_file() for sheet in index["sheets"])
     assert not (pass_dir / "cache_snapshots").exists()
     task = (pass_dir / "AI_TASK.md").read_text(encoding="utf-8")
-    assert "contact sheets first" in task.lower()
-    assert "must not judge blur, focus, sharpness" in task.lower()
+    assert "contact sheets" in task.lower()
+    assert "not a prescribed inspection sequence" in task.lower()
+    assert "do not judge blur, focus, sharpness" in task.lower()
 
 
 def test_analyze_rejects_a_tampered_contact_sheet(tmp_path: Path) -> None:

@@ -279,7 +279,7 @@ function DiagnoseCurrentFolder.run()
         payload.protocol_version = "1.0"
         payload.operation = "DIAGNOSE_CURRENT_FOLDER"
         payload.diagnostic_id = diagnosticId
-        payload.plugin = { version = "1.2.0", build = 1 }
+        payload.plugin = { version = "1.2.11", build = 1 }
 
         local stagingDir = LrPathUtils.child(REPO_ROOT, "runtime\\staging")
         LrFileUtils.createAllDirectories(stagingDir)

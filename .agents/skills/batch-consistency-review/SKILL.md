@@ -1,41 +1,50 @@
 ---
 name: batch-consistency-review
-description: Group materially similar exposure contexts, choose reliable visual references, and keep exposure decisions consistent without flattening legitimate scene differences.
+description: Keep materially similar exposure contexts coherent across the whole pass while preserving legitimate scene differences and absolute scene correctness.
 ---
 
 # Batch Consistency Review Skill
 
-Apply this skill across the prepared pass using contact sheets first, not as
-isolated single-image judgments.
+Use contact sheets and individual previews as useful evidence, but do not treat
+any particular inspection order as mandatory. `AI_TASK.md` and
+`decision-schema.json` define the active output contract.
 
-`AI_TASK.md` and `decision-schema.json` are authoritative for output fields.
+## Required outcome
 
-## Required reasoning
+Group images that materially share lighting and photographic intent so their
+Exposure can be judged in context. The grouping exists to prevent unexplained
+brightness jumps and skipped images, not to force every frame toward one global
+numeric value.
 
-1. Group images by materially similar lighting, location, subject and
-   photographic intent.
-2. Do not force one exposure baseline across different lighting environments.
-3. Choose a useful exposure reference; avoid atypical/clipped frames when that
-   would distort the exposure comparison.
-4. Compare subject exposure, background intent and proposed `delta_ev` within
-   each group.
-5. Preserve legitimate composition, spotlight, backlight, night atmosphere and
-   silhouette differences.
-6. Use `action: REVIEW` with zero delta when exposure consistency is genuinely
-   unresolved.
-7. Flag unexplained large relative exposure jumps through the rationale rather
-   than inventing fields.
+For each scene group:
 
-## Current output mapping
+- every member must be genuinely evaluated;
+- the group must have one explicit absolute exposure conclusion;
+- obvious within-scene exposure outliers must not be silently ignored;
+- legitimate differences in composition, subject placement, spotlight,
+  backlight, silhouette, night atmosphere, or changed lighting may justify a
+  separate group or a different per-image delta;
+- a useful reference image may assist comparison, but reference matching alone
+  is never proof that the scene is correctly exposed.
 
-- Store the stable current context label in `scene_group_id`.
-- Set `is_reference=true` only for a suitable reference image under the current
-  pass task/schema.
-- Describe comparison/reference reasoning in `scene_rationale` and `reason`.
-- `action` is a required current field; it is not historical.
-- Do not emit `batch_consistency_group`, `group_id`, `reference_image_id`,
-  `reference_image_ids`, `group_conflict` or `suggested_split_key` unless a
-  future generated schema explicitly permits them.
+`PASS` means checked and no adjustment needed. It is not a placeholder for an
+image that was not considered. `ADJUST` is used only for images that actually
+need an Exposure change. `REVIEW` is unresolved photographic exposure evidence.
 
-Grouping/reference fields provide exposure context only; they never authorize
-mutation.
+## Scene fields
+
+Use a stable `scene_group_id` for each materially similar exposure context. All
+members of that group must agree on:
+
+- `scene_exposure_verdict`: `TOO_DARK`, `BALANCED`, `TOO_BRIGHT`, or `REVIEW`;
+- `scene_delta_ev`: the approximate shared scene-level correction signal.
+
+Per-image `delta_ev` remains free to differ from the scene signal. A genuinely
+well-exposed frame can remain PASS even when other members of the same broader
+context need adjustment.
+
+## Boundary
+
+Grouping and reference fields provide visual context only; they never authorize
+mutation. Do not emit unsupported group-management fields or expand the task
+into culling, focus/blur, relevance, duplicate, or general image-quality review.

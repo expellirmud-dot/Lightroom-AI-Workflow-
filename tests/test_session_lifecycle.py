@@ -41,12 +41,12 @@ def _make_dummy_preview_db(lrdata_dir: Path, items: list[tuple[int, str, bytes |
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS ImageCacheEntry (id INTEGER PRIMARY KEY, imageId INTEGER, uuid TEXT UNIQUE, digest TEXT)"
+        "CREATE TABLE IF NOT EXISTS ImageCacheEntry (id INTEGER PRIMARY KEY, imageId INTEGER, uuid TEXT UNIQUE, digest TEXT, orientation TEXT)"
     )
     for img_id, uuid_val, _ in items:
         cur.execute(
-            "INSERT OR REPLACE INTO ImageCacheEntry (imageId, uuid, digest) VALUES (?, ?, ?)",
-            (img_id, uuid_val, f"digest_{img_id}"),
+            "INSERT OR REPLACE INTO ImageCacheEntry (imageId, uuid, digest, orientation) VALUES (?, ?, ?, ?)",
+            (img_id, uuid_val, f"digest_{img_id}", "AB"),
         )
     conn.commit()
     conn.close()

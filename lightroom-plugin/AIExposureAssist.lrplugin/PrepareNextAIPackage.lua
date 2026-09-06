@@ -80,9 +80,24 @@ function PrepareNextAIPackage.run()
             .. " --bridge-result \"" .. bridgeResultPath .. "\""
         local prepCommand = "cd /D \"" .. Support.REPO_ROOT .. "\" && uv run lr-ai-exposure" .. prepArgs
         if LrTasks.execute(prepCommand) ~= 0 then
+            if Support.fileExists(bridgeResultPath) then
+                local failed = Support.readJsonFile(bridgeResultPath)
+                local detail = tostring(failed.error or "")
+                if string.find(detail, "WAITING_FOR_RERENDER", 1, true) then
+                    LrDialogs.message(
+                        "AI Exposure Assist — WAITING_FOR_RERENDER",
+                        "Lightroom has not finished refreshing every adjusted preview yet.\n\n"
+                            .. "No new pass was created and no image was changed to REVIEW.\n"
+                            .. "Wait for Lightroom preview rendering to settle, then run 'Prepare Next AI Package' again.\n\n"
+                            .. detail,
+                        "info"
+                    )
+                    return
+                end
+            end
             error(
                 "Failed to prepare Pass " .. tostring(nextPass)
-                    .. ". Lightroom preview freshness may not be proven yet; no AI package was advanced."
+                    .. ". Render/session safety could not be proven; no AI package was advanced."
             )
         end
 

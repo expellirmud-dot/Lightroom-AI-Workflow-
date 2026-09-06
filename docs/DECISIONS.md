@@ -131,6 +131,33 @@ Therefore:
 - Model/provider quality is a separate post-MVP evidence problem, not a reason
   to redesign the core Lightroom/package boundary.
 
+## Outcome-Based Scene Exposure Judgment decision
+
+Adopted on 2026-09-06 per Owner requirement; this supersedes the 2026-09-05
+anchor-first calibration wording where it conflicts.
+
+- The product specifies photographic goals, safety rules and acceptance
+  conditions rather than prescribing a fixed AI reasoning sequence.
+- Every FOUND image must be genuinely evaluated, but no image is required to
+  change. `PASS` means evaluated/no-change with zero delta.
+- Every scene context carries an explicit absolute verdict (`TOO_DARK`,
+  `BALANCED`, `TOO_BRIGHT`, or `REVIEW`) plus an approximate scene-level
+  correction signal.
+- Matching a scene reference is not sufficient evidence of correct Exposure; the
+  reference itself may be too bright or too dark.
+- Python validates complete coverage and structural consistency of the AI result
+  but does not replace AI photographic judgment.
+- A later accepted pass re-audits the complete frozen session image set so prior
+  PASS and REVIEW images remain reviewable.
+- Stale rerender evidence is a technical wait/block state and must not become
+  photographic REVIEW.
+- `SESSION_COMPLETE` means every image in the frozen session is photographic
+  PASS; unresolved REVIEW is not success.
+
+Decisive per-image Exposure corrections remain allowed when justified and within
+the active deterministic bounds, but the system does not require large deltas or
+single-pass convergence merely to reduce pass count.
+
 ## Preserved safety decisions
 
 - exactly one active Lightroom source folder per session;

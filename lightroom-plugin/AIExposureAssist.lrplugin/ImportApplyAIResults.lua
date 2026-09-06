@@ -194,26 +194,51 @@ function ImportApplyAIResults.run()
         progress:done()
 
         local maxPasses = tonumber((sessionState.policy or {}).maximum_passes) or 4
-        if result.is_converged or currentPass >= maxPasses then
+        if result.is_converged then
             LrDialogs.message(
-                "AI Exposure Assist — Session Complete",
-                "Session: " .. tostring(pointer.session_id) .. "\n"
+                "AI Exposure Assist — SESSION_COMPLETE",
+                "Exposure review is complete for every image in this frozen session.\n\n"
+                    .. "Session: " .. tostring(pointer.session_id) .. "\n"
                     .. "Pass completed: " .. tostring(currentPass) .. "\n"
                     .. "Verified Catalog applies: " .. tostring(result.applied_count or 0) .. "\n"
                     .. "PASS: " .. tostring(result.pass_count or 0) .. "\n"
-                    .. "REVIEW: " .. tostring(result.review_count or 0),
+                    .. "REVIEW: 0",
+                "info"
+            )
+            return
+        end
+
+        if currentPass >= maxPasses then
+            LrDialogs.message(
+                "AI Exposure Assist — SESSION_STOPPED_REVIEW_REQUIRED",
+                "The configured pass limit was reached, but photographic REVIEW remains unresolved.\n\n"
+                    .. "PASS: " .. tostring(result.pass_count or 0) .. "\n"
+                    .. "REVIEW: " .. tostring(result.review_count or 0) .. "\n\n"
+                    .. "This is not SESSION_COMPLETE. No unresolved REVIEW is treated as success.",
+                "warning"
+            )
+            return
+        end
+
+        if (result.applied_count or 0) > 0 then
+            LrDialogs.message(
+                "AI Exposure Assist — RERENDER_REQUIRED",
+                "Pass " .. tostring(currentPass) .. " was confirmed.\n\n"
+                    .. "Verified Catalog applies: " .. tostring(result.applied_count or 0) .. "\n"
+                    .. "PASS: " .. tostring(result.pass_count or 0) .. "\n"
+                    .. "REVIEW: " .. tostring(result.review_count or 0) .. "\n\n"
+                    .. "Allow Lightroom to refresh/rerender the adjusted previews. Then use 'Prepare Next AI Package'.",
                 "info"
             )
             return
         end
 
         LrDialogs.message(
-            "AI Exposure Assist — RERENDER_REQUIRED",
-            "Pass " .. tostring(currentPass) .. " was confirmed.\n\n"
-                .. "Verified Catalog applies: " .. tostring(result.applied_count or 0) .. "\n"
+            "AI Exposure Assist — AI_RECHECK_REQUIRED",
+            "No Exposure change was applied in this pass, but some images are still unresolved.\n\n"
                 .. "PASS: " .. tostring(result.pass_count or 0) .. "\n"
                 .. "REVIEW: " .. tostring(result.review_count or 0) .. "\n\n"
-                .. "This command is finished. Allow Lightroom to refresh/rerender the adjusted previews. Then use 'Prepare Next AI Package'.",
+                .. "No rerender wait is required. Use 'Prepare Next AI Package' to re-evaluate the complete frozen image set.",
             "info"
         )
     end)

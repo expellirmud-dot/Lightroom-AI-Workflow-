@@ -96,7 +96,7 @@ def _read_only_database_probe(
         return evidence, reason_codes
 
     try:
-        db = sqlite3.connect(safe_sqlite_uri(str(path)) + "?mode=ro", uri=True)
+        db = sqlite3.connect(safe_sqlite_uri(str(path)) + "?mode=ro&immutable=1", uri=True, timeout=30.0)
         try:
             evidence["quick_check"] = db.execute("PRAGMA quick_check(1)").fetchone()[0]
             table = db.execute(
@@ -222,7 +222,7 @@ def _probe_preview_mapping(
     if not cache_ready:
         return "SKIPPED_DEPENDENCY", ["PREVIEW_CACHE_NOT_READY"], evidence
 
-    root_connection = sqlite3.connect(safe_sqlite_uri(str(root_db)) + "?mode=ro", uri=True)
+    root_connection = sqlite3.connect(safe_sqlite_uri(str(root_db)) + "?mode=ro&immutable=1", uri=True, timeout=30.0)
     try:
         for photo in eligible:
             id_local = photo.get("id_local")

@@ -2,7 +2,7 @@
 
 Canonical executed-evidence register for Lightroom AI Exposure Assist.
 
-LAST_RECONCILED: 2026-08-31
+LAST_RECONCILED: 2026-09-06
 
 Only evidence that was actually executed or directly observed is recorded here.
 A Work Order statement without enough execution detail may document intent or
@@ -151,6 +151,29 @@ adds representative host evidence without claiming AI model quality.
 VLD-138 directly live-verifies the corrected WO-039 Catalog confirmation and
 recovery path. VLD-139 live-verifies the final known iterative render/package
 boundary required by the technical MVP roadmap.
+
+### WO-040 — Preview orientation correctness (complete / live verified)
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-140 | 2026-09-04 | Live read-only query of `ToTo Previews.lrdata/previews.db` for real session `sess-1788482026` identities | 34 mapped records: 26 `AB`, 8 `DA`; known sideways examples belong to `DA`; no cache write |
+| VLD-141 | 2026-09-04 | TDD orientation/fingerprint/contact-sheet tests + focused/full pytest + integration + config smoke + compileall + `git diff --check` | PASS locally; unsupported/mirrored orientation fails closed; raw render fingerprint separated from normalized artifact hash; historical manifest fallback covered |
+| VLD-142 | 2026-09-04 | Read-only scratch snapshot/extraction using all 34 real cache identities from `sess-1788482026` | 34 FOUND, 0 missing/ambiguous/failed; 26 outputs `(320,213)`, 8 `DA` outputs `(213,320)`; 3 contact sheets validate; all 34 raw hashes match old package hashes and exactly 8 normalized hashes change |
+| VLD-143 | 2026-09-04 | Canonical `prepare_session_pass()` against the real `sess-1788482026` selection + live read-only preview cache, isolated under `runtime/temp` | PACKAGE_READY-equivalent integrity: 34/34 FOUND, read-only cache reconciliation shows 26 `AB` + 8 `DA`; 34 raw render fingerprints present, 26 landscape + 8 portrait durable previews, 3 contact sheets valid; no Lightroom/Catalog/original mutation |
+| VLD-144 | 2026-09-04 | Owner-operated normal Lightroom `Prepare AI Package`, fresh session `sess-1788485733`, plus Controller review of Owner-uploaded `contact-sheet-0001/0002/0003.jpg` | PASS / LIVE_VERIFIED: 34 selected = 34 FOUND, 3 contact sheets, 34 raw fingerprints; 26 outputs `(320,213)` and intended portrait set of 8 outputs `(213,320)`; uploaded sheet SHA-256 values exactly match runtime artifacts; visual inspection confirms 34/34 intended orientation; no Catalog/original/XMP mutation |
+
+WO-040 is `LIVE_VERIFIED` by VLD-144. Preview-orientation correctness is closed; AI photographic judgment quality remains a separate post-MVP evidence problem.
+
+### WO-041 — Scene-complete Exposure judgment and iteration safety (active)
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-145 | 2026-09-06 | WO-041 focused regression set, full pytest, config smoke, `tests/integration`, `compileall`, `git diff --check` | PASS locally: scene fields/contradiction checks, PASS=no-change, complete later-pass set, scope drift, stale-render WAIT, all-PASS convergence, plug-in 1.2.11/static behavior; full suite exited 0 with 2 expected skips; integration 6/6; config, compile and diff check exit 0 |
+| VLD-146 | 2026-09-06 | Read-only reconciliation of historical runtime sessions `sess-1788499715` and `sess-1788544053` | Defect evidence: 315-image session later packages contained 184 then 34 images; 393-image session Pass 2 contained 148 images and 13 stale hashes were recorded as photographic REVIEW. Historical artifacts were not modified; corrected WO-041 algorithm would re-audit the complete frozen set and WAIT on stale adjusted previews. |
+
+Automated/integrated evidence supports CAP-054 at `INTEGRATED` only. Representative
+Lightroom Classic validation with plug-in version `1.2.11` is still required for
+`LIVE_VERIFIED` and WO-041 closure.
 
 ## Technical MVP evidence boundary — CLOSED
 

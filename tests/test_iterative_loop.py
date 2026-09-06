@@ -136,5 +136,5 @@ def test_iterative_loop_end_to_end(tmp_path: Path) -> None:
         ],
     )
     mismatch = validate_render_barrier(mismatch_state, mismatch_manifest, {"1": 0.5})
-    assert mismatch["1"].startswith("REVIEW_RENDER_UNPROVEN_CATALOG_MISMATCH")
-    assert mismatch_state.images["1"].status == "REVIEW"
+    assert mismatch["1"].startswith("BLOCKED_RENDER_CATALOG_MISMATCH")
+    assert mismatch_state.images["1"].status == "ADJUST"

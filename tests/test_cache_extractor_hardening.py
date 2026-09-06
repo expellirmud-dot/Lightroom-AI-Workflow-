@@ -38,8 +38,8 @@ def test_extract_batch_invalid_jpeg(tmp_path: Path):
     r_db = snap_dir / "root-pixels.db"
 
     conn1 = sqlite3.connect(p_db)
-    conn1.execute("CREATE TABLE ImageCacheEntry (imageId TEXT, uuid TEXT)")
-    conn1.execute("INSERT INTO ImageCacheEntry VALUES ('123', 'uuid1')")
+    conn1.execute("CREATE TABLE ImageCacheEntry (imageId TEXT, uuid TEXT, orientation TEXT)")
+    conn1.execute("INSERT INTO ImageCacheEntry VALUES ('123', 'uuid1', 'AB')")
     conn1.commit()
     conn1.close()
 
@@ -64,8 +64,8 @@ def test_extract_batch_valid_jpeg(tmp_path: Path):
     r_db = snap_dir / "root-pixels.db"
 
     conn1 = sqlite3.connect(p_db)
-    conn1.execute("CREATE TABLE ImageCacheEntry (imageId TEXT, uuid TEXT)")
-    conn1.execute("INSERT INTO ImageCacheEntry VALUES ('456', 'uuid2')")
+    conn1.execute("CREATE TABLE ImageCacheEntry (imageId TEXT, uuid TEXT, orientation TEXT)")
+    conn1.execute("INSERT INTO ImageCacheEntry VALUES ('456', 'uuid2', 'AB')")
     conn1.commit()
     conn1.close()
 

@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Mapping
 
-from lr_ai_exposure.session import SessionState
 from lr_ai_exposure.job import Manifest
+from lr_ai_exposure.session import SessionState
 
 
 def validate_render_barrier(
@@ -13,15 +13,11 @@ def validate_render_barrier(
     catalog_exposure2012: Mapping[str, float] | None = None,
     tolerance: float = 0.01,
 ) -> dict[str, str]:
-    """Validate freshness before allowing an adjusted image into the next pass.
+    """Validate freshness before admitting a later pass.
 
-    The iterative session is Catalog-authoritative. Freshness requires:
-    1. The current Catalog Exposure2012 equals the session's expected value.
-    2. A valid refreshed preview exists.
-    3. The refreshed preview hash differs from the pre-apply preview hash.
-
-    XMP is deliberately not consulted here. The legacy prepared-job workflow
-    retains its independent sidecar safeguards.
+    The function is observational with respect to photographic session state.
+    A stale or technically unproven render must never be converted into REVIEW.
+    Callers decide whether to WAIT or fail closed before a pass is admitted.
     """
     results: dict[str, str] = {}
     catalog_values = {str(k): float(v) for k, v in (catalog_exposure2012 or {}).items()}
@@ -38,20 +34,17 @@ def validate_render_barrier(
 
         expected = img.expected_exposure2012
         if expected is None:
-            img.status = "REVIEW"
-            results[img_id] = "REVIEW_RENDER_UNPROVEN_EXPECTED_MISSING"
+            results[img_id] = "BLOCKED_RENDER_EXPECTED_MISSING"
             continue
 
         if img_id not in catalog_values:
-            img.status = "REVIEW"
-            results[img_id] = "REVIEW_RENDER_UNPROVEN_CATALOG_EXPOSURE_MISSING"
+            results[img_id] = "BLOCKED_RENDER_CATALOG_EXPOSURE_MISSING"
             continue
 
         actual = catalog_values[img_id]
         if abs(actual - expected) > tolerance:
-            img.status = "REVIEW"
             status_msg = (
-                "REVIEW_RENDER_UNPROVEN_CATALOG_MISMATCH: "
+                "BLOCKED_RENDER_CATALOG_MISMATCH: "
                 f"expected {expected}, found {actual}"
             )
             results[img_id] = status_msg
@@ -59,17 +52,16 @@ def validate_render_barrier(
             continue
 
         if not entry.preview_sha256 or entry.preview_bytes <= 0:
-            img.status = "REVIEW"
-            status_msg = "REVIEW_RENDER_UNPROVEN_PREVIEW_INVALID"
+            status_msg = "BLOCKED_RENDER_PREVIEW_INVALID"
             results[img_id] = status_msg
             logging.warning("Image %s: %s", img_id, status_msg)
             continue
 
-        if img.last_preview_sha256 is not None and entry.preview_sha256 == img.last_preview_sha256:
-            img.status = "REVIEW"
-            status_msg = "REVIEW_RENDER_UNPROVEN_HASH_UNCHANGED"
+        source_fingerprint = entry.source_preview_sha256 or entry.preview_sha256
+        if img.last_preview_sha256 is not None and source_fingerprint == img.last_preview_sha256:
+            status_msg = "WAITING_FOR_RERENDER_HASH_UNCHANGED"
             results[img_id] = status_msg
-            logging.warning("Image %s: %s", img_id, status_msg)
+            logging.info("Image %s: %s", img_id, status_msg)
             continue
 
         results[img_id] = "FRESH"

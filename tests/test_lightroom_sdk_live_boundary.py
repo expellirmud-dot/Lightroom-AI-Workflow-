@@ -141,9 +141,9 @@ def test_diagnostic_version_matches_current_plugin_metadata() -> None:
     diagnose = _read("DiagnoseCurrentFolder.lua")
     assert re.search(r"major\s*=\s*1", info)
     assert re.search(r"minor\s*=\s*2", info)
-    assert re.search(r"revision\s*=\s*0", info)
+    assert re.search(r"revision\s*=\s*11", info)
     assert re.search(r"build\s*=\s*1", info)
-    assert 'payload.plugin = { version = "1.2.0", build = 1 }' in diagnose
+    assert 'payload.plugin = { version = "1.2.11", build = 1 }' in diagnose
 
 
 def test_canonical_commands_route_folder_identity_through_shared_support() -> None:

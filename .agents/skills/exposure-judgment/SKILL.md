@@ -1,44 +1,71 @@
 ---
 name: exposure-judgment
-description: Judge exposure from the intended subject, scene intent, relative batch context, and highlight/shadow safety under the current generated decision schema.
+description: Judge Exposure2012 from the intended subject, absolute scene exposure, and whole-set visual coherence without prescribing a step-by-step reasoning method.
 ---
 
 # Exposure Judgment Skill
 
-Use the actual Lightroom-rendered preview evidence. Do not judge exposure from
-filename or average frame brightness alone.
+Use the actual Lightroom-rendered preview evidence. `AI_TASK.md` and
+`decision-schema.json` are authoritative for the active pass. This skill defines
+photographic goals and constraints, not a mandatory reasoning sequence.
 
-`AI_TASK.md` and `decision-schema.json` are authoritative for the active pass.
-This skill supplies visual guidance only.
+## Required outcome
 
-## Current MVP reasoning
+The finished job should have photographically appropriate overall Exposure2012,
+while images that share materially similar lighting and photographic intent
+should remain visually coherent.
 
-1. Identify the intended subject and whether a person is the visual priority.
-2. Classify the lighting/scene intent needed to interpret exposure.
-3. Judge subject exposure separately from background exposure.
-4. Preserve legitimate atmosphere; do not normalize every dark background.
-5. Check meaningful highlight/shadow exposure risk before proposing a change.
-6. Compare materially similar images through the batch-consistency skill.
-7. Recommend a bounded `delta_ev`; use zero when no correction is justified.
-8. Use photographic `action: REVIEW` when exposure evidence is genuinely
-   unresolved/unsafe.
+Every FOUND image must be genuinely evaluated. Evaluation coverage does **not**
+mean every image must change. A correct no-change result is a successful result.
 
-## Current output mapping
+For each image:
 
-- `action=PASS`: `delta_ev=0.0`.
-- `action=ADJUST`: finite non-zero bounded `delta_ev`.
-- `action=REVIEW`: `delta_ev=0.0`.
-- For the current exposure-only small-preview task, set
-  `relevance_verdict=KEEP` and `quality_verdict=KEEP`; do not perform culling,
-  relevance, blur, focus or sharpness triage.
-- Set `highlight_risk` / `shadow_risk` only from material exposure-safety
-  evidence.
-- Put subject observations in `subject_rationale`.
-- Put scene/exposure comparison in `scene_rationale`.
-- Use `scene_group_id` and `is_reference` exactly as the generated task/schema
-  define them.
-- Summarize the final exposure decision in `reason`.
+- use `PASS` with `delta_ev=0.0` when its Exposure is already appropriate and it
+  is not an unexplained exposure outlier in its scene;
+- use `ADJUST` only when an Exposure change is actually justified;
+- use `REVIEW` with zero delta when exposure evidence is genuinely unresolved or
+  unsafe for automatic adjustment.
 
-Do not emit historical/unsupported fields such as `recommended_delta_ev`,
-`subject_exposure`, `scene_intent`, `batch_consistency_group`, `group_id` or
-`reference_image_id` unless a future generated schema explicitly permits them.
+Never adjust an image merely to prove that it was processed.
+
+## Absolute scene responsibility
+
+For every `scene_group_id`, state an explicit absolute scene conclusion through
+`scene_exposure_verdict` and `scene_delta_ev`.
+
+- `TOO_DARK` means the scene as a whole needs a positive Exposure direction.
+- `BALANCED` means the scene is already at an appropriate overall Exposure.
+- `TOO_BRIGHT` means the scene as a whole needs a negative Exposure direction.
+- `REVIEW` means the scene-level Exposure cannot be resolved confidently.
+
+Consistency alone is not correctness. A group in which every image is similarly
+too bright or too dark is not `BALANCED` merely because its members match each
+other.
+
+`scene_delta_ev` is an approximate shared scene-level signal and context only.
+The actual mutating proposal remains each image's validated `delta_ev`.
+
+## Photographic freedom
+
+Use visual judgment rather than average frame brightness alone. Consider the
+intended subject, faces/skin when relevant, scene atmosphere, lighting direction,
+composition, and meaningful highlight/shadow risk. Preserve legitimate
+intentional differences such as backlight, spotlight, silhouettes, night mood,
+or materially different lighting contexts.
+
+A reference image may help compare a scene, but the reference is not assumed to
+be correctly exposed. The absolute scene conclusion must stand on its own.
+
+Use decisive corrections when visually justified, but always respect the active
+session's bounded Exposure authority. Do not invent a larger delta to force
+single-pass convergence.
+
+## Exposure-only boundary
+
+This task is Exposure2012 only. Do not perform culling or judge blur, focus,
+sharpness, duplicates, relevance, damaged frames, or keep/cull quality from the
+small package previews. Set `relevance_verdict=KEEP` and
+`quality_verdict=KEEP` for the current task.
+
+External AI has visual decision authority only. It never receives Lightroom,
+Catalog, preview-cache, original-photo, XMP, or mutation authority.
