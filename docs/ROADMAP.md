@@ -122,9 +122,9 @@ read-only runtime reconciliation confirms prior sessions omitted already-PASS
 images from later packages and could convert stale-render evidence into REVIEW;
 the corrected algorithm addresses those exact conditions.
 
-**Remaining exit gate:** Owner reloads plug-in `1.2.11` and performs a
-representative Lightroom iterative run proving the new wait/re-audit/completion
-behavior. WO-041 is `AWAITING_OWNER_VALIDATION` and CAP-054 must not be promoted beyond INTEGRATED until that live proof exists.
+A live Diagnostic during this gate also exposed stale WO-031 aggregate semantics. The implementation is now reconciled with WO-042: RootPixels/XMP/metadata-sync no longer falsely block the canonical route, while per-image Standard Preview readiness `>=1440` is checked directly. Read-only replay of the exact 393-image request found 359 ready and 34 `PREVIEW_TIER_NOT_READY`.
+
+**Remaining exit gate:** Owner builds/refreshes Standard Previews for the current folder, reruns Diagnostic, then performs the representative Lightroom iterative run with plug-in `1.2.11` proving the new wait/re-audit/completion behavior. WO-041 is `AWAITING_OWNER_VALIDATION` and CAP-054 must not be promoted beyond INTEGRATED until that live proof exists.
 
 
 ## Completed post-MVP evidence upgrade — WO-042

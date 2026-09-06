@@ -11,13 +11,10 @@ identity, preview-cache, runtime, CLI and bridge readiness. Its legacy
 `xmp_readiness` / `metadata_sync` observations must **not** be interpreted as
 canonical Catalog-session prerequisites.
 
-Implementation compatibility note: the current WO-031 diagnostic code can still
-surface legacy XMP/metadata findings as blocking `overall_readiness`. That is a
-known stale diagnostic classification, not current architecture truth. During
-MVP closure, do not create a new Work Order solely from `XMP_*` or
-`METADATA_SYNC_UNPROVEN` when the active WO-037+ Catalog workflow does not use
-the sidecar route. Treat that mismatch as non-critical legacy diagnostic debt
-unless it actually blocks the active Gate A/B workflow.
+WO-041 reconciles the implementation with the current Catalog-authoritative
+architecture. `metadata_sync` is explicitly `NOT_REQUIRED_CATALOG_AUTHORITATIVE`;
+legacy XMP readiness is advisory only; canonical preview readiness follows the
+WO-042 Standard Preview tier boundary instead of RootPixels availability.
 
 ## Purpose
 
@@ -66,14 +63,14 @@ fails so the owner receives a complete bounded report.
 - bounded SQLite integrity result;
 - eligible identity mapping totals and JPEG byte/header evidence.
 
-Since WO-042, canonical package preparation additionally requires an existing
-Lightroom-rendered preview tier at or above `preview_size` (1440 px target).
-The legacy WO-031 diagnostic does not yet inventory this per-image tier
-availability, so a diagnostic cache PASS does not guarantee package readiness.
-`Prepare AI Package` / `Prepare Next AI Package` remains authoritative and fails
-closed as `PREVIEW_TIER_NOT_READY` if an in-scope image has only smaller cached
-tiers. This condition means Lightroom needs the relevant Standard Preview built
-or refreshed; Python never writes the cache or manufactures a substitute.
+Since WO-042, canonical package preparation requires an existing Lightroom-rendered
+preview tier at or above `preview_size` (1440 px target). The diagnostic now
+checks this same boundary per eligible image: exact 1440 or the smallest existing
+larger tier is ready; smaller-only/missing tiers report `PREVIEW_TIER_NOT_READY`.
+`root-pixels.db` is retained only as legacy informational evidence and is not a
+canonical readiness prerequisite. This condition means Lightroom needs the
+relevant Standard Preview built or refreshed; Python never writes the cache or
+manufactures a substitute.
 
 The live `.lrdata` is never written.
 
@@ -121,16 +118,13 @@ For current planning, distinguish:
   Catalog workflow;
 - `CANONICAL_SESSION_BLOCKED` — a current Catalog/package prerequisite is
   missing/unsafe;
-- `LEGACY_XMP_NOT_READY` — only sidecar/synchronization evidence is missing;
-  this does not block the canonical Catalog route;
-- `DIAGNOSTIC_IMPLEMENTATION_STALE` — the old WO-031 aggregate readiness maps a
-  legacy XMP warning into a blocking overall status even though the canonical
-  route no longer depends on it.
+- `LEGACY_XMP_NOT_READY` — only sidecar evidence is missing/unreadable; this is
+  advisory and does not block the canonical Catalog route;
+- `PREVIEW_TIER_NOT_READY` — one or more eligible images lack an existing cached
+  preview tier at or above the configured target; this is a fixable current
+  prerequisite, not a safety corruption condition.
 
-Until the optional diagnostic implementation itself is reconciled, Controller
-planning must use the actual active command boundary, `docs/ROADMAP.md`, current
-Work Order and canonical architecture rather than generating remediation work
-from the stale aggregate label alone.
+The diagnostic and Prepare commands now agree on the canonical preview boundary.
 
 ## Safety
 

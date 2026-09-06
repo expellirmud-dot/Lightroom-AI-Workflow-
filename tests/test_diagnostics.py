@@ -107,7 +107,8 @@ def test_multiple_independent_failures_are_aggregated(tmp_path: Path) -> None:
     report = run_diagnostic(request, _settings(tmp_path, cache), tmp_path)
 
     codes = {issue["code"] for issue in report["issues"]}
-    assert {"PREVIEWS_DB_MISSING", "ROOT_PIXELS_DB_MISSING", "XMP_MISSING"} <= codes
+    assert {"PREVIEWS_DB_MISSING", "XMP_MISSING"} <= codes
+    assert "ROOT_PIXELS_DB_MISSING" not in codes
     assert len(report["issues"]) >= 3
     assert _stage(report, "runtime")["status"] == "PASS"
     assert _stage(report, "bridge")["status"] == "PASS"
@@ -147,12 +148,15 @@ def test_cache_readiness_and_xmp_probe_are_read_only(tmp_path: Path) -> None:
     cache.mkdir()
     previews_db = cache / "previews.db"
     root_db = cache / "root-pixels.db"
+    digest = "digest-303"
     with sqlite3.connect(previews_db) as db:
-        db.execute("CREATE TABLE ImageCacheEntry (imageId NUMERIC, uuid TEXT)")
-        db.execute("INSERT INTO ImageCacheEntry VALUES (303, 'preview-303')")
+        db.execute("CREATE TABLE ImageCacheEntry (imageId NUMERIC, uuid TEXT, digest TEXT, orientation TEXT)")
+        db.execute("INSERT INTO ImageCacheEntry VALUES (303, 'preview-303', ?, 'AB')", (digest,))
     with sqlite3.connect(root_db) as db:
         db.execute("CREATE TABLE RootPixels (uuid TEXT, jpegData BLOB)")
-        db.execute("INSERT INTO RootPixels VALUES ('preview-303', ?)", (b"\xff\xd8" + b"x" * 128,))
+    bucket = cache / "p" / "prev"
+    bucket.mkdir(parents=True)
+    (bucket / f"preview-303-{digest}_1440").write_bytes(b"\xff\xd8" + b"x" * 256)
 
     raw = tmp_path / "photos" / "frame.nef"
     raw.parent.mkdir()
@@ -169,6 +173,12 @@ def test_cache_readiness_and_xmp_probe_are_read_only(tmp_path: Path) -> None:
     before = xmp.read_bytes()
     request = _request(photos=[])
     request["counts"]["eligible_raw"] = 1
+    request["active_folder_path"] = str(raw.parent)
+    request["direct_photo_count"] = 1
+    request["recursive_photo_count"] = 1
+    request["observed_file_formats"] = [
+        {"value": "RAW", "value_type": "string", "count": 1}
+    ]
     request["eligible_photos"] = [
         {
             "filename": raw.name,
@@ -183,7 +193,11 @@ def test_cache_readiness_and_xmp_probe_are_read_only(tmp_path: Path) -> None:
     report = run_diagnostic(request, _settings(tmp_path, cache), tmp_path)
 
     assert _stage(report, "preview_cache")["status"] == "PASS"
-    assert _stage(report, "preview_identity_mapping")["evidence"]["counts"]["FOUND"] == 1
+    mapping = _stage(report, "preview_identity_mapping")
+    assert mapping["evidence"]["counts"]["FOUND"] == 1
+    assert mapping["evidence"]["target_preview_size"] == 1440
+    assert _stage(report, "metadata_sync")["status"] == "PASS"
+    assert report["overall_readiness"] == "READY_FOR_SESSION"
     assert _stage(report, "xmp_readiness")["evidence"]["parse_ready"] == 1
     assert xmp.read_bytes() == before
     assert not list(raw.parent.glob("*.bak"))

@@ -24,17 +24,35 @@ def _write_xmp(path: Path, exposure: float = 0.0) -> None:
     )
 
 
-def _make_cache(cache: Path, rows: list[tuple[int, str]], *, root_uuids: set[str] | None = None) -> None:
+def _make_cache(
+    cache: Path,
+    rows: list[tuple[int, str]],
+    *,
+    tiers: dict[str, int] | None = None,
+    create_root_db: bool = True,
+) -> None:
     cache.mkdir(parents=True)
     with sqlite3.connect(cache / "previews.db") as db:
-        db.execute("CREATE TABLE ImageCacheEntry (imageId NUMERIC, uuid TEXT)")
-        db.executemany("INSERT INTO ImageCacheEntry VALUES (?, ?)", rows)
-    roots = root_uuids if root_uuids is not None else {uuid for _, uuid in rows}
-    with sqlite3.connect(cache / "root-pixels.db") as db:
-        db.execute("CREATE TABLE RootPixels (uuid TEXT, jpegData BLOB)")
-        db.executemany(
-            "INSERT INTO RootPixels VALUES (?, ?)",
-            [(uuid, b"\xff\xd8" + b"x" * 256) for uuid in roots],
+        db.execute(
+            "CREATE TABLE ImageCacheEntry (imageId NUMERIC, uuid TEXT, digest TEXT, orientation TEXT)"
+        )
+        for image_id, uuid in rows:
+            db.execute(
+                "INSERT INTO ImageCacheEntry VALUES (?, ?, ?, 'AB')",
+                (image_id, uuid, f"digest-{image_id}"),
+            )
+    if create_root_db:
+        with sqlite3.connect(cache / "root-pixels.db") as db:
+            db.execute("CREATE TABLE RootPixels (uuid TEXT, jpegData BLOB)")
+    tier_map = tiers if tiers is not None else {uuid: 1440 for _, uuid in rows}
+    for image_id, uuid in rows:
+        if uuid not in tier_map:
+            continue
+        tier = tier_map[uuid]
+        bucket = cache / uuid[:1] / uuid[:4]
+        bucket.mkdir(parents=True, exist_ok=True)
+        (bucket / f"{uuid}-digest-{image_id}_{tier}").write_bytes(
+            b"\xff\xd8" + b"x" * 256
         )
 
 
@@ -135,9 +153,7 @@ def test_parent_folder_with_only_child_raws_passes_all_read_only_content_gates(t
     assert report["summary"]["recursive_photo_count"] == 2
     assert report["summary"]["eligible_raw_count"] == 2
 
-    # Metadata-sync mutation safety is intentionally a separate gate; a healthy
-    # read-only folder/cache/XMP diagnostic must not be mislabeled as an
-    # enumeration or preview failure because that later mutation proof is absent.
+    # Canonical Catalog workflow does not require XMP metadata synchronization.
     issue_codes = {issue["code"] for issue in report["issues"]}
     assert "LIGHTROOM_ENUMERATION_FAILED" not in issue_codes
     assert "NO_ELIGIBLE_RAW" not in issue_codes
@@ -192,7 +208,7 @@ def test_ambiguous_preview_identity_fails_closed(tmp_path: Path) -> None:
     assert mapping["evidence"]["counts"]["AMBIGUOUS"] == 1
 
 
-def test_missing_root_pixel_jpeg_fails_before_ai(tmp_path: Path) -> None:
+def test_root_pixels_db_is_not_required_when_standard_preview_exists(tmp_path: Path) -> None:
     root = tmp_path / "Event"
     child = root / "Camera"
     child.mkdir(parents=True)
@@ -202,7 +218,34 @@ def test_missing_root_pixel_jpeg_fails_before_ai(tmp_path: Path) -> None:
     photos = [_photo(9, raw)]
 
     cache = tmp_path / "Owner Previews.lrdata"
-    _make_cache(cache, [(9, "preview-9")], root_uuids=set())
+    _make_cache(cache, [(9, "preview-9")], create_root_db=False)
+    report = run_diagnostic(
+        _request(root, photos, child_folders=1),
+        _settings(tmp_path, cache),
+        tmp_path,
+    )
+
+    assert _stage(report, "preview_cache")["status"] == "PASS"
+    mapping = _stage(report, "preview_identity_mapping")
+    assert mapping["status"] == "PASS"
+    assert mapping["evidence"]["counts"]["FOUND"] == 1
+    assert report["overall_readiness"] == "READY_FOR_SESSION"
+    summary = Path(report["artifacts"]["diagnostic_txt"]).read_text(encoding="utf-8")
+    assert "Standard Preview >= 1440px: 1/1 ready" in summary
+    assert "Next action: Run Prepare AI Package." in summary
+
+
+def test_smaller_only_preview_tier_reports_not_ready(tmp_path: Path) -> None:
+    root = tmp_path / "Event"
+    child = root / "Camera"
+    child.mkdir(parents=True)
+    raw = child / "A.NEF"
+    raw.write_bytes(b"a")
+    _write_xmp(raw.with_suffix(".xmp"))
+    photos = [_photo(10, raw)]
+
+    cache = tmp_path / "Owner Previews.lrdata"
+    _make_cache(cache, [(10, "preview-10")], tiers={"preview-10": 960})
     report = run_diagnostic(
         _request(root, photos, child_folders=1),
         _settings(tmp_path, cache),
@@ -211,8 +254,12 @@ def test_missing_root_pixel_jpeg_fails_before_ai(tmp_path: Path) -> None:
 
     mapping = _stage(report, "preview_identity_mapping")
     assert mapping["status"] == "FAIL"
-    assert mapping["evidence"]["counts"]["ROOT_PIXEL_MISSING"] == 1
-    assert "PREVIEW_BYTES_UNREADABLE" in {issue["code"] for issue in report["issues"]}
+    assert mapping["evidence"]["counts"]["PREVIEW_TIER_NOT_READY"] == 1
+    assert "PREVIEW_TIER_NOT_READY" in {issue["code"] for issue in report["issues"]}
+    assert report["overall_readiness"] == "NOT_READY_FIXABLE"
+    summary = Path(report["artifacts"]["diagnostic_txt"]).read_text(encoding="utf-8")
+    assert "Standard Preview >= 1440px: 0/1 ready" in summary
+    assert "Build/refresh Standard Previews in Lightroom" in summary
 
 
 def test_missing_xmp_is_reported_without_touching_raw(tmp_path: Path) -> None:
@@ -233,8 +280,10 @@ def test_missing_xmp_is_reported_without_touching_raw(tmp_path: Path) -> None:
     )
 
     xmp = _stage(report, "xmp_readiness")
-    assert xmp["status"] == "FAIL"
-    assert "XMP_MISSING" in {issue["code"] for issue in report["issues"]}
+    assert xmp["status"] == "WARN"
+    xmp_issue = next(issue for issue in report["issues"] if issue["code"] == "XMP_MISSING")
+    assert xmp_issue["severity"] == "WARN"
+    assert report["overall_readiness"] == "READY_FOR_SESSION"
     assert raw.read_bytes() == original
     assert not raw.with_suffix(".xmp").exists()
 

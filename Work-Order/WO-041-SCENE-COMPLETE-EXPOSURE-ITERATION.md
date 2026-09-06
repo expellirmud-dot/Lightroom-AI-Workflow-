@@ -37,6 +37,7 @@ For one frozen Lightroom source-folder session, ensure that:
 - `runtime/` is ignored by Git and remains local session evidence.
 - Lightroom plug-in metadata/reported version is 1.2.11 build 1.
 - WO-042 subsequently upgraded canonical AI visual evidence to existing 1440-or-larger Lightroom-rendered cache tiers without changing the WO-041 Lightroom command contract.
+- Owner live Diagnostic on 393 images exposed stale WO-031 readiness semantics: legacy metadata-sync and RootPixels checks could falsely block the canonical Catalog/Standard-Preview route. This is same-gate operator-correctness remediation, not a new capability or Work Order.
 
 ## Authorized scope
 
@@ -48,6 +49,7 @@ Implementation:
 - `src/lr_ai_exposure/session_lifecycle.py`
 - `src/lr_ai_exposure/convergence.py`
 - `src/lr_ai_exposure/render_barrier.py`
+- `src/lr_ai_exposure/diagnostics.py` for canonical diagnostic readiness reconciliation
 - `lightroom-plugin/AIExposureAssist.lrplugin/Info.lua`
 - `lightroom-plugin/AIExposureAssist.lrplugin/DiagnoseCurrentFolder.lua` only to keep the reported plug-in version synchronized with metadata
 - `lightroom-plugin/AIExposureAssist.lrplugin/PrepareNextAIPackage.lua`
@@ -58,7 +60,7 @@ AI contract/guidance:
 - `.agents/skills/batch-consistency-review/SKILL.md`
 - `docs/AI_JUDGE_CONTRACT.md`
 
-Focused tests directly covering these behaviors under `tests/`.
+Focused tests directly covering these behaviors under `tests/`, including diagnostic current-folder scenarios.
 
 Evidence / reconciliation:
 - `Work-Order/WO-041-SCENE-COMPLETE-EXPOSURE-ITERATION.md`
@@ -96,7 +98,8 @@ Evidence / reconciliation:
 6. **REVIEW is unresolved, not success.** Existing photographic REVIEW may be re-evaluated in a later pass. `is_converged=true` only when every session image is photographic PASS. Maximum-pass or unresolved REVIEW outcomes stop safely but are not labeled converged.
 7. **No-change pass semantics.** If a pass has no ADJUST decisions but has unresolved REVIEW, no rerender is required. The UI must distinguish unresolved recheck from `RERENDER_REQUIRED`.
 8. **Plug-in version visibility.** Because canonical Lightroom command behavior changes under WO-041, `Info.lua` version is bumped to `1.2.11` so the Owner can verify the installed/reloaded plug-in revision.
-9. Existing safety boundaries, absolute Catalog targets, provider-neutral package ownership, pass immutability, and exact-set validation remain intact.
+9. **Canonical Diagnostic semantics.** Current-folder diagnosis must test the same Standard Preview evidence boundary used by package preparation: identity via `previews.db`, existing tier `>= preview_size`, and readable JPEG bytes. `root-pixels.db`, XMP sidecars, and metadata synchronization are legacy/advisory and must not block the Catalog-authoritative route.
+10. Existing safety boundaries, absolute Catalog targets, provider-neutral package ownership, pass immutability, and exact-set validation remain intact.
 
 ## Acceptance evidence
 
@@ -109,6 +112,7 @@ Automated / integrated:
 - convergence tests prove REVIEW is re-evaluable and cannot produce `is_converged=true`; all-PASS can converge;
 - no-adjust + unresolved-review result does not require rerender;
 - plug-in static tests prove user-facing wait/recheck state and version `1.2.11`;
+- diagnostic tests prove RootPixels/XMP/metadata-sync legacy state cannot falsely block canonical readiness, while missing Standard Preview tiers fail clearly as `PREVIEW_TIER_NOT_READY`;
 - focused tests pass;
 - full pytest passes (environmental documented skips allowed);
 - config smoke, integration tests, compileall and `git diff --check` pass.
@@ -139,6 +143,8 @@ Live Lightroom exit gate:
   version `1.2.11`.
 - README was reviewed: canonical command names are unchanged, so no README edit
   is required for this gate.
+- Diagnostic remediation focused set passes 14/14; full pytest remains green with two expected skips. Re-running the exact captured 393-image Owner diagnostic request against the real cache read-only now reports metadata sync `NOT_REQUIRED_CATALOG_AUTHORITATIVE`, canonical preview cache PASS, and Standard Preview readiness `359/393`; 34 images correctly return `PREVIEW_TIER_NOT_READY` instead of the old RootPixels failure.
+- No Lightroom plug-in Lua file changed during this diagnostic remediation, so the visible plug-in version remains `1.2.11`.
 
 Remaining terminal evidence is the Owner-operated Lightroom live exit gate.
 
@@ -158,6 +164,7 @@ Stop for Controller/Owner review if the fix requires changing Lightroom's author
 - `docs/VALIDATION_REGISTER.md`: UPDATED as evidence executes
 - `docs/PROJECT_STATUS.md`: UPDATED
 - `docs/ROADMAP.md`: UPDATED
+- `docs/DIAGNOSTIC_PREFLIGHT.md`: UPDATED
 - `README.md`: REVIEWED; update only if command-level user workflow materially changes
 
 ## Completion state

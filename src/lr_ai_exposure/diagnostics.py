@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from lr_ai_exposure.cache_probe import find_preview_uuid
+from lr_ai_exposure.cache_probe import find_cached_preview_tier, find_preview_record
 from lr_ai_exposure.db_uri import safe_sqlite_uri
 from lr_ai_exposure.xmp import XmpError, read_exposure_2012
 
@@ -171,9 +171,9 @@ def _probe_xmp(
             _issue(
                 issues,
                 stage="xmp_readiness",
-                severity="FAIL",
+                severity="WARN",
                 code="XMP_MISSING",
-                message="Eligible RAW has no readable XMP sidecar.",
+                message="Legacy XMP sidecar is absent; canonical Catalog Exposure workflow is unaffected.",
                 evidence={"id_local": photo.get("id_local"), "xmp_path": str(xmp_path)},
             )
         else:
@@ -190,98 +190,133 @@ def _probe_xmp(
                 _issue(
                     issues,
                     stage="xmp_readiness",
-                    severity="FAIL",
+                    severity="WARN",
                     code="XMP_EXPOSURE_UNREADABLE",
-                    message="Exposure2012 is missing, malformed, ambiguous, or non-finite.",
+                    message="Legacy XMP Exposure2012 is unreadable; canonical Catalog Exposure workflow is unaffected.",
                     evidence={"id_local": photo.get("id_local"), "error": str(exc)},
                 )
         if len(evidence["samples"]) < SAMPLE_LIMIT:
             evidence["samples"].append(sample)
-    status = "PASS" if not reasons else "FAIL"
-    return status, sorted(reasons) or ["XMP_READINESS_PROVEN"], evidence
+    status = "PASS" if not reasons else "WARN"
+    return status, sorted(reasons) or ["LEGACY_XMP_READABLE"], evidence
 
 
 def _probe_preview_mapping(
     eligible: list[dict[str, Any]],
     previews_db: Path,
-    root_db: Path,
+    cache_root: Path,
     cache_ready: bool,
+    target_preview_size: int,
     issues: list[dict[str, Any]],
 ) -> tuple[str, list[str], dict[str, Any]]:
+    """Prove canonical preview identity + existing Standard Preview tier readiness."""
     counts = {
         "FOUND": 0,
         "MISSING": 0,
         "AMBIGUOUS": 0,
         "DB_ERROR": 0,
-        "ROOT_PIXEL_MISSING": 0,
+        "PREVIEW_TIER_NOT_READY": 0,
         "INVALID_JPEG": 0,
     }
-    evidence: dict[str, Any] = {"counts": counts, "samples": []}
+    evidence: dict[str, Any] = {
+        "target_preview_size": target_preview_size,
+        "counts": counts,
+        "samples": [],
+    }
     if not eligible:
         return "SKIPPED_DEPENDENCY", ["NO_ELIGIBLE_RAW"], evidence
     if not cache_ready:
         return "SKIPPED_DEPENDENCY", ["PREVIEW_CACHE_NOT_READY"], evidence
 
-    root_connection = sqlite3.connect(safe_sqlite_uri(str(root_db)) + "?mode=ro&immutable=1", uri=True, timeout=30.0)
-    try:
-        for photo in eligible:
-            id_local = photo.get("id_local")
-            if isinstance(id_local, (int, float, str)):
-                result = find_preview_uuid(str(previews_db), id_local)
-            else:
-                result = {"status": "DB_ERROR", "uuid": None}
-            status = str(result.get("status", "DB_ERROR"))
-            if status not in counts:
-                status = "DB_ERROR"
-            counts[status] += 1
-            sample: dict[str, Any] = {
-                "id_local": photo.get("id_local"),
-                "filename": photo.get("filename"),
-                "status": status,
-                "preview_uuid": result.get("uuid"),
-            }
-            if status == "FOUND" and len(evidence["samples"]) < SAMPLE_LIMIT:
-                jpeg = root_connection.execute(
-                    "SELECT length(jpegData), hex(substr(jpegData, 1, 2)) "
-                    "FROM RootPixels WHERE uuid = ?",
-                    (result.get("uuid"),),
-                ).fetchall()
-                sample["root_pixel_row_count"] = len(jpeg)
-                if len(jpeg) == 1:
-                    sample["jpeg_byte_count"] = jpeg[0][0]
-                    sample["jpeg_soi_hex"] = jpeg[0][1]
-                    sample["jpeg_valid"] = jpeg[0][0] is not None and jpeg[0][0] >= 100 and jpeg[0][1] == "FFD8"
-                    if not sample["jpeg_valid"]:
-                        counts["INVALID_JPEG"] += 1
-                else:
-                    counts["ROOT_PIXEL_MISSING"] += 1
-            if len(evidence["samples"]) < SAMPLE_LIMIT:
-                evidence["samples"].append(sample)
-    finally:
-        root_connection.close()
+    for photo in eligible:
+        id_local = photo.get("id_local")
+        if isinstance(id_local, (int, float, str)):
+            result = find_preview_record(str(previews_db), id_local)
+        else:
+            result = {"status": "DB_ERROR", "uuid": None, "digest": None}
 
-    reasons = [name for name, count in counts.items() if name != "FOUND" and count]
-    if counts["ROOT_PIXEL_MISSING"] or counts["INVALID_JPEG"]:
-        _issue(
-            issues,
-            stage="preview_identity_mapping",
-            severity="FAIL",
-            code="PREVIEW_BYTES_UNREADABLE",
-            message="A mapped preview has missing or invalid root-pixel JPEG bytes.",
-            evidence={"counts": counts},
-        )
-    if counts["FOUND"] != len(eligible):
-        reasons.append("INCOMPLETE_PREVIEW_IDENTITY_MAPPING")
+        identity_status = str(result.get("status", "DB_ERROR"))
+        sample: dict[str, Any] = {
+            "id_local": photo.get("id_local"),
+            "filename": photo.get("filename"),
+            "identity_status": identity_status,
+            "preview_uuid": result.get("uuid"),
+            "orientation": result.get("orientation"),
+        }
+
+        final_status = identity_status
+        if identity_status == "FOUND":
+            tier = find_cached_preview_tier(
+                cache_root,
+                str(result.get("uuid") or ""),
+                str(result.get("digest") or ""),
+                target_preview_size,
+            )
+            final_status = str(tier.get("status", "PREVIEW_TIER_NOT_READY"))
+            sample["source_preview_tier"] = tier.get("tier")
+            sample["available_preview_tiers"] = tier.get("available_tiers", [])
+            selected = tier.get("path")
+            if final_status == "FOUND" and isinstance(selected, str):
+                selected_path = Path(selected)
+                try:
+                    byte_count = selected_path.stat().st_size if selected_path.is_file() else None
+                    if byte_count is not None and byte_count >= 100:
+                        with selected_path.open("rb") as handle:
+                            valid_jpeg = handle.read(2) == b"\xff\xd8"
+                    else:
+                        valid_jpeg = False
+                except OSError:
+                    byte_count = None
+                    valid_jpeg = False
+                sample["jpeg_valid"] = valid_jpeg
+                sample["jpeg_byte_count"] = byte_count
+                if not valid_jpeg:
+                    final_status = "INVALID_JPEG"
+
+        if final_status not in counts:
+            final_status = "DB_ERROR"
+        counts[final_status] += 1
+        sample["status"] = final_status
+        if len(evidence["samples"]) < SAMPLE_LIMIT:
+            evidence["samples"].append(sample)
+
+    identity_failures = counts["MISSING"] + counts["AMBIGUOUS"] + counts["DB_ERROR"]
+    if identity_failures:
         _issue(
             issues,
             stage="preview_identity_mapping",
             severity="FAIL",
             code="INCOMPLETE_PREVIEW_IDENTITY_MAPPING",
-            message="Not every eligible RAW identity maps to exactly one preview.",
+            message="Not every eligible RAW identity maps to one canonical Lightroom preview record.",
             evidence={"counts": counts},
         )
-    return ("PASS" if not reasons else "FAIL"), (reasons or ["ALL_IDENTITIES_FOUND"]), evidence
+    if counts["PREVIEW_TIER_NOT_READY"]:
+        _issue(
+            issues,
+            stage="preview_identity_mapping",
+            severity="FAIL",
+            code="PREVIEW_TIER_NOT_READY",
+            message=(
+                f"{counts['PREVIEW_TIER_NOT_READY']} eligible image(s) do not yet have an existing "
+                f"Lightroom-rendered preview tier at or above {target_preview_size}px. "
+                "Build/refresh Standard Previews in Lightroom, then retry."
+            ),
+            evidence={"counts": counts, "target_preview_size": target_preview_size},
+        )
+    if counts["INVALID_JPEG"]:
+        _issue(
+            issues,
+            stage="preview_identity_mapping",
+            severity="FAIL",
+            code="PREVIEW_BYTES_UNREADABLE",
+            message="A selected Standard Preview cache file is missing or is not a readable JPEG candidate.",
+            evidence={"counts": counts},
+        )
 
+    reasons = [name for name, count in counts.items() if name != "FOUND" and count]
+    if counts["FOUND"] != len(eligible) and not reasons:
+        reasons.append("INCOMPLETE_PREVIEW_IDENTITY_MAPPING")
+    return ("PASS" if not reasons else "FAIL"), (reasons or ["STANDARD_PREVIEW_EVIDENCE_READY"]), evidence
 
 def _write_text_atomic(path: Path, content: str) -> None:
     temp = path.with_suffix(path.suffix + ".tmp")
@@ -294,7 +329,7 @@ def _summary_text(report: dict[str, Any]) -> str:
     lines = [
         "AI Exposure Assist - Current Folder Diagnostic",
         f"Diagnostic ID: {report['diagnostic_id']}",
-        f"Overall readiness: {report['overall_readiness']}",
+        f"Canonical session readiness: {report['overall_readiness']}",
         f"Active folder: {report['lightroom'].get('active_folder_path') or '<none>'}",
         f"Direct photos: {counts['direct_photo_count']}",
         f"Child folders: {counts['child_folder_count']}",
@@ -306,9 +341,25 @@ def _summary_text(report: dict[str, Any]) -> str:
     for stage in report["stages"]:
         reasons = ", ".join(stage["reason_codes"])
         lines.append(f"- {stage['stage']}: {stage['status']} ({reasons})")
+    mapping = next((stage for stage in report["stages"] if stage["stage"] == "preview_identity_mapping"), None)
+    if mapping:
+        evidence = mapping.get("evidence", {})
+        preview_counts = evidence.get("counts", {})
+        target = evidence.get("target_preview_size")
+        if target:
+            lines.extend([
+                "",
+                f"Standard Preview >= {target}px: {preview_counts.get('FOUND', 0)}/{counts['eligible_raw_count']} ready",
+            ])
     lines.extend(["", f"Issues: {len(report['issues'])}"])
     for issue in report["issues"]:
         lines.append(f"- [{issue['severity']}] {issue['code']}: {issue['message']}")
+    if report["overall_readiness"] == "READY_FOR_SESSION":
+        lines.extend(["", "Next action: Run Prepare AI Package."])
+    elif any(issue.get("code") == "PREVIEW_TIER_NOT_READY" for issue in report["issues"]):
+        lines.extend(["", "Next action: Build/refresh Standard Previews in Lightroom, then run Diagnose Current Folder again."])
+    else:
+        lines.extend(["", "Next action: Resolve the FAIL items above, then run Diagnose Current Folder again."])
     return "\n".join(lines) + "\n"
 
 
@@ -497,20 +548,13 @@ def run_diagnostic(
     _stage(
         stages,
         "metadata_sync",
-        "FAIL",
-        ["METADATA_SYNC_UNPROVEN"],
+        "PASS",
+        ["NOT_REQUIRED_CATALOG_AUTHORITATIVE"],
         {
-            "sync_safety": "UNPROVEN",
+            "required_for_canonical_session": False,
             "owner_save_metadata_required": False,
-            "reason": "No supported Lightroom SDK evidence in this diagnostic proves catalog/sidecar synchronization.",
+            "reason": "Canonical iterative mutation uses Lightroom Catalog Exposure2012 and does not require XMP metadata synchronization.",
         },
-    )
-    _issue(
-        issues,
-        stage="metadata_sync",
-        severity="FAIL",
-        code="METADATA_SYNC_UNPROVEN",
-        message="Metadata synchronization safety is unknown; later mutation must fail closed without requiring an unsupported owner action.",
     )
 
     configured_cache = settings.get("preview_cache_path")
@@ -549,43 +593,55 @@ def run_diagnostic(
         )
     previews_db = cache_path / "previews.db"
     root_db = cache_path / "root-pixels.db"
+    preview_size_value = settings.get("preview_size", 1440)
+    target_preview_size = (
+        int(preview_size_value)
+        if isinstance(preview_size_value, int) and not isinstance(preview_size_value, bool) and preview_size_value > 0
+        else 1440
+    )
     previews_evidence, previews_reasons = _read_only_database_probe(
-        previews_db, "ImageCacheEntry", {"imageId", "uuid"}
+        previews_db, "ImageCacheEntry", {"imageId", "uuid", "digest", "orientation"}
     )
-    root_evidence, root_reasons = _read_only_database_probe(
-        root_db, "RootPixels", {"uuid", "jpegData"}
-    )
-    cache_reasons = previews_reasons + root_reasons
+    if root_db.is_file():
+        root_evidence, root_reasons = _read_only_database_probe(
+            root_db, "RootPixels", {"uuid", "jpegData"}
+        )
+    else:
+        root_evidence = {
+            "path": str(root_db),
+            "exists": False,
+            "canonical_required": False,
+        }
+        root_reasons = []
+    cache_reasons = previews_reasons
     for code in cache_reasons:
-        normalized = code
-        if code == "IMAGECACHEENTRY_DB_MISSING":
-            normalized = "PREVIEWS_DB_MISSING"
-        elif code == "ROOTPIXELS_DB_MISSING":
-            normalized = "ROOT_PIXELS_DB_MISSING"
+        normalized = "PREVIEWS_DB_MISSING" if code == "IMAGECACHEENTRY_DB_MISSING" else code
         _issue(
             issues,
             stage="preview_cache",
             severity="FAIL",
             code=normalized,
-            message="Preview cache database readiness check failed.",
+            message="Canonical preview-cache identity database readiness check failed.",
         )
     cache_ready = not cache_reasons
     _stage(
         stages,
         "preview_cache",
         "PASS" if cache_ready else "FAIL",
-        cache_reasons or ["CACHE_DATABASES_READ_ONLY_READY"],
+        cache_reasons or ["CANONICAL_PREVIEW_CACHE_READ_ONLY_READY"],
         {
             "configured_path": str(cache_path),
             "expected_from_catalog": str(expected_cache_path) if expected_cache_path else None,
             "matches_catalog": cache_matches_catalog,
+            "target_preview_size": target_preview_size,
             "previews_db": previews_evidence,
-            "root_pixels_db": root_evidence,
+            "root_pixels_db_legacy": root_evidence,
+            "root_pixels_legacy_reasons": root_reasons,
         },
     )
 
     mapping_status, mapping_reasons, mapping_evidence = _probe_preview_mapping(
-        eligible, previews_db, root_db, cache_ready, issues
+        eligible, previews_db, cache_path, cache_ready, target_preview_size, issues
     )
     _stage(stages, "preview_identity_mapping", mapping_status, mapping_reasons, mapping_evidence)
 
@@ -597,10 +653,8 @@ def run_diagnostic(
         "SOURCE_CONTAINMENT_MISMATCH",
         "ELIGIBLE_IDENTITY_COUNT_MISMATCH",
         "FILE_FORMAT_HISTOGRAM_MISMATCH",
-        "XMP_EXPOSURE_UNREADABLE",
         "INCOMPLETE_PREVIEW_IDENTITY_MAPPING",
         "PREVIEW_BYTES_UNREADABLE",
-        "METADATA_SYNC_UNPROVEN",
     }
     if fail_codes & safety_codes:
         overall = "SAFETY_BLOCKED"

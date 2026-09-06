@@ -72,6 +72,8 @@ Read-only historical runtime inspection found `sess-1788499715` Pass 2 contained
 148/393 images (245 omitted) and recorded 13 stale hashes as photographic REVIEW.
 These are defect-discovery evidence only; historical runtime was not modified.
 
+**Current diagnostic prerequisite:** the Owner's 393-image live Diagnostic exposed stale legacy readiness checks. WO-041 remediation now uses the canonical Standard Preview boundary. A read-only recheck of the exact captured request finds 359/393 images with an existing `>=1440` tier and 34 images at `PREVIEW_TIER_NOT_READY`; metadata synchronization is correctly marked not required and RootPixels no longer blocks the Catalog route. The Owner should build/refresh Standard Previews for the folder and rerun Diagnostic before the iterative live gate.
+
 **Pending live gate:** representative Owner-operated Lightroom validation with plug-in `1.2.11`. Until that passes, CAP-054 remains INTEGRATED and WO-041 remains `AWAITING_OWNER_VALIDATION`.
 
 ## Completed post-MVP gate — WO-040 preview orientation correctness
@@ -153,11 +155,7 @@ would add no new capability proof.
 
 There is no reopened technical-MVP blocker. WO-040 is closed `LIVE_VERIFIED`; it corrected the post-MVP visual-evidence boundary without changing the Catalog-authoritative MVP architecture or authorizing mutation.
 
-The optional WO-031 diagnostic implementation still contains historical
-XMP/metadata-sync aggregate readiness semantics. These are legacy diagnostic
-debt and are not a prerequisite for the current Catalog-authoritative workflow.
-They should be changed only if a future product requirement makes that
-readiness report important again.
+WO-041 reconciled the WO-031 diagnostic aggregate with the current Catalog-authoritative/Standard-Preview workflow; legacy XMP/metadata state is now advisory only.
 
 ## Post-MVP backlog
 
