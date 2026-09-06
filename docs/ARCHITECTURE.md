@@ -107,17 +107,29 @@ modify captured inputs or Lightroom state.
 
 The plug-in never queries SQLite or decodes `.lrdata`. It supplies stable
 Lightroom identity and current Catalog `Exposure2012`. Python snapshots the
-configured preview-cache databases read-only, reconciles the exact
-`ImageCacheEntry` UUID/orientation record, extracts `RootPixels.jpegData`, and
-hashes those raw bytes as the render-generation fingerprint. For supported
-non-mirrored Lightroom rotations (`AB`, `BC`, `CD`, `DA`), only the durable
-package JPEG is normalized to display orientation; mirrored/unknown codes fail
-closed. The normalized artifact then receives its own byte/SHA/decode integrity
-evidence and is the source for ordered contact sheets/index. Once package
-validation succeeds, temporary snapshot DBs are removed while durable
-preview/package evidence remains.
+configured preview-cache databases read-only and reconciles one exact
+`ImageCacheEntry` UUID + digest + orientation record. Canonical package
+preparation then reuses an already-rendered Lightroom preview file from that
+identity's cache bucket; it does not ask Lightroom or Python to render a new
+photographic preview.
 
-`.lrdata` is never a writable target.
+`preview_size` is a minimum source-tier target and is currently 1440 px. An
+exact `_1440` tier wins; otherwise Python selects the smallest existing larger
+tier (for example `_1920`). A smaller cached tier is never silently substituted.
+If no adequate tier exists, preparation returns `PREVIEW_TIER_NOT_READY` and no
+immutable pass is admitted.
+
+The SHA-256 of the selected cached source render is stored as
+`source_preview_sha256`, and `source_preview_tier` records the selected tier.
+For `AB` orientation the durable package JPEG is byte-identical to that cached
+render. For supported rotated orientations (`BC`, `CD`, `DA`), only the durable
+package artifact is orientation-normalized; mirrored/unknown codes fail closed.
+The normalized package artifact receives its own byte/SHA/decode integrity
+evidence and feeds ordered contact sheets/index. Temporary SQLite snapshots are
+removed after package validation while durable package evidence remains.
+
+Legacy RootPixels extraction remains compatibility tooling only. `.lrdata` is
+never a writable target.
 
 ## Session/pass model
 
@@ -161,10 +173,9 @@ A confirmed non-converged pass ends at `RERENDER_REQUIRED`. The user later runs
 the next-pass preparation path, where Python must prove a fresh render
 generation before admitting previews.
 
-Freshness uses the raw Lightroom root-pixel SHA (`source_preview_sha256`) rather
+Freshness uses the selected Lightroom-rendered source preview SHA (`source_preview_sha256`) rather
 than the orientation-normalized package artifact SHA. Historical pre-WO-040
-manifests fall back to their `preview_sha256`, which was byte-identical to the
-raw root-pixel JPEG under the old extractor. This preserves existing session
+manifests fall back to their `preview_sha256`, which was byte-identical to the raw RootPixels JPEG under the old extractor. This preserves existing session
 lineage while preventing orientation normalization itself from being mistaken
 for a new Lightroom render.
 

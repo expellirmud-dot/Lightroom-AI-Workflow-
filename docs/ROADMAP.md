@@ -97,7 +97,7 @@ Current executed evidence:
 
 **Exit evidence:** fresh Lightroom session `sess-1788485733` produced 34/34 valid previews and 3 contact sheets; the Owner-uploaded sheets matched the runtime artifacts by SHA-256 and Controller visual inspection confirmed all 34 images in intended orientation. WO-040 is closed `LIVE_VERIFIED`.
 
-## Active post-MVP gate — WO-041
+## Pending live gate — WO-041
 
 **Goal:** make AI Exposure evaluation scene-complete without prescribing a fixed
 reasoning recipe, and make iterative state settlement match photographic truth.
@@ -124,8 +124,23 @@ the corrected algorithm addresses those exact conditions.
 
 **Remaining exit gate:** Owner reloads plug-in `1.2.11` and performs a
 representative Lightroom iterative run proving the new wait/re-audit/completion
-behavior. WO-041 remains ACTIVE and CAP-054 must not be promoted beyond
-INTEGRATED until that live proof exists.
+behavior. WO-041 is `AWAITING_OWNER_VALIDATION` and CAP-054 must not be promoted beyond INTEGRATED until that live proof exists.
+
+
+## Completed post-MVP evidence upgrade — WO-042
+
+**Goal:** stop feeding the vision AI the old ~320 px RootPixels artifact when Lightroom already has a larger rendered preview cached.
+
+WO-042 now resolves UUID + digest + orientation from the read-only cache identity, reuses exact 1440 when present or the smallest existing larger tier, and fails `PREVIEW_TIER_NOT_READY` rather than silently substituting a smaller preview. The selected cached render is fingerprinted before any required package-only orientation normalization.
+
+Executed real-cache proof on 2026-09-06 found 750 exact-1440 and 1,714 larger-fallback cache records. An isolated canonical preparation of the historical 34-image orientation set produced 34/34 previews from existing 1920 tiers, preserved the 26-landscape/8-portrait orientation result, and built three contact sheets without `.lrdata`, Catalog, original, or XMP mutation. CAP-055 is INTEGRATED.
+
+
+## Completed project-history/document cleanup — WO-043
+
+The repository now has a root `DEVELOPMENT_HISTORY.md` that explains the Work Order evolution without competing with current authority. Superseded duplicate evidence notes and historical sub-roadmaps were consolidated under `archive/legacy-docs/` with an explicit non-authoritative archive index. This is documentation governance only; it does not change runtime capability maturity.
+
+WO-041 therefore resumes as the current gate: Owner Lightroom validation of scene-complete iteration with plug-in 1.2.11.
 
 ## Post-MVP roadmap
 
@@ -144,7 +159,7 @@ WO-040 closed the preview-orientation correctness gap. The remaining directions 
 
 ## Next Work Order activation rule
 
-WO-041 is currently active. After its live exit gate closes, the Controller must identify the next Owner-selected
+WO-041 is the current live-validation gate. After its live exit gate closes, the Controller must identify the next Owner-selected
 post-MVP goal and state:
 
 1. which roadmap outcome it advances;
@@ -157,4 +172,4 @@ Order unless it is genuinely a new capability/boundary. Documentation truth
 mismatches are reconciled during the owning task's closeout. Post-MVP ideas stay
 in backlog until explicitly selected.
 
-Do not activate a second Work Order while WO-041 remains active. After WO-041 closes, keep `CURRENT_WORK_ORDER: NONE` until the next gate is explicitly selected.
+Do not run overlapping implementation Work Orders. WO-041 may remain parked only while an explicitly Owner-selected bounded task runs; afterward restore it as the current live-validation gate. After WO-041 closes, keep `CURRENT_WORK_ORDER: NONE` until the next gate is explicitly selected.

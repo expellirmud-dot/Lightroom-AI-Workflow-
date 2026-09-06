@@ -61,6 +61,7 @@ class ManifestEntry:
     preview_sha256: Optional[str] = None
     preview_orientation: Optional[str] = None
     source_preview_sha256: Optional[str] = None
+    source_preview_tier: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -245,6 +246,7 @@ def write_manifest(job_dir: Path, manifest: Manifest) -> Path:
                 "preview_sha256": e.preview_sha256,
                 "preview_orientation": e.preview_orientation,
                 "source_preview_sha256": e.source_preview_sha256,
+                "source_preview_tier": e.source_preview_tier,
             }
             for e in manifest.entries
         ],
@@ -307,6 +309,7 @@ def read_manifest(job_dir: Path) -> Manifest:
                     preview_sha256=item.get("preview_sha256"),
                     preview_orientation=item.get("preview_orientation"),
                     source_preview_sha256=item.get("source_preview_sha256"),
+                    source_preview_tier=(int(item["source_preview_tier"]) if item.get("source_preview_tier") is not None else None),
                 )
             )
         except (TypeError, ValueError) as exc:

@@ -66,6 +66,15 @@ fails so the owner receives a complete bounded report.
 - bounded SQLite integrity result;
 - eligible identity mapping totals and JPEG byte/header evidence.
 
+Since WO-042, canonical package preparation additionally requires an existing
+Lightroom-rendered preview tier at or above `preview_size` (1440 px target).
+The legacy WO-031 diagnostic does not yet inventory this per-image tier
+availability, so a diagnostic cache PASS does not guarantee package readiness.
+`Prepare AI Package` / `Prepare Next AI Package` remains authoritative and fails
+closed as `PREVIEW_TIER_NOT_READY` if an in-scope image has only smaller cached
+tiers. This condition means Lightroom needs the relevant Standard Preview built
+or refreshed; Python never writes the cache or manufactures a substitute.
+
 The live `.lrdata` is never written.
 
 ### Runtime / CLI / bridge

@@ -24,9 +24,9 @@ def _write_dummy_xmp(path: Path, exposure: float = 0.0) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def _jpeg_bytes() -> bytes:
+def _jpeg_bytes(width: int = 320, height: int = 213) -> bytes:
     output = io.BytesIO()
-    Image.new("RGB", (320, 213), (64, 128, 192)).save(output, format="JPEG", quality=85)
+    Image.new("RGB", (width, height), (64, 128, 192)).save(output, format="JPEG", quality=85)
     return output.getvalue()
 
 
@@ -57,6 +57,10 @@ def _make_dummy_preview_db(lrdata_dir: Path, uuid_val: str) -> None:
     conn_r.commit()
     conn_r.close()
 
+    bucket = lrdata_dir / uuid_val[:1] / uuid_val[:4]
+    bucket.mkdir(parents=True, exist_ok=True)
+    (bucket / f"{uuid_val}-digest_1_1440").write_bytes(_jpeg_bytes(1440, 960))
+
 
 def test_session_cli_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     runtime_dir = tmp_path / "runtime"
@@ -84,7 +88,7 @@ def test_session_cli_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
         "ai_model": "manual-agent",
         "minimum_apply_confidence": 0.8,
         "maximum_delta_ev": 1.0,
-        "preview_size": 2560,
+        "preview_size": 1440,
     }
     (config_dir / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
 

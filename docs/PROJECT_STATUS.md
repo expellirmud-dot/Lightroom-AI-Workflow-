@@ -3,7 +3,7 @@
 LAST_UPDATED: 2026-09-06
 PROJECT_PHASE: POST_MVP_PRODUCT_IMPROVEMENT
 CURRENT_WORK_ORDER: Work-Order/WO-041-SCENE-COMPLETE-EXPOSURE-ITERATION.md
-LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-040-PREVIEW-ORIENTATION-CORRECTNESS.md
+LATEST_COMPLETED_WORK_ORDER: Work-Order/WO-043-DEVELOPMENT-HISTORY-AND-DOC-ARCHIVE.md
 CURRENT_BRANCH: main; Git is authority for moving HEAD
 
 ## Current truth
@@ -30,7 +30,21 @@ decision validation, deterministic safety/convergence planning and render
 freshness checks. External AI has decision-only authority. The canonical route
 does not require XMP Save/Read Metadata synchronization.
 
-## Active gate — WO-041 scene-complete Exposure iteration
+
+## Completed evidence upgrade — WO-042 Standard Preview reuse
+
+The canonical package no longer uses the ~320 px RootPixels image as normal AI evidence. Python now resolves the Lightroom preview UUID + digest + orientation and copies an already-rendered cache tier with a 1440 px minimum target: exact 1440 if present, otherwise the smallest existing larger tier. Smaller-only caches return `PREVIEW_TIER_NOT_READY`; there is no silent fallback and no cache write/render request.
+
+Real read-only cache evidence inspected 5,845 records (750 exact 1440, 1,714 larger fallbacks). The representative 34-image historical orientation selection had adequate cached evidence for every image; isolated canonical preparation reused 34 existing 1920 renders, produced 34/34 package previews with 26 landscape + 8 portrait outputs and three contact sheets. CAP-055 is INTEGRATED.
+
+
+## Completed documentation reconciliation — WO-043
+
+Root `DEVELOPMENT_HISTORY.md` now records the Work Order chronology and major architecture phases without becoming current execution authority. Clearly superseded duplicate notes/plans were moved, not deleted, to `archive/legacy-docs/`; `archive/README.md` maps each archived artifact to its current authority. Canonical Work Orders remain under `Work-Order/`, and maintained status/capability/evidence documents remain under `docs/`.
+
+After this bounded documentation task, WO-041 resumes as the current Owner-live-validation gate.
+
+## Pending Owner live gate — WO-041 scene-complete Exposure iteration
 
 Owner testing selected a new post-MVP correctness gate after the technical MVP
 and WO-040 closure. The issue is not Catalog mutation safety; it is photographic
@@ -58,8 +72,7 @@ Read-only historical runtime inspection found `sess-1788499715` Pass 2 contained
 148/393 images (245 omitted) and recorded 13 stale hashes as photographic REVIEW.
 These are defect-discovery evidence only; historical runtime was not modified.
 
-**Current gate:** representative Owner-operated Lightroom validation with plug-in
-`1.2.11`. Until that passes, CAP-054 remains INTEGRATED and WO-041 remains ACTIVE.
+**Pending live gate:** representative Owner-operated Lightroom validation with plug-in `1.2.11`. Until that passes, CAP-054 remains INTEGRATED and WO-041 remains `AWAITING_OWNER_VALIDATION`.
 
 ## Completed post-MVP gate — WO-040 preview orientation correctness
 

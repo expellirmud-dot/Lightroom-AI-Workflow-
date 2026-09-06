@@ -36,6 +36,7 @@ creating another Work Order.
 | Document | Purpose | Read/update trigger |
 |---|---|---|
 | `AGENTS.md` | repository-wide governance, runtime invariants and anti-loop execution rules | every task; governance or workflow change |
+| `DEVELOPMENT_HISTORY.md` | root-level chronological Work Order/development ledger; historical context only | onboarding, archaeology, Work Order/history reconciliation |
 | `docs/ROADMAP.md` | current project phase, exit gates, post-MVP backlog and Work Order activation policy | planning, phase transition, new Work Order |
 | `docs/FOLDER_JOB_WORKFLOW.md` | canonical Exposure Session/pass lifecycle | workflow, plug-in, session, pass, AI handoff, render loop or apply change |
 | `docs/ARCHITECTURE.md` | components, ownership, data flow and IPC | architecture or integration change |
@@ -57,6 +58,8 @@ creating another Work Order.
 
 ## Placement rules
 
+- Development chronology / "which Work Order did what" → root `DEVELOPMENT_HISTORY.md` (historical context, never execution authority)
+- Superseded duplicate notes/roadmaps kept only for archaeology → `archive/legacy-docs/` with `archive/README.md` mapping
 - Project direction / phase / next gate → `docs/ROADMAP.md`
 - Current snapshot / blockers → `docs/PROJECT_STATUS.md`
 - Capability maturity → `docs/CAPABILITY_MATRIX.md`
@@ -69,7 +72,7 @@ creating another Work Order.
 - Durable rationale → `docs/DECISIONS.md`
 - Task scope/evidence → active Work Order
 
-Do not create duplicate status, roadmap, evidence or authority documents.
+Do not create duplicate status, roadmap, evidence or authority documents. Historical duplicates that must be preserved should be moved to `archive/legacy-docs/`, not left beside maintained authority.
 
 ## Work Order anti-loop check
 

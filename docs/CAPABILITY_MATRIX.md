@@ -28,7 +28,7 @@ Lightroom evidence is required for `LIVE_VERIFIED`.
 | ID | Capability | Status | Work Order | Current evidence / truth | Next gate |
 |---|---|---|---|---|---|
 | CAP-001 | Project configuration foundation | TESTED | WO-001, WO-029 | config/smoke history remains valid | maintain |
-| CAP-002 | Documentation governance | TESTED | WO-002..004, WO-039 | canonical governance reconciled through technical MVP closeout | maintain |
+| CAP-002 | Documentation governance | TESTED | WO-002..004, WO-039, WO-043 | root development ledger + non-authoritative legacy-doc archive now separate chronology from current authority | maintain |
 | CAP-003 | Job/package directory creation | INTEGRATED | WO-005, WO-029, WO-037 | durable job/session package creation covered by integration tests | maintain |
 | CAP-004 | Ordered image manifest | INTEGRATED | WO-005, WO-017, WO-029, WO-037 | identity/manifest contracts integrated into package workflow | maintain |
 | CAP-005 | Lightroom photo identity retrieval | LIVE_VERIFIED | WO-007, WO-026, WO-028, WO-037 | real Lightroom identity path used in live workflows | maintain |
@@ -76,6 +76,7 @@ Lightroom evidence is required for `LIVE_VERIFIED`.
 | CAP-052 | Catalog absolute-target apply + post-commit verification | LIVE_VERIFIED | WO-034, WO-039 | Gate A live: 21 existing absolute targets verified idempotently, PASS 303 / REVIEW 0, RERENDER_REQUIRED | maintain |
 | CAP-053 | Lightroom preview orientation-correct AI package evidence | LIVE_VERIFIED | WO-040 | fresh Lightroom session `sess-1788485733`: 34/34 valid previews, 26 landscape + 8 intended portrait outputs, 3 contact sheets; uploaded sheets match runtime SHA-256 and visual review confirms 34/34 intended orientation | maintain; AI judgment quality remains separate |
 | CAP-054 | Scene-complete Exposure evaluation and safe iteration settlement | INTEGRATED | WO-041 | focused/full/integration tests prove explicit scene outcomes, PASS=no-change, complete later-pass re-audit, scope-drift fail-closed, stale-rerender WAIT without REVIEW contamination, and all-PASS-only convergence; historical runtime reconciled read-only | Owner live Lightroom validation with plug-in 1.2.11 |
+| CAP-055 | Existing Lightroom Standard Preview tier reuse | INTEGRATED | WO-042 | exact-1440/smallest-larger selection, no smaller fallback, source-tier manifest evidence, full regression/integration gates, and real-cache read-only 34/34 package proof at 1920 | maintain; WO-041 live validation remains next user gate |
 
 ## Technical MVP evidence boundary
 

@@ -7,7 +7,12 @@ from datetime import datetime, timezone
 from lr_ai_exposure.job import create_job_directory, write_manifest, Manifest, ManifestEntry
 from lr_ai_exposure.cache_extractor import snapshot_cache_dbs, extract_batch
 
-def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) -> str:
+def handoff_job(
+    runtime_root: str,
+    lrdata_dir: str,
+    selection_json_path: str,
+    preview_size: int | None = None,
+) -> str:
     """
     Takes a selection.json written by Lightroom, creates a job directory,
     snapshots the cache, extracts the previews, and writes manifest.json.
@@ -61,7 +66,27 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
     out_dir = job_dir / "previews"
     identities = selection.get("photos", [])
 
-    results = extract_batch(identities, str(snapshot_dir), str(out_dir))
+    results = extract_batch(
+        identities,
+        str(snapshot_dir),
+        str(out_dir),
+        lrdata_dir=(lrdata_dir if preview_size is not None else None),
+        target_preview_size=(preview_size or 1440),
+    )
+    if preview_size is not None:
+        tier_not_ready = [
+            result for result in results
+            if result.get("status") == "PREVIEW_TIER_NOT_READY"
+        ]
+        if tier_not_ready:
+            examples = ", ".join(
+                str(item.get("id_local")) for item in tier_not_ready[:8]
+            )
+            raise RuntimeError(
+                "PREVIEW_TIER_NOT_READY: Lightroom has no cached preview at or above "
+                f"{preview_size}px for {len(tier_not_ready)} image(s). Example IDs: {examples}. "
+                "No smaller RootPixels preview was substituted."
+            )
 
     # Build manifest entries
     entries = []
@@ -114,7 +139,10 @@ def handoff_job(runtime_root: str, lrdata_dir: str, selection_json_path: str) ->
             extraction_status=status,
             uuid=res.get("uuid"),
             preview_bytes=preview_bytes,
-            preview_sha256=preview_sha256
+            preview_sha256=preview_sha256,
+            preview_orientation=res.get("orientation"),
+            source_preview_sha256=res.get("source_preview_sha256"),
+            source_preview_tier=res.get("source_preview_tier"),
         )
         entries.append(entry)
 

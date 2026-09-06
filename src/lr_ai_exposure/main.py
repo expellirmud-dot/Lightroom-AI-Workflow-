@@ -270,6 +270,7 @@ def _run_handoff(
         str(runtime_dir),
         str(lrdata_path),
         str(selection_path),
+        preview_size=int(settings["preview_size"]),
     )
     job_dir = runtime_dir / "jobs" / job_id
     manifest = read_manifest(job_dir)
@@ -477,6 +478,7 @@ def main(argv: list[str] | None = None) -> int:
                 session_id=args.session_id,
                 pass_number=1,
                 project_root=root,
+                target_preview_size=int(settings["preview_size"]),
             )
             job_id = session_info["session_id"]
         except Exception as exc:
@@ -515,6 +517,7 @@ def main(argv: list[str] | None = None) -> int:
                 pass_number=args.pass_number,
                 parent_pass_id=args.parent_pass_id,
                 project_root=root,
+                target_preview_size=int(settings["preview_size"]),
             )
             job_id = session_info["session_id"]
         except Exception as exc:

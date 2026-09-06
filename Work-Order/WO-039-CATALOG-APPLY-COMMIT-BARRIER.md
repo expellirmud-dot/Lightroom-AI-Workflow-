@@ -71,7 +71,7 @@ Owner-authorized closeout reconciliation scope:
 - `.agents/skills/batch-consistency-review/SKILL.md`
 - `.agents/skills/image-relevance-triage/SKILL.md`
 - `.agents/skills/visual-quality-safety/SKILL.md`
-- `Work-Order/ROADMAP-WO-015-TO-WO-020.md`
+- `archive/legacy-docs/ROADMAP-WO-015-TO-WO-020.md`
 - `README.md`
 - `Work-Order/CURRENT_WORK_ORDER.md`
 - this Work Order
@@ -176,7 +176,7 @@ change required for closure:
 - `docs/AI_JUDGE_CONTRACT.md`
 - the four bundled visual skill entrypoints
 - `README.md`
-- historical `Work-Order/ROADMAP-WO-015-TO-WO-020.md`
+- historical `archive/legacy-docs/ROADMAP-WO-015-TO-WO-020.md`
 
 ## Closeout result
 

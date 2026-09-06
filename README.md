@@ -7,27 +7,17 @@ from external AI execution.
 
 ## Current status
 
-The project is in **MVP closure / Lightroom live certification**.
+The technical Exposure-only MVP is closed. The project is in **post-MVP product improvement**.
 
-The explicit package/session workflow, contact-sheet pipeline and WO-039 Catalog
-commit barrier are implemented and CI-certified. A representative live session
-already reached a 324-image decision/apply stage, and Lightroom was later
-observed holding the 21 requested absolute `Exposure2012` targets. That live run
-also exposed the pre-WO-039 defect: verification occurred too early inside the
-same Lightroom write callback and read stale values.
+Completed post-MVP evidence upgrades include:
 
-WO-039 moves verification after the write callback, bounds the polling window,
-makes retry idempotent and prevents technical verification failures from being
-converted into photographic REVIEW. GitHub Actions run #91 passed on Windows
-Python 3.12 and 3.13.
+- WO-040: Lightroom preview orientation correctness, LIVE_VERIFIED on a 34-image package;
+- WO-042: canonical AI packages now reuse existing Lightroom-rendered cache tiers with a 1440 px minimum target (exact 1440, otherwise smallest larger tier), CAP-055 INTEGRATED;
+- WO-043: root development history and documentation archive reconciliation.
 
-The remaining gate is owner-operated: re-run Import/Apply on the affected
-session, prove the 21 targets without a second delta, reach
-`PASS=303 / REVIEW=0 / RERENDER_REQUIRED`, then prove a fresh next package after
-Lightroom rerenders. Do not claim the complete iterative loop `LIVE_VERIFIED`
-until that succeeds.
+The current gate is WO-041. CAP-054 is INTEGRATED and waits for Owner-operated Lightroom validation with plug-in version `1.2.11`: stale adjusted previews must wait without becoming photographic REVIEW, the next accepted pass must re-audit the complete frozen image set, and `SESSION_COMPLETE` must mean every image is PASS.
 
-See `docs/ROADMAP.md` for the closure gate and post-MVP direction.
+See `docs/ROADMAP.md` for the current gate and post-MVP direction. For a chronological record of which Work Order introduced each capability, see root `DEVELOPMENT_HISTORY.md`. Superseded duplicate notes are preserved under `archive/legacy-docs/` and are non-authoritative.
 
 ## Canonical Lightroom workflow
 
@@ -37,7 +27,7 @@ Lightroom: Diagnose Current Folder (optional/readiness)
 Lightroom: Prepare AI Package
 → capture source-folder/image identity + current Catalog Exposure2012
 → Python snapshots Previews.lrdata read-only
-→ extract/validate Lightroom-rendered JPEG previews
+→ reuse/validate an existing Lightroom-rendered 1440-or-larger cache tier
 → build ordered 4×4 contact sheets + index
 → save immutable manifest + task + skills + schema + previews
 → remove temporary cache DB snapshots after package validation
@@ -77,10 +67,7 @@ preset/Develop baseline. Those previews live in `Previews.lrdata`, not in the
 `.lrcat` file itself.
 
 The plug-in does not query SQLite or decode `.lrdata`. It supplies stable
-Lightroom identity and current Catalog `Exposure2012` to Python. Python snapshots
-the preview cache read-only, maps those identities to cached previews, validates
-the JPEGs, builds ordered contact sheets/index, and stores the durable evidence
-in the pass package. Temporary snapshot DBs are removed after package validation.
+Lightroom identity and current Catalog `Exposure2012` to Python. Python snapshots the preview-cache identity databases read-only, resolves UUID + digest + orientation, and reuses an existing Lightroom-rendered cache tier at or above `preview_size` (1440 px target). Exact 1440 wins; otherwise the smallest existing larger tier is used. A smaller-only cache returns `PREVIEW_TIER_NOT_READY` rather than silently feeding AI the old ~320 px RootPixels image. Python then validates the package JPEGs, builds ordered contact sheets/index, and stores durable source-tier/hash evidence in the pass package. Temporary snapshot DBs are removed after package validation.
 
 Responsibilities remain separated:
 

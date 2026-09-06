@@ -25,7 +25,7 @@ guarded Catalog `Exposure2012` apply.
 
 The Lightroom plug-in never stays alive waiting for AI.
 
-## Active post-MVP gate — WO-041
+## Current live-validation gate — WO-041
 
 WO-041 changes iteration semantics without changing the provider-neutral or
 Catalog-authoritative architecture:
@@ -42,8 +42,7 @@ Catalog-authoritative architecture:
   session with `SESSION_SCOPE_CHANGED` and requires a new session;
 - `SESSION_COMPLETE` requires every frozen-session image to be photographic PASS.
 
-Plug-in metadata for this behavior is version `1.2.11`. The Work Order remains
-ACTIVE until representative Lightroom live validation is completed.
+Plug-in metadata for this behavior is version `1.2.11`. The Work Order is `AWAITING_OWNER_VALIDATION`; CAP-054 remains INTEGRATED until representative Lightroom live validation is completed.
 
 ## User workflow
 
@@ -84,13 +83,17 @@ The Prepare command owns only the Lightroom-side capture boundary:
 Python then:
 
 - snapshots preview-cache SQLite databases read-only;
-- maps Lightroom identities to cached previews;
-- extracts Lightroom-rendered JPEG bytes and resolves the same cache record's
-  orientation (`AB`/`BC`/`CD`/`DA` for the supported non-mirrored rotations);
-- preserves a SHA-256 fingerprint of the raw `RootPixels` JPEG for render
-  freshness, then normalizes only the durable package JPEG to Lightroom display
-  orientation;
-- validates normalized preview byte/SHA/Pillow evidence and records raw-render plus normalized-artifact hashes in the manifest; orientation is consumed during deterministic extraction;
+- resolves the exact `ImageCacheEntry` UUID + digest + orientation record;
+- reuses an existing Lightroom-rendered cache tier at or above the configured
+  `preview_size` (1440 px target): exact 1440 first, otherwise the smallest
+  existing larger tier; no new render/downscale is created;
+- returns `PREVIEW_TIER_NOT_READY` instead of silently falling back to a smaller
+  RootPixels image when adequate cached evidence is absent;
+- preserves a SHA-256 fingerprint and tier number of the selected cached render,
+  then normalizes only the durable package JPEG when Lightroom orientation
+  (`BC`/`CD`/`DA`) requires rotation; `AB` is copied byte-for-byte;
+- validates package preview byte/SHA/Pillow evidence and records source-render
+  plus package-artifact evidence in the manifest;
 - builds ordered 4×4 contact sheets from those normalized durable previews and
   writes `contact-sheet-index.json`;
 - writes manifest, task, bundled skills, decision schema, pass state and
@@ -182,9 +185,7 @@ A later pass may run only when:
 
 The command captures current Catalog `Exposure2012` and invokes the existing
 next-pass preparation path. Python enforces render freshness before accepting a
-new preview generation. Since WO-040, freshness compares the raw Lightroom
-root-pixel fingerprint rather than the orientation-normalized package artifact
-hash, preventing a rotation/re-encode from falsely proving a rerender.
+new preview generation. Freshness compares the selected Lightroom-rendered source preview fingerprint rather than the orientation-normalized package artifact hash, preventing a rotation/re-encode from falsely proving a rerender.
 Stale/unproven rendering fails closed.
 
 Successful later-pass preparation ends at `PACKAGE_READY`. External AI again
@@ -215,7 +216,9 @@ Technical runtime/apply/verification failures are not REVIEW decisions.
 
 ## Current terminal gate
 
-No preview-orientation gate remains. WO-040 closed on fresh Lightroom session `sess-1788485733` with 34/34 valid previews and visual confirmation across all three contact sheets:
+WO-040 preview orientation and WO-042 Standard Preview cache reuse are closed at their supported evidence levels. The current terminal gate is WO-041 Owner Lightroom validation with plug-in 1.2.11: prove `WAITING_FOR_RERENDER` does not become REVIEW, later passes re-audit the complete frozen image set, and `SESSION_COMPLETE` appears only when every image is PASS.
+
+Historical WO-040 live proof used fresh Lightroom session `sess-1788485733` with 34/34 valid previews and visual confirmation across all three contact sheets:
 
 ```text
 read-only ImageCacheEntry orientation reconciliation

@@ -62,8 +62,9 @@ direction.
 - Extracted JPEGs are Lightroom-rendered evidence, not replacement renderings.
 - Python creates immutable ordered 4×4 contact sheets/index from validated
   previews before external AI handoff.
-- The current RootPixels extractor remains the selected source; the authorized
-  forensic check found only the 320px JPEG payload in those snapshots.
+- Canonical packages reuse an existing Lightroom-rendered cache tier. The minimum target is `preview_size=1440`; exact 1440 wins, otherwise the smallest existing larger tier. Smaller-only cache evidence fails as `PREVIEW_TIER_NOT_READY` rather than silently falling back to RootPixels.
+- `source_preview_sha256` fingerprints the selected cached source render and `source_preview_tier` records its tier. `AB` is copied byte-for-byte; only required orientation normalization changes the durable package artifact.
+- RootPixels extraction remains compatibility tooling, not the canonical AI evidence source.
 - Contact sheets are context-first exposure input. The current MVP must not use
   the small previews for culling, blur/focus/sharpness/relevance decisions.
 - Temporary cache DB snapshots are deleted only after package validation;

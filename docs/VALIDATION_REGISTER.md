@@ -175,6 +175,26 @@ Automated/integrated evidence supports CAP-054 at `INTEGRATED` only. Representat
 Lightroom Classic validation with plug-in version `1.2.11` is still required for
 `LIVE_VERIFIED` and WO-041 closure.
 
+
+### WO-042 — Standard Preview cache reuse (complete / integrated)
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-147 | 2026-09-06 | Standard-preview focused/regression tests + full pytest + integration + config smoke + compileall | PASS locally: focused tier/orientation/manifest set 30 tests across direct/legacy regressions; full suite exit 0 with 2 expected skips; integration 6/6; config reports `preview_size=1440`; compileall exit 0 |
+| VLD-148 | 2026-09-06 | Read-only real `ToTo Previews.lrdata` tier inventory and scratch-copy proof | 5,845 cache records inspected without mutation: 750 exact `_1440`, 1,714 larger eligible fallbacks, 3,381 smaller-only/not-ready; sampled `_1440` copied to runtime scratch as valid `1440x961` JPEG and source SHA-256 remained unchanged; real 1920 fallback also observed |
+| VLD-149 | 2026-09-06 | Isolated canonical `prepare_session_pass()` using historical 34-image `sess-1788485733` selection + current live cache, target 1440 | PASS / INTEGRATED read-only evidence: 34/34 FOUND, all selected existing `_1920` tiers, minimum package long edge 1920, 26 landscape + 8 portrait after established orientation normalization, 3 contact sheets; no Lightroom/Catalog/original/XMP/cache mutation |
+
+WO-042 supports CAP-055 at `INTEGRATED`. It proves reuse of existing Lightroom-rendered Standard Preview-class evidence without generating a new preview or writing `.lrdata`; no separate Lightroom-hosted mutation proof is required for this read-only capability.
+
+
+### WO-043 — Development history and documentation archive (complete / documented)
+
+| ID | Date | Evidence | Result / scope |
+|---|---|---|---|
+| VLD-150 | 2026-09-06 | Root development-ledger coverage + archive/reference audit + final full pytest + `git diff --check` | PASS: `DEVELOPMENT_HISTORY.md` covers all 45 distinct numbered Work Order IDs currently present; 8 clearly superseded duplicate/history files preserved under `archive/legacy-docs/`; stale old-location reference scan returned none; final full pytest exit 0 with 2 expected skips; diff check exit 0 |
+
+WO-043 changes documentation placement/governance only. It does not promote runtime or Lightroom capability maturity. WO-041 resumes as the current `AWAITING_OWNER_VALIDATION` gate.
+
 ## Technical MVP evidence boundary — CLOSED
 
 The combined executed evidence now covers the representative live boundary

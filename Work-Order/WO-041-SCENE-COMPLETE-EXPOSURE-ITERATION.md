@@ -1,6 +1,6 @@
 # WO-041 — Scene-Complete Exposure Judgment & Iteration Safety
 
-STATUS: ACTIVE
+STATUS: AWAITING_OWNER_VALIDATION
 ACTIVATED: 2026-09-06
 
 ## Trigger
@@ -29,13 +29,14 @@ For one frozen Lightroom source-folder session, ensure that:
 ## Current truth
 
 - Technical MVP remains complete; WO-040 is closed LIVE_VERIFIED.
-- No Work Order was active when this Owner-selected post-MVP gate was activated.
-- Current `SinglePassDecision` has per-image `scene_group_id` / `is_reference`, but no explicit absolute scene-exposure verdict.
-- Pass >1 selection currently narrows to prior `ADJUST` images plus PASS references, which can exclude prior PASS images from re-audit.
-- Render freshness currently mutates stale/unproven `ADJUST` images into photographic `REVIEW`.
-- Convergence currently treats `PASS` and `REVIEW` as settled, allowing `is_converged=true` with unresolved photographic REVIEW.
+- WO-041 implementation is INTEGRATED and awaits Owner Lightroom live validation.
+- `SinglePassDecision` now carries explicit absolute scene exposure verdict/signal fields; PASS means evaluated no-change.
+- Later accepted passes re-audit the complete frozen session set rather than only prior ADJUST/reference images.
+- Stale/unproven rerender evidence now returns a technical wait/block and does not mutate photographic REVIEW state.
+- Convergence is true only when every frozen-session image is PASS.
 - `runtime/` is ignored by Git and remains local session evidence.
-- Lightroom plug-in metadata currently reports version 1.2.0 build 1.
+- Lightroom plug-in metadata/reported version is 1.2.11 build 1.
+- WO-042 subsequently upgraded canonical AI visual evidence to existing 1440-or-larger Lightroom-rendered cache tiers without changing the WO-041 Lightroom command contract.
 
 ## Authorized scope
 
@@ -161,4 +162,4 @@ Stop for Controller/Owner review if the fix requires changing Lightroom's author
 
 ## Completion state
 
-Remain ACTIVE until automated/integration evidence is green and the Owner performs the representative Lightroom live exit gate. Automated completion alone supports at most INTEGRATED for the new capability.
+Remain AWAITING_OWNER_VALIDATION until the Owner performs the representative Lightroom live exit gate. CAP-054 remains INTEGRATED. Owner-selected WO-042/WO-043 side work is complete; this Work Order has resumed as the current live-validation gate.

@@ -253,6 +253,7 @@ def prepare_session_pass(
     pass_number: int = 1,
     parent_pass_id: str | None = None,
     project_root: Path | None = None,
+    target_preview_size: int | None = None,
 ) -> dict[str, Any]:
     runtime_path = Path(runtime_directory).resolve()
     lrdata_path = Path(lrdata_dir).resolve()
@@ -305,7 +306,29 @@ def prepare_session_pass(
     snapshot_cache_dbs(str(lrdata_path), str(snapshot_dir))
 
     previews_out_dir = pass_dir / "previews"
-    extract_results = extract_batch(in_scope_photos, str(snapshot_dir), str(previews_out_dir))
+    extract_results = extract_batch(
+        in_scope_photos,
+        str(snapshot_dir),
+        str(previews_out_dir),
+        lrdata_dir=(str(lrdata_path) if target_preview_size is not None else None),
+        target_preview_size=(target_preview_size or 1440),
+    )
+    if target_preview_size is not None:
+        tier_not_ready = [
+            result for result in extract_results
+            if result.get("status") == "PREVIEW_TIER_NOT_READY"
+        ]
+        if tier_not_ready:
+            shutil.rmtree(pass_dir, ignore_errors=True)
+            examples = ", ".join(
+                str(item.get("id_local")) for item in tier_not_ready[:8]
+            )
+            raise SessionError(
+                "PREVIEW_TIER_NOT_READY: Lightroom has no cached preview at or above "
+                f"{target_preview_size}px for {len(tier_not_ready)} image(s). "
+                f"Example IDs: {examples}. Build/refresh Standard Previews in Lightroom "
+                "and retry; no smaller RootPixels preview was substituted and no pass was admitted."
+            )
 
     entries: list[ManifestEntry] = []
     total_found = 0
@@ -349,6 +372,7 @@ def prepare_session_pass(
                 preview_sha256=preview_sha256,
                 preview_orientation=res.get("orientation"),
                 source_preview_sha256=res.get("source_preview_sha256"),
+                source_preview_tier=res.get("source_preview_tier"),
             )
         )
 
