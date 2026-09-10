@@ -1497,13 +1497,19 @@ def extract_and_measure_production_fresh_previews(
             raw.get("source_preview_sha256"),
             f"fresh extraction {image_id}.source_preview_sha256",
         )
-        preview_paths[image_id] = Path(str(output))
+        output_path = Path(str(output))
+        try:
+            preview_sha = hashlib.sha256(output_path.read_bytes()).hexdigest()
+        except OSError as exc:
+            raise ProductionJobError(f"fresh extracted preview is unreadable for image {image_id}: {exc}") from exc
+        preview_paths[image_id] = output_path
         extract_results.append(
             {
                 "image_id": image_id,
                 "status": "FOUND",
                 "source_preview_tier": tier,
                 "source_preview_sha256": source_sha,
+                "preview_sha256": preview_sha,
                 "output": str(output),
                 "orientation": raw.get("orientation"),
             }
@@ -1519,9 +1525,9 @@ def extract_and_measure_production_fresh_previews(
     by_id = {item["image_id"]: item for item in extract_results}
     for measured in items:
         image_id = measured["image_id"]
-        source_sha = str(measured["source_preview_sha256"])
-        if source_sha != by_id[image_id]["source_preview_sha256"]:
-            raise ProductionJobError(f"fresh measurement source SHA mismatch for image {image_id}")
+        measured_sha = str(measured["source_preview_sha256"])
+        if measured_sha != by_id[image_id]["preview_sha256"]:
+            raise ProductionJobError(f"fresh measurement preview SHA mismatch for image {image_id}")
 
     record = {
         "protocol_version": PROTOCOL_VERSION,
