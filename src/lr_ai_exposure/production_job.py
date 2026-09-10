@@ -69,7 +69,7 @@ _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
 _GROUP_STATUSES = frozenset(
     {"REFERENCE_SELECTED", "TARGETS_SELECTED", "NO_CLEAR_REFERENCE", "MIXED_LIGHTING", "UNCERTAIN"}
 )
-_MEMBER_VERDICTS = frozenset({"AUTO", "UNRESOLVED"})
+_MEMBER_VERDICTS = frozenset({"AUTO", "NO_CHANGE", "UNRESOLVED"})
 _TERMINAL_IMAGE_STATUSES = frozenset({"ADJUSTED", "NO_CHANGE", "UNRESOLVED"})
 _REASON_CLASSES = frozenset({"PHOTOGRAPHIC", "TECHNICAL", "SAFETY"})
 
@@ -851,33 +851,31 @@ def visual_semantics_json_schema() -> dict[str, Any]:
 
 
 def _production_task_text(*, job_id: str, source_folder: str, image_count: int) -> str:
-    return f"""# AI Exposure Assist — Reference-Free Visual Targets
+    return f"""# AI Exposure Assist — Visual Semantics
 
 Job: `{job_id}`
 Source folder: `{source_folder}`
 Images: `{image_count}`
 
-Your role is visual target selection only. Do not choose a master/reference exposure.
-For every image, inspect its sheet under `reference-free-brackets/`. Each panel is
-identified only by an opaque candidate ID such as `c00`, `c01`, ... . Select the
-photographically best candidate for that image while preserving intentional high-key,
-low-key, backlight/silhouette intent and avoiding unnecessary highlight loss.
+Your role is visual semantics only. Inspect the contact sheets and:
+- group images that belong to the same shot / lighting condition;
+- choose the best-looking image in each confident group as `reference_image_id`;
+- mark images that already look photographically correct as `NO_CHANGE`;
+- mark images that should be deterministically matched to the group reference as `AUTO`;
+- use `UNRESOLVED` with a short reason when photographic intent is genuinely ambiguous.
 
-Output rules:
-- group images only for contextual consistency;
-- use group status `TARGETS_SELECTED` with `reference_image_id: null`;
-- mark assignable group members `AUTO` and provide `target_candidate_id` for each confident member;
-- optionally provide `acceptable_candidate_ids` when multiple neighboring choices are acceptable;
-- use `UNRESOLVED` with a short reason when photographic intent is genuinely ambiguous;
-- every input image ID must appear exactly once.
+Use group status `REFERENCE_SELECTED` when a trustworthy reference exists. Use
+`NO_CLEAR_REFERENCE`, `MIXED_LIGHTING`, or `UNCERTAIN` when it does not. Every input
+image ID must appear exactly once.
 
-Candidate IDs are opaque visual choices. Do **not** output numeric EV, Exposure2012,
-brightness targets, deltas, or mutation instructions. Python owns candidate mapping,
-renderer calibration, safety gates, and all Lightroom numeric authority. The AI has no
-Lightroom/Catalog/XMP mutation authority.
+Do **not** output numeric EV, Exposure2012, brightness targets, deltas, candidate EVs,
+or mutation instructions. Python owns all measurement, deterministic Exposure math,
+safety bounds, and Lightroom numeric authority. The AI has no Lightroom/Catalog/XMP
+mutation authority.
 
 Write output matching `visual-semantics-schema.json` to `visual-semantics-input.json`.
 """
+
 
 
 def _read_json_object(path: Path, label: str) -> dict[str, Any]:
@@ -1005,7 +1003,6 @@ def prepare_production_package(
         previews = validate_extracted_previews(job_dir, manifest)
         contact_index = build_contact_sheets(job_dir, previews)
         validate_contact_sheet_package(job_dir, manifest)
-        reference_free_package = build_reference_free_target_package(job_dir, manifest)
     except Exception as exc:
         update_production_job_state(
             job_dir,
@@ -1030,8 +1027,6 @@ def prepare_production_package(
         manifest_path="manifest.json",
         contact_sheet_index=str(Path(contact_index).relative_to(job_dir)),
         visual_semantics_schema="visual-semantics-schema.json",
-        reference_free_targets="reference-free-target-candidates.json",
-        reference_free_target_count=len(reference_free_package["items"]),
         ai_task="AI_TASK.md",
     )
     return {
@@ -1868,6 +1863,15 @@ def build_production_plan(
                     "pre_apply_status": "UNRESOLVED",
                     "reason_class": "PHOTOGRAPHIC",
                     "reason_code": member["reason"],
+                }
+            elif verdict == "NO_CHANGE":
+                item = {
+                    **common,
+                    "pre_apply_status": "NO_CHANGE",
+                    "validated_delta_ev": 0.0,
+                    "target_exposure2012": baseline,
+                    "reason_class": "PHOTOGRAPHIC",
+                    "reason_code": "VISUAL_NO_CHANGE",
                 }
             elif verdict == "AUTO":
                 target_candidate_id = member.get("target_candidate_id")

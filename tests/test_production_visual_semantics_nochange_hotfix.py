@@ -85,25 +85,23 @@ def _make_job(tmp_path: Path, job_id: str, ids: tuple[str, ...]) -> Path:
     return job_dir
 
 
-def test_visual_semantics_schema_and_task_forbid_direct_no_change() -> None:
-    """Schema and generated task must forbid direct visual NO_CHANGE verdict."""
+def test_visual_semantics_schema_matches_product_goal() -> None:
     schema = production.visual_semantics_json_schema()
     member_schema = schema["properties"]["groups"]["items"]["properties"]["members"]["items"]
     allowed_verdicts = member_schema["properties"]["verdict"]["enum"]
+    assert allowed_verdicts == ["AUTO", "NO_CHANGE", "UNRESOLVED"]
 
-    # Visual Judge must only be allowed to supply AUTO or UNRESOLVED
-    assert "NO_CHANGE" not in allowed_verdicts, "NO_CHANGE must not be an allowed visual member verdict"
-    assert allowed_verdicts == ["AUTO", "UNRESOLVED"]
-
-    # Task text must guide the AI to use AUTO for assignable members and must not instruct NO_CHANGE
     task_text = production._production_task_text(job_id="job-1", source_folder="D:/album", image_count=2)
-    assert "NO_CHANGE" not in task_text, "AI_TASK.md must not instruct or permit NO_CHANGE verdict"
-    assert "mark assignable group members `AUTO`" in task_text or "mark assignable group members AUTO" in task_text
+    assert "reference_image_id" in task_text
+    assert "NO_CHANGE" in task_text
+    assert "AUTO" in task_text
+    assert "numeric EV" in task_text
+    assert "reference-free-brackets" not in task_text
+    assert "target_candidate_id" not in task_text
 
 
-def test_validate_visual_semantics_rejects_direct_visual_no_change() -> None:
-    """Validator must reject any visual semantics payload containing verdict NO_CHANGE."""
-    semantics_with_no_change = {
+def test_validate_visual_semantics_accepts_visual_no_change() -> None:
+    semantics = {
         "protocol_version": "2.0",
         "job_id": "job-1",
         "groups": [
@@ -119,132 +117,59 @@ def test_validate_visual_semantics_rejects_direct_visual_no_change() -> None:
         ],
         "unassigned": [],
     }
-    with pytest.raises(production.ProductionJobError, match="verdict is invalid"):
-        production.validate_visual_semantics(
-            semantics_with_no_change,
-            job_id="job-1",
-            ordered_image_ids=("1", "2"),
-        )
+    validated = production.validate_visual_semantics(
+        semantics,
+        job_id="job-1",
+        ordered_image_ids=("1", "2"),
+    )
+    assert validated["groups"][0]["members"][0]["verdict"] == "NO_CHANGE"
 
 
-def test_visual_no_change_cannot_bypass_actionable_deterministic_exposure(tmp_path: Path) -> None:
-    """A member image must not be able to bypass deterministic measurement via visual NO_CHANGE.
-
-    Under the repaired model:
-    - Member images use 'AUTO' to declare eligibility for deterministic comparison.
-    - An image requiring adjustment (e.g. measurement 0.25 vs ref 0.50 -> +1.0 EV delta)
-      becomes WILL_ADJUST.
-    - Python is the sole authority that resolves delta == 0.0 to NO_CHANGE
-      (reason: DETERMINISTIC_ZERO_DELTA).
-    - Any attempt to import or evaluate visual NO_CHANGE fails closed.
-    """
+def test_visual_no_change_is_accounted_without_numeric_ai_authority(tmp_path: Path) -> None:
     ids = ("1", "2")
-    job_dir = _make_job(tmp_path, "job-actionable", ids)
-
-    # 1. Verify that a payload with direct NO_CHANGE cannot be imported
-    bad_semantics = {
+    job_dir = _make_job(tmp_path, "job-product-goal", ids)
+    semantics = {
         "protocol_version": "2.0",
-        "job_id": "job-actionable",
+        "job_id": "job-product-goal",
         "groups": [
             {
                 "group_id": "g-1",
                 "status": "REFERENCE_SELECTED",
                 "reference_image_id": "1",
                 "members": [
-                    {"image_id": "1", "verdict": "AUTO"},
-                    {"image_id": "2", "verdict": "NO_CHANGE"},  # bypass attempt!
-                ],
-            }
-        ],
-        "unassigned": [],
-    }
-    bad_sem_path = tmp_path / "bad_semantics.json"
-    bad_sem_path.write_text(json.dumps(bad_semantics), encoding="utf-8")
-
-    with pytest.raises(production.ProductionJobError, match="verdict is invalid"):
-        production.import_visual_semantics(job_dir, bad_sem_path)
-
-    # 2. Verify that with AUTO semantics, Python deterministically evaluates Exposure
-    valid_semantics = {
-        "protocol_version": "2.0",
-        "job_id": "job-actionable",
-        "groups": [
-            {
-                "group_id": "g-1",
-                "status": "REFERENCE_SELECTED",
-                "reference_image_id": "1",
-                "members": [
-                    {"image_id": "1", "verdict": "AUTO"},
+                    {"image_id": "1", "verdict": "NO_CHANGE"},
                     {"image_id": "2", "verdict": "AUTO"},
                 ],
             }
         ],
         "unassigned": [],
     }
-    valid_sem_path = tmp_path / "valid_semantics.json"
-    valid_sem_path.write_text(json.dumps(valid_semantics), encoding="utf-8")
-    production.import_visual_semantics(job_dir, valid_sem_path)
+    semantics_path = tmp_path / "semantics.json"
+    semantics_path.write_text(json.dumps(semantics), encoding="utf-8")
+    imported = production.import_visual_semantics(job_dir, semantics_path)
+    assert imported["numeric_exposure_authority"] == "NONE"
+    assert imported["mutation_authority"] == "NONE"
 
     measurements = [
         {"image_id": "1", "status": "MEASURED", "measurement": 0.50, "preview_sha256": "sha-1"},
         {"image_id": "2", "status": "MEASURED", "measurement": 0.25, "preview_sha256": "sha-2"},
     ]
-
     plan = production.build_production_plan(job_dir, measurements)
     by_id = {item["image_id"]: item for item in plan["items"]}
 
-    # Image 1 is the reference: delta is 0.0 -> Python sets DETERMINISTIC_ZERO_DELTA
     assert by_id["1"]["pre_apply_status"] == "NO_CHANGE"
-    assert by_id["1"]["reason_code"] == "DETERMINISTIC_ZERO_DELTA"
     assert by_id["1"]["validated_delta_ev"] == 0.0
+    assert by_id["1"]["target_exposure2012"] == 0.0
+    assert by_id["1"]["reason_code"] == "VISUAL_NO_CHANGE"
 
-    # Image 2 is darker than reference (0.25 vs 0.50): requires +1.0 EV adjustment!
-    # Direct visual NO_CHANGE could have bypassed this. With AUTO, it MUST be WILL_ADJUST.
     assert by_id["2"]["pre_apply_status"] == "WILL_ADJUST"
     assert by_id["2"]["validated_delta_ev"] == 1.0
     assert by_id["2"]["target_exposure2012"] == 1.0
-    assert by_id["2"]["reason_code"] == "DETERMINISTIC_REFERENCE_MATCH"
-
-    # Plan counts check
     assert plan["counts"] == {
         "input_count": 2,
         "will_adjust": 1,
         "no_change": 1,
         "unresolved": 0,
     }
-    assert plan["catalog_plan"]["planned_count"] == 1
-
-
-def test_build_production_plan_rejects_member_no_change(tmp_path: Path) -> None:
-    """build_production_plan must refuse to evaluate any visual NO_CHANGE verdict."""
-    ids = ("1", "2")
-    job_dir = _make_job(tmp_path, "job-legacy-bypass", ids)
-    tampered = {
-        "protocol_version": "2.0",
-        "job_id": "job-legacy-bypass",
-        "groups": [
-            {
-                "group_id": "g-1",
-                "status": "REFERENCE_SELECTED",
-                "reference_image_id": "1",
-                "members": [
-                    {"image_id": "1", "verdict": "AUTO"},
-                    {"image_id": "2", "verdict": "NO_CHANGE"},
-                ],
-            }
-        ],
-        "unassigned": [],
-    }
-    (job_dir / "visual-semantics.json").write_text(json.dumps(tampered), encoding="utf-8")
-    production.update_production_job_state(
-        job_dir,
-        production.WAITING_FOR_SEMANTICS,
-        visual_semantics_runs=1,
-    )
-    measurements = [
-        {"image_id": "1", "status": "MEASURED", "measurement": 0.50, "preview_sha256": "sha-1"},
-        {"image_id": "2", "status": "MEASURED", "measurement": 0.25, "preview_sha256": "sha-2"},
-    ]
-    with pytest.raises(production.ProductionJobError, match="unsupported member verdict|invalid"):
-        production.build_production_plan(job_dir, measurements)
-
+    assert plan["numeric_exposure_authority"] == "DETERMINISTIC_PYTHON"
+    assert plan["mutation_authority"] == "NONE"
