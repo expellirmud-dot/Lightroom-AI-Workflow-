@@ -17,8 +17,10 @@ Canonical production workflows:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Any
 
@@ -45,12 +47,80 @@ from lr_ai_exposure.job_lifecycle import (
     resolve_saved_job,
     update_job_state,
 )
-from lr_ai_exposure.session import load_session, resolve_session_dir, SessionError
+from lr_ai_exposure.session import (
+    SessionError,
+    build_session_policy,
+    load_session,
+    resolve_session_dir,
+)
 from lr_ai_exposure.session_lifecycle import (
     prepare_session_pass,
     analyze_session_pass,
     apply_session_pass,
 )
+from lr_ai_exposure.workflow_state import resolve_workflow_state
+from lr_ai_exposure.session_retention import (
+    build_production_job_retention_report,
+    build_retention_report,
+)
+from lr_ai_exposure.hybrid_folder import load_hybrid_analysis
+from lr_ai_exposure.hybrid_exposure import YoloHsvSkinMeter
+from lr_ai_exposure.hybrid_session import freeze_hybrid_session_pass
+from lr_ai_exposure.production_job import (
+    build_production_baseline_measurements,
+    build_production_plan,
+    extract_and_measure_production_fresh_previews,
+    confirm_production_catalog_apply,
+    confirm_production_residual_apply,
+    import_visual_semantics,
+    prepare_production_package,
+    resolve_production_workflow_state,
+    verify_production_adjusted_renders,
+    verify_production_residual_renders,
+)
+
+PRODUCTION_FACE_MODEL = Path("models/yolov8n-face.pt")
+PRODUCTION_FACE_MODEL_SHA256 = "D17B38523A994B13EE604B67F02791CA0F43B9F446A32FD7BC44E17C56EAD077"
+PRODUCTION_FACE_CONFIDENCE = 0.55
+PRODUCTION_FACE_IOU = 0.45
+PRODUCTION_FACE_IMAGE_SIZE = 1024
+PRODUCTION_MIN_SKIN_PIXELS = 50
+
+
+def _package_version(package: str) -> str:
+    try:
+        return importlib_metadata.version(package)
+    except importlib_metadata.PackageNotFoundError:
+        return "NOT_INSTALLED"
+
+
+def _production_measurement_provenance(
+    *,
+    model_path: Path,
+    model_sha256: str,
+    meter: Any,
+) -> dict[str, Any]:
+    meter_provenance = getattr(meter, "provenance", None)
+    if not isinstance(meter_provenance, dict):
+        meter_provenance = {}
+    return {
+        "backend": "YOLO_FACE_PLUS_HSV_SKIN",
+        "model_path": PRODUCTION_FACE_MODEL.as_posix(),
+        "model_sha256": model_sha256,
+        "resolved_model_path": str(model_path),
+        "confidence": PRODUCTION_FACE_CONFIDENCE,
+        "iou": PRODUCTION_FACE_IOU,
+        "image_size": PRODUCTION_FACE_IMAGE_SIZE,
+        "min_skin_pixels": PRODUCTION_MIN_SKIN_PIXELS,
+        "selected_device": str(meter_provenance.get("device", "UNKNOWN")),
+        "dependency_versions": {
+            "torch": _package_version("torch"),
+            "ultralytics": _package_version("ultralytics"),
+            "opencv-python": _package_version("opencv-python"),
+            "opencv-python-headless": _package_version("opencv-python-headless"),
+            "Pillow": _package_version("Pillow"),
+        },
+    }
 
 
 def _write_bridge_result(out_path: Path | None, payload: dict[str, Any]) -> None:
@@ -159,6 +229,91 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Path to Lightroom Previews.lrdata directory (prepare/legacy/session routes).",
     )
+    parser.add_argument(
+        "--workflow-status",
+        action="store_true",
+        help="Resolve the read-only next workflow action for one Lightroom source folder.",
+    )
+    parser.add_argument(
+        "--source-folder",
+        type=Path,
+        help="Active Lightroom source folder for workflow status operations.",
+    )
+    parser.add_argument(
+        "--prepare-production-job",
+        action="store_true",
+        help="Prepare one Minimal Production job/package; no Catalog mutation.",
+    )
+    parser.add_argument(
+        "--production-workflow-status",
+        action="store_true",
+        help="Resolve the owner-facing state for the Minimal Production one-job route.",
+    )
+    parser.add_argument(
+        "--production-retention-report",
+        action="store_true",
+        help="Print a read-only dry-run runtime production-job retention report; never deletes files.",
+    )
+    parser.add_argument(
+        "--import-production-semantics",
+        metavar="JOB_ID",
+        help="Import exactly one semantic-only visual result for a production job.",
+    )
+    parser.add_argument(
+        "--visual-semantics",
+        type=Path,
+        help="Visual-semantics JSON for --import-production-semantics.",
+    )
+    parser.add_argument(
+        "--build-production-plan",
+        metavar="JOB_ID",
+        help="Build the deterministic one-job Exposure plan from measurement results.",
+    )
+    parser.add_argument(
+        "--measurements",
+        type=Path,
+        help="Deterministic measurement-results JSON for --build-production-plan.",
+    )
+    parser.add_argument(
+        "--confirm-production-apply",
+        metavar="JOB_ID",
+        help="Confirm exact CatalogApplyBarrier evidence for the initial production apply.",
+    )
+    parser.add_argument(
+        "--confirm-production-residual-apply",
+        metavar="JOB_ID",
+        help="Confirm exact CatalogApplyBarrier evidence for the one residual apply.",
+    )
+    parser.add_argument(
+        "--catalog-apply-evidence",
+        type=Path,
+        help="CatalogApplyBarrier result JSON for production apply confirmation.",
+    )
+    parser.add_argument(
+        "--measure-production-fresh-previews",
+        metavar="JOB_ID",
+        help="Extract and measure fresh Lightroom previews for the exact adjusted subset only.",
+    )
+    parser.add_argument(
+        "--verify-production-renders",
+        metavar="JOB_ID",
+        help="Verify fresh renders for the initially adjusted subset only.",
+    )
+    parser.add_argument(
+        "--verify-production-residual-renders",
+        metavar="JOB_ID",
+        help="Perform the final fresh-render verification for the residual subset only.",
+    )
+    parser.add_argument(
+        "--fresh-measurements",
+        type=Path,
+        help="Canonical fixed-ROI fresh measurement JSON for production verification.",
+    )
+    parser.add_argument(
+        "--session-retention-report",
+        action="store_true",
+        help="Print a read-only dry-run runtime session retention report; never deletes files.",
+    )
 
     # Iterative Exposure Session routes
     parser.add_argument(
@@ -185,6 +340,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--session-status",
         action="store_true",
         help="Inspect current state and convergence progress of an exposure session.",
+    )
+    parser.add_argument(
+        "--import-hybrid-session-pass",
+        action="store_true",
+        help="Validate/freeze an exact WO-049 hybrid analysis into an existing session pass; no Lightroom mutation.",
+    )
+    parser.add_argument(
+        "--hybrid-analysis",
+        type=Path,
+        help="Path to the durable hybrid-analysis JSON for --import-hybrid-session-pass.",
     )
     parser.add_argument(
         "--session-id",
@@ -217,12 +382,27 @@ def _select_mode(args: argparse.Namespace) -> str:
 
 
 def _select_operation(args: argparse.Namespace) -> str:
+    production_ops = [
+        bool(args.prepare_production_job),
+        bool(args.production_workflow_status),
+        bool(args.production_retention_report),
+        bool(args.import_production_semantics),
+        bool(args.build_production_plan),
+        bool(args.measure_production_fresh_previews),
+        bool(args.confirm_production_apply),
+        bool(args.confirm_production_residual_apply),
+        bool(args.verify_production_renders),
+        bool(args.verify_production_residual_renders),
+    ]
     session_ops = [
+        bool(args.session_retention_report),
+        bool(args.workflow_status),
         bool(args.start_session),
         bool(args.prepare_session_pass),
         bool(args.analyze_session_pass),
         bool(args.apply_session_pass),
         bool(args.session_status),
+        bool(args.import_hybrid_session_pass),
     ]
     prepared_ops = [
         bool(args.diagnose_current_folder),
@@ -230,11 +410,35 @@ def _select_operation(args: argparse.Namespace) -> str:
         bool(args.process_job),
         bool(args.apply_job),
     ]
-    if sum(session_ops) + sum(prepared_ops) > 1:
+    if sum(production_ops) + sum(session_ops) + sum(prepared_ops) > 1:
         raise ConfigError("Requested operations are mutually exclusive")
-    if (any(session_ops) or any(prepared_ops)) and (args.analyze_only or args.apply):
+    if (any(production_ops) or any(session_ops) or any(prepared_ops)) and (args.analyze_only or args.apply):
         raise ConfigError("Structured operations cannot be combined with legacy --analyze-only/--apply")
 
+    if args.prepare_production_job:
+        return "PREPARE_PRODUCTION_JOB"
+    if args.production_workflow_status:
+        return "PRODUCTION_WORKFLOW_STATUS"
+    if args.production_retention_report:
+        return "PRODUCTION_RETENTION_REPORT"
+    if args.import_production_semantics:
+        return "IMPORT_PRODUCTION_SEMANTICS"
+    if args.build_production_plan:
+        return "BUILD_PRODUCTION_PLAN"
+    if args.measure_production_fresh_previews:
+        return "MEASURE_PRODUCTION_FRESH_PREVIEWS"
+    if args.confirm_production_apply:
+        return "CONFIRM_PRODUCTION_APPLY"
+    if args.verify_production_renders:
+        return "VERIFY_PRODUCTION_RENDERS"
+    if args.confirm_production_residual_apply:
+        return "CONFIRM_PRODUCTION_RESIDUAL_APPLY"
+    if args.verify_production_residual_renders:
+        return "VERIFY_PRODUCTION_RESIDUAL_RENDERS"
+    if args.session_retention_report:
+        return "SESSION_RETENTION_REPORT"
+    if args.workflow_status:
+        return "WORKFLOW_STATUS"
     if args.start_session:
         return "START_SESSION"
     if args.prepare_session_pass:
@@ -243,6 +447,8 @@ def _select_operation(args: argparse.Namespace) -> str:
         return "ANALYZE_SESSION_PASS"
     if args.apply_session_pass:
         return "APPLY_SESSION_PASS"
+    if args.import_hybrid_session_pass:
+        return "IMPORT_HYBRID_SESSION_PASS"
     if args.session_status:
         return "SESSION_STATUS"
     if args.diagnose_current_folder:
@@ -342,6 +548,18 @@ def _validate_prepare_inputs(args: argparse.Namespace) -> tuple[Path, Path]:
     if not lrdata_path.is_dir():
         raise ConfigError(f"lrdata directory not found at {lrdata_path}")
     return selection_path, lrdata_path
+
+
+def _build_production_policy(settings: dict[str, Any]) -> dict[str, float]:
+    # 0.05 EV quantum and Lightroom Exposure2012 -5/+5 bounds are already used
+    # by the repository's Hybrid deterministic proof tests. The per-image maximum
+    # remains the current owner configuration value rather than a worker-proposed limit.
+    return {
+        "quantum_ev": 0.05,
+        "maximum_delta_ev": float(settings["maximum_delta_ev"]),
+        "minimum_exposure2012": -5.0,
+        "maximum_exposure2012": 5.0,
+    }
 
 
 def _write_run_log(
@@ -466,6 +684,369 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2))
         return 0
 
+    # WO-053 Minimal Production one-job routes. These are non-mutating until the
+    # separate Lightroom Catalog apply command is explicitly introduced/proven.
+    if operation == "PRODUCTION_WORKFLOW_STATUS":
+        mode = operation
+        if not args.source_folder:
+            return _fail("--source-folder is required for --production-workflow-status")
+        try:
+            workflow = resolve_production_workflow_state(runtime_dir, args.source_folder)
+            if workflow.get("job_id"):
+                job_id = str(workflow["job_id"])
+            if workflow.get("job_dir"):
+                job_dir = Path(str(workflow["job_dir"]))
+        except Exception as exc:
+            return _fail(f"Production workflow status failed: {exc}")
+        result = _result_payload(
+            "ok",
+            workflow_state=workflow.get("owner_state"),
+            next_action=workflow.get("next_action"),
+            workflow_error=workflow.get("error"),
+            production_job_ids=workflow.get("job_ids", []),
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "PRODUCTION_RETENTION_REPORT":
+        mode = operation
+        try:
+            retention = build_production_job_retention_report(runtime_dir)
+        except Exception as exc:
+            return _fail(f"Production Retention Report failed: {exc}")
+        result = _result_payload(
+            "ok",
+            production_retention_report=retention,
+            job_count=retention["job_count"],
+            eligible_count=retention["eligible_count"],
+            protected_count=retention["protected_count"],
+            total_bytes=retention["total_bytes"],
+            eligible_bytes=retention["eligible_bytes"],
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "PREPARE_PRODUCTION_JOB":
+        mode = operation
+        try:
+            selection_path, lrdata_path = _validate_prepare_inputs(args)
+            prepared = prepare_production_package(
+                runtime_directory=runtime_dir,
+                lrdata_dir=lrdata_path,
+                selection_json_path=selection_path,
+                preview_size=int(settings["preview_size"]),
+                policy=_build_production_policy(settings),
+            )
+            job_id = str(prepared["job_id"])
+            job_dir = Path(str(prepared["job_dir"]))
+        except Exception as exc:
+            return _fail(f"Prepare production job failed: {exc}")
+        result = _result_payload(
+            "ok",
+            workflow_state=prepared["owner_state"],
+            internal_state=prepared["state"],
+            next_action=prepared["next_action"],
+            source_folder=prepared["source_folder"],
+            total_images=prepared["total_images"],
+            mutation_authority=prepared["mutation_authority"],
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "IMPORT_PRODUCTION_SEMANTICS":
+        mode = operation
+        job_id = str(args.import_production_semantics)
+        job_dir = runtime_dir / "jobs" / job_id
+        if not job_dir.is_dir():
+            return _fail(f"Production job not found: {job_id}")
+        if not args.visual_semantics:
+            return _fail("--visual-semantics is required for --import-production-semantics")
+        semantics_path = args.visual_semantics.resolve()
+        if not semantics_path.is_file():
+            return _fail(f"Visual semantics file not found: {semantics_path}")
+        try:
+            imported = import_visual_semantics(job_dir, semantics_path)
+        except Exception as exc:
+            return _fail(f"Import production semantics failed: {exc}")
+        result = _result_payload(
+            "ok",
+            workflow_state="ANALYZING",
+            next_action="BUILD_DETERMINISTIC_PLAN",
+            covered_image_ids=imported["covered_image_ids"],
+            mutation_authority=imported["mutation_authority"],
+            numeric_exposure_authority=imported.get("numeric_exposure_authority", "NONE"),
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "BUILD_PRODUCTION_PLAN":
+        mode = operation
+        job_id = str(args.build_production_plan)
+        job_dir = runtime_dir / "jobs" / job_id
+        if not job_dir.is_dir():
+            return _fail(f"Production job not found: {job_id}")
+        try:
+            if args.measurements:
+                measurement_payload = json.loads(args.measurements.resolve().read_text(encoding="utf-8"))
+                if not isinstance(measurement_payload, dict) or not isinstance(measurement_payload.get("items"), list):
+                    raise ValueError("measurement file must contain an items array")
+            else:
+                # Product numeric authority is provider-neutral robust scene luminance.
+                # Face/skin detection is no longer a production admission dependency.
+                measurement_payload = build_production_baseline_measurements(
+                    job_dir,
+                    meter=None,
+                    canonical_long_edge=int(settings["preview_size"]),
+                    min_skin_pixels=PRODUCTION_MIN_SKIN_PIXELS,
+                    measurement_provenance={
+                        "backend": "ROBUST_SCENE_LUMINANCE",
+                        "crop_fraction": 0.10,
+                        "trim_fraction": 0.05,
+                        "highlight_clip_threshold": 245,
+                    },
+                )
+            plan = build_production_plan(job_dir, measurement_payload["items"])
+        except Exception as exc:
+            return _fail(f"Build production plan failed: {exc}")
+        extra: dict[str, Any] = {
+            "workflow_state": plan.get("workflow_state", "READY_TO_APPLY"),
+            "next_action": plan.get("next_action", "APPLY_EXPOSURE"),
+            "input_count": plan["counts"]["input_count"],
+            "will_adjust": plan["counts"]["will_adjust"],
+            "no_change": plan["counts"]["no_change"],
+            "unresolved": plan["counts"]["unresolved"],
+            "planned_count": plan["catalog_plan"]["planned_count"],
+            "exposure_plan": str(job_dir / "exposure-plan.json"),
+            "mutation_authority": plan["mutation_authority"],
+            "numeric_exposure_authority": plan.get(
+                "numeric_exposure_authority", "DETERMINISTIC_PYTHON"
+            ),
+        }
+        final = plan.get("final_accounting")
+        if isinstance(final, dict) and isinstance(final.get("counts"), dict):
+            final_counts = final["counts"]
+            extra.update(
+                adjusted=final_counts.get("adjusted"),
+                no_change=final_counts.get("no_change"),
+                unresolved=final_counts.get("unresolved"),
+                invariant_verified=final_counts.get("invariant_verified"),
+            )
+        result = _result_payload("ok", **extra)
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "CONFIRM_PRODUCTION_APPLY":
+        mode = operation
+        job_id = str(args.confirm_production_apply)
+        job_dir = runtime_dir / "jobs" / job_id
+        if not job_dir.is_dir():
+            return _fail(f"Production job not found: {job_id}")
+        if not args.catalog_apply_evidence:
+            return _fail("--catalog-apply-evidence is required for --confirm-production-apply")
+        catalog_evidence_path = args.catalog_apply_evidence.resolve()
+        try:
+            confirmed = confirm_production_catalog_apply(job_dir, catalog_evidence_path)
+        except Exception as exc:
+            return _fail(f"Confirm production Catalog apply failed: {exc}")
+        result = _result_payload(
+            "ok",
+            workflow_state="VERIFYING",
+            next_action="VERIFY_ADJUSTED_RENDERS",
+            verified_count=confirmed["verified_count"],
+            verified_image_ids=confirmed["verified_image_ids"],
+            mutation_authority=confirmed.get("mutation_authority", "NONE"),
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "MEASURE_PRODUCTION_FRESH_PREVIEWS":
+        mode = operation
+        job_id = str(args.measure_production_fresh_previews)
+        job_dir = runtime_dir / "jobs" / job_id
+        if not job_dir.is_dir():
+            return _fail(f"Production job not found: {job_id}")
+        if not args.lrdata:
+            return _fail("--lrdata is required for --measure-production-fresh-previews")
+        try:
+            from lr_ai_exposure.production_job import load_production_job_state, VERIFYING_RENDERS, VERIFYING_RESIDUAL
+
+            job_state = load_production_job_state(job_dir)
+            if job_state["state"] == VERIFYING_RENDERS:
+                expected = [str(value) for value in job_state.get("applied_verified_image_ids", [])]
+            elif job_state["state"] == VERIFYING_RESIDUAL:
+                expected = [str(value) for value in job_state.get("residual_verified_image_ids", [])]
+            else:
+                expected = []
+            measured = extract_and_measure_production_fresh_previews(
+                job_dir,
+                lrdata_dir=args.lrdata.resolve(),
+                expected_image_ids=expected,
+                target_preview_size=int(settings["preview_size"]),
+            )
+        except Exception as exc:
+            return _fail(f"Measure production fresh previews failed: {exc}")
+        result = _result_payload(
+            "ok",
+            workflow_state="VERIFYING",
+            next_action="VERIFY_ADJUSTED_RENDERS"
+            if measured.get("verification_scope") == "ADJUSTED_ONLY"
+            else "VERIFY_RESIDUAL_RENDER",
+            fresh_measurements=str(job_dir / "fresh-measurements.json"),
+            measured_count=len(measured.get("items", [])),
+            measured_image_ids=measured.get("ordered_image_ids", []),
+            mutation_authority=measured.get("mutation_authority", "NONE"),
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "VERIFY_PRODUCTION_RENDERS":
+        mode = operation
+        job_id = str(args.verify_production_renders)
+        job_dir = runtime_dir / "jobs" / job_id
+        if not job_dir.is_dir():
+            return _fail(f"Production job not found: {job_id}")
+        if not args.fresh_measurements:
+            return _fail("--fresh-measurements is required for --verify-production-renders")
+        try:
+            payload = json.loads(args.fresh_measurements.resolve().read_text(encoding="utf-8"))
+            if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+                raise ValueError("fresh measurement file must contain an items array")
+            verified = verify_production_adjusted_renders(job_dir, payload["items"])
+        except Exception as exc:
+            return _fail(f"Verify production adjusted renders failed: {exc}")
+        extra = {
+            "workflow_state": verified["owner_state"],
+            "next_action": verified.get("next_action"),
+            "residual_planned_count": verified.get("residual_planned_count", 0),
+            "residual_image_ids": verified.get("residual_image_ids", []),
+            "mutation_authority": verified.get("mutation_authority", "NONE"),
+        }
+        final = verified.get("final_accounting")
+        if isinstance(final, dict) and isinstance(final.get("counts"), dict):
+            counts = final["counts"]
+            extra.update(
+                input_count=counts.get("input_count"),
+                adjusted=counts.get("adjusted"),
+                no_change=counts.get("no_change"),
+                unresolved=counts.get("unresolved"),
+                invariant_verified=counts.get("invariant_verified"),
+            )
+        result = _result_payload("ok", **extra)
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "CONFIRM_PRODUCTION_RESIDUAL_APPLY":
+        mode = operation
+        job_id = str(args.confirm_production_residual_apply)
+        job_dir = runtime_dir / "jobs" / job_id
+        if not job_dir.is_dir():
+            return _fail(f"Production job not found: {job_id}")
+        if not args.catalog_apply_evidence:
+            return _fail("--catalog-apply-evidence is required for --confirm-production-residual-apply")
+        try:
+            confirmed = confirm_production_residual_apply(
+                job_dir, args.catalog_apply_evidence.resolve()
+            )
+        except Exception as exc:
+            return _fail(f"Confirm production residual apply failed: {exc}")
+        result = _result_payload(
+            "ok",
+            workflow_state="VERIFYING",
+            next_action="VERIFY_RESIDUAL_RENDER",
+            verified_count=confirmed["verified_count"],
+            verified_image_ids=confirmed["verified_image_ids"],
+            mutation_authority=confirmed.get("mutation_authority", "NONE"),
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "VERIFY_PRODUCTION_RESIDUAL_RENDERS":
+        mode = operation
+        job_id = str(args.verify_production_residual_renders)
+        job_dir = runtime_dir / "jobs" / job_id
+        if not job_dir.is_dir():
+            return _fail(f"Production job not found: {job_id}")
+        if not args.fresh_measurements:
+            return _fail("--fresh-measurements is required for --verify-production-residual-renders")
+        try:
+            payload = json.loads(args.fresh_measurements.resolve().read_text(encoding="utf-8"))
+            if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+                raise ValueError("fresh measurement file must contain an items array")
+            verified = verify_production_residual_renders(job_dir, payload["items"])
+        except Exception as exc:
+            return _fail(f"Verify production residual renders failed: {exc}")
+        counts = verified["final_accounting"]["counts"]
+        result = _result_payload(
+            "ok",
+            workflow_state=verified["owner_state"],
+            next_action=verified.get("next_action"),
+            input_count=counts["input_count"],
+            adjusted=counts["adjusted"],
+            no_change=counts["no_change"],
+            unresolved=counts["unresolved"],
+            invariant_verified=counts["invariant_verified"],
+            retry_budget_exhausted=verified.get("retry_budget_exhausted", True),
+            mutation_authority=verified.get("mutation_authority", "NONE"),
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "SESSION_RETENTION_REPORT":
+        mode = "SESSION_RETENTION_REPORT"
+        try:
+            retention = build_retention_report(runtime_dir)
+        except Exception as exc:
+            return _fail(f"Session Retention Report failed: {exc}")
+        result = _result_payload(
+            "ok",
+            retention_report=retention,
+            session_count=retention["session_count"],
+            eligible_count=retention["eligible_count"],
+            protected_count=retention["protected_count"],
+            total_bytes=retention["total_bytes"],
+            eligible_bytes=retention["eligible_bytes"],
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    # Read-only state-aware operator routing.
+    if operation == "WORKFLOW_STATUS":
+        mode = "WORKFLOW_STATUS"
+        if not args.source_folder:
+            return _fail("--source-folder is required for --workflow-status")
+        try:
+            workflow = resolve_workflow_state(runtime_dir, args.source_folder)
+            pointer = workflow.get("pointer")
+            if isinstance(pointer, dict) and pointer.get("session_id"):
+                job_id = str(pointer["session_id"])
+            elif workflow.get("session_id"):
+                job_id = str(workflow["session_id"])
+        except Exception as exc:
+            return _fail(f"Workflow Status failed: {exc}")
+        result = _result_payload(
+            "ok",
+            workflow_state=workflow.get("state"),
+            next_action=workflow.get("next_action"),
+            session_id=workflow.get("session_id"),
+            pointer=workflow.get("pointer"),
+            workflow_error=workflow.get("error"),
+            session_ids=workflow.get("session_ids", []),
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
     # Iterative Exposure Session operations
     if operation == "START_SESSION":
         mode = "START_SESSION"
@@ -479,6 +1060,7 @@ def main(argv: list[str] | None = None) -> int:
                 pass_number=1,
                 project_root=root,
                 target_preview_size=int(settings["preview_size"]),
+                session_policy=build_session_policy(settings),
             )
             job_id = session_info["session_id"]
         except Exception as exc:
@@ -536,6 +1118,45 @@ def main(argv: list[str] | None = None) -> int:
             render_barrier=session_info.get("render_barrier", {}),
             total_selected=session_info["total_selected"],
             total_found=session_info["total_found"],
+        )
+        _write_bridge_result(args.bridge_result, result)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if operation == "IMPORT_HYBRID_SESSION_PASS":
+        mode = f"IMPORT_HYBRID_SESSION_PASS_{args.pass_number}"
+        if not args.session_id:
+            return _fail("--session-id is required for --import-hybrid-session-pass")
+        if not args.hybrid_analysis:
+            return _fail("--hybrid-analysis is required for --import-hybrid-session-pass")
+        try:
+            session_dir = resolve_session_dir(runtime_dir, args.session_id)
+            state = load_session(session_dir)
+            if args.pass_number < 1 or args.pass_number > len(state.passes):
+                raise SessionError(
+                    f"Pass number {args.pass_number} not found in session {args.session_id}"
+                )
+            pass_id = state.passes[args.pass_number - 1]
+            pass_dir = session_dir / "passes" / f"{args.pass_number:04d}-{pass_id}"
+            manifest = read_manifest(pass_dir)
+            analysis = load_hybrid_analysis(args.hybrid_analysis.resolve())
+            frozen = freeze_hybrid_session_pass(pass_dir, manifest, state, analysis)
+            job_id = args.session_id
+            decision_count = int(frozen["decision_count"])
+            decisions_path = str(frozen["ai_decisions"])
+            evidence_path = str(frozen["hybrid_analysis"])
+        except Exception as exc:
+            return _fail(f"Import Hybrid Session Pass failed: {exc}")
+
+        result = _result_payload(
+            "ok",
+            session_id=args.session_id,
+            pass_number=args.pass_number,
+            pass_id=pass_id,
+            decision_count=decision_count,
+            hybrid_analysis=evidence_path,
+            ai_decisions=decisions_path,
+            mutation_authority="NONE",
         )
         _write_bridge_result(args.bridge_result, result)
         print(json.dumps(result, indent=2))
