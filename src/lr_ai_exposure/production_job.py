@@ -602,6 +602,8 @@ def resolve_production_workflow_state(
         return _owner_route_for(job_dir, job)
 
     _, job_dir, job = max(matching, key=lambda item: (item[0], str(item[1])))
+    if job["state"] == ABORTED:
+        return {"owner_state": "READY", "next_action": "START_ANALYSIS", "job_id": None, "job_dir": None}
     return _owner_route_for(job_dir, job)
 
 
