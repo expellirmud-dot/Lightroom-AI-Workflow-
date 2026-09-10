@@ -125,3 +125,20 @@ def test_no_face_scene_measurement_drives_reference_plan_and_fresh_verification(
     )
     assert result[0]["measurement_kind"] == "ROBUST_SCENE_LUMINANCE"
     assert result[0]["observed_measurement"] > measurements["items"][0]["measurement"]
+
+
+def test_fresh_verification_validator_accepts_robust_scene_measurement() -> None:
+    from lr_ai_exposure.production_job import _validate_fresh_measurement_subset
+
+    result = _validate_fresh_measurement_subset(
+        ["img-1"],
+        [
+            {
+                "image_id": "img-1",
+                "measurement_kind": "ROBUST_SCENE_LUMINANCE",
+                "source_preview_sha256": "abc",
+                "observed_measurement": 0.5,
+            }
+        ],
+    )
+    assert result["img-1"]["measurement_kind"] == "ROBUST_SCENE_LUMINANCE"

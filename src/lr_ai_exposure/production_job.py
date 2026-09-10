@@ -2446,9 +2446,13 @@ def _validate_fresh_measurement_subset(
         image_id = _require_nonempty_string(raw.get("image_id"), f"fresh measurement {index}.image_id")
         observed_ids.append(image_id)
         measurement_kind = raw.get("measurement_kind")
-        if measurement_kind not in {"CANONICAL_FIXED_ROI", "CANONICAL_FIXED_ROI_MEDIAN"}:
+        if measurement_kind not in {
+            "ROBUST_SCENE_LUMINANCE",
+            "CANONICAL_FIXED_ROI",
+            "CANONICAL_FIXED_ROI_MEDIAN",
+        }:
             raise ProductionJobError(
-                f"fresh measurement {image_id} must use CANONICAL_FIXED_ROI or CANONICAL_FIXED_ROI_MEDIAN"
+                f"fresh measurement {image_id} must use ROBUST_SCENE_LUMINANCE, CANONICAL_FIXED_ROI, or CANONICAL_FIXED_ROI_MEDIAN; got {measurement_kind!r}"
             )
         source_sha = _require_nonempty_string(
             raw.get("source_preview_sha256"),
