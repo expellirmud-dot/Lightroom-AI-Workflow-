@@ -19,6 +19,7 @@ CONTACT_SHEET_CAPACITY = CONTACT_SHEET_COLUMNS * CONTACT_SHEET_ROWS
 CONTACT_SHEET_TILE_WIDTH = 320
 CONTACT_SHEET_TILE_HEIGHT = 240
 CONTACT_SHEET_INDEX_NAME = "contact-sheet-index.json"
+CONTACT_SHEETS_PER_REVIEW_ROUND = 1
 
 
 class ContactSheetError(RuntimeError):
@@ -71,6 +72,24 @@ def _atomic_write_json(path: Path, payload: object) -> None:
     temp_path = path.with_suffix(path.suffix + ".tmp")
     temp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(temp_path, path)
+
+
+def _build_review_rounds(sheet_count: int) -> list[dict[str, object]]:
+    """Partition sheets into deterministic, bounded visual-review rounds."""
+    return [
+        {
+            "round_number": round_number,
+            "sheet_numbers": list(
+                range(
+                    start + 1,
+                    min(start + CONTACT_SHEETS_PER_REVIEW_ROUND, sheet_count) + 1,
+                )
+            ),
+        }
+        for round_number, start in enumerate(
+            range(0, sheet_count, CONTACT_SHEETS_PER_REVIEW_ROUND), 1
+        )
+    ]
 
 
 def build_contact_sheets(pass_dir: Path, previews: list[ValidatedPreview]) -> Path:
@@ -126,10 +145,12 @@ def build_contact_sheets(pass_dir: Path, previews: list[ValidatedPreview]) -> Pa
     _atomic_write_json(
         index_path,
         {
-            "version": 1,
+            "version": 2,
             "columns": CONTACT_SHEET_COLUMNS,
             "rows": CONTACT_SHEET_ROWS,
             "capacity": CONTACT_SHEET_CAPACITY,
+            "review_round_size": CONTACT_SHEETS_PER_REVIEW_ROUND,
+            "review_rounds": _build_review_rounds(len(sheet_records)),
             "sheets": sheet_records,
         },
     )
@@ -199,11 +220,17 @@ def validate_contact_sheet_package(pass_dir: Path, manifest: Manifest) -> dict[s
     expected_sheet_count = (len(found) + CONTACT_SHEET_CAPACITY - 1) // CONTACT_SHEET_CAPACITY
     if len(sheets) != expected_sheet_count:
         raise ContactSheetError("Contact-sheet count is invalid")
+    if payload.get("version") == 2:
+        if payload.get("review_round_size") != CONTACT_SHEETS_PER_REVIEW_ROUND:
+            raise ContactSheetError("Contact-sheet review round size is invalid")
+        if payload.get("review_rounds") != _build_review_rounds(len(sheets)):
+            raise ContactSheetError("Contact-sheet review rounds are invalid")
     return payload
 
 
 __all__ = [
     "CONTACT_SHEET_INDEX_NAME",
+    "CONTACT_SHEETS_PER_REVIEW_ROUND",
     "ContactSheetError",
     "ValidatedPreview",
     "build_contact_sheets",
