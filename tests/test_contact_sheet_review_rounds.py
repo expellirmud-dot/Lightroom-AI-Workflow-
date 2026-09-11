@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from PIL import Image
 
 from lr_ai_exposure.contact_sheets import ValidatedPreview, build_contact_sheets
+from lr_ai_exposure.production_job import _production_task_text
 
 
 def _preview(tmp_path: Path, seq: int) -> ValidatedPreview:
@@ -33,3 +34,10 @@ def test_contact_sheet_index_bounds_visual_review_to_one_sheet_per_round(tmp_pat
         {"round_number": 2, "sheet_numbers": [2]},
         {"round_number": 3, "sheet_numbers": [3]},
     ]
+
+
+def test_production_task_requires_one_overview_contact_sheet_per_round() -> None:
+    task = _production_task_text(job_id="job-1", source_folder="C:/photos", image_count=33)
+
+    assert "exactly one overview contact sheet per review round" in task.lower()
+    assert "complete and persist that round's semantic decisions before opening the next" in task.lower()
