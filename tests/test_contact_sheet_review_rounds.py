@@ -38,6 +38,7 @@ def test_contact_sheet_index_bounds_visual_review_to_one_sheet_per_round(tmp_pat
 
 def test_production_task_requires_one_overview_contact_sheet_per_round() -> None:
     task = _production_task_text(job_id="job-1", source_folder="C:/photos", image_count=33)
+    normalized_task = " ".join(task.lower().split())
 
-    assert "exactly one overview contact sheet per review round" in task.lower()
-    assert "complete and persist that round's semantic decisions before opening the next" in task.lower()
+    assert "exactly one overview contact sheet per review round" in normalized_task
+    assert "complete and persist that round's semantic decisions before opening the next" in normalized_task
