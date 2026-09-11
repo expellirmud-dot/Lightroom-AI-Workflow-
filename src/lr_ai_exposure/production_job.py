@@ -859,6 +859,10 @@ Job: `{job_id}`
 Source folder: `{source_folder}`
 Images: `{image_count}`
 
+Review exactly one overview contact sheet per review round, following `review_rounds`
+in `contact-sheet-index.json`. Complete and persist that round's semantic decisions
+before opening the next; do not preload or judge later rounds.
+
 Your role is visual semantics only. Inspect the contact sheets and:
 - group images that belong to the same shot / lighting condition;
 - choose the best-looking image in each confident group as `reference_image_id`;
