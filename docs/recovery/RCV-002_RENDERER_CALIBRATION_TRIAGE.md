@@ -68,3 +68,23 @@ The numbers are **display-domain brightness**; this uses Rec.709 weights on gamm
 - **Repository status:** Local `main` HEAD remains `17491925a522`, about 196 modified/untracked paths with an old `.git/index.lock`; none reset, staged, removed, or committed. The release-precedence conflict with active **WO-057 G0 BLOCKED** persists. The GitHub recovery branch is the only delivery target.
 
 **Next:** isolate source dependency closure safely; integrate this check into the exact actual planner call site with stable `RENDER_RESPONSE_UNCERTAIN` reason; verify targeted old regressions and safe unchanged controls; seek fresh *actual Lightroom renderer* comparison/owner photographic approval before any real image write or product acceptance.
+
+## Follow-up read-only KEEP risk triage (2026-10-27)
+
+This next experiment addresses the **observed all-KEEP 24/24 failure**, without treating display JPEG histograms as photo correction authority.
+
+- New portable read-only CLI: `tools/photo_exposure_risk_triage.py`, with `tests/test_photo_exposure_risk_triage.py`. All five synthetic safety/unit tests PASS (bright vs dark vs ordinary, stale source SHA rejection, duplicate ID rejection, path escape rejection, sample coverage rejection). CLI works on the original 24/24 frozen SHA-verified Lightroom previews.
+- Exploratory / not independently validated thresholds: `fraction any RGB >=245 >= 0.15` **OR** `display Rec.709 weighted sRGB median <= 80/255`. Thresholds were chosen with the *known failed cohort in view* and must **not** be promoted as evidence from a blind holdout.
+- Trial result: **24/24 source hashes matched**; **9/24 flagged `REVIEW_REQUIRED`**, including all three known independent review candidates `PTO_9197`, `PTO_9271`, `PTO_9419`. The other 6 are **review requests only**, not confirmed wrong exposure. CLI audit reported `accepted_as_photographic_quality=false`, `numeric_ev_authority=NONE`, `catalog_xmp_mutation_authority=NONE`. CLI exit 2 means intentional review required, not processing failure; harness verified those expected results with exit 0.
+- Measured on the authorized Windows computer: historical custom diagnostic measured 24 images in **3.586 seconds**; standalone CLI process with JSON file/PowerShell inspection completed in **5.72 seconds**. Neither number is a whole-album or full workflow performance benchmark.
+- The triage tool avoids a repeat of unconditional all-KEEP silently certifying a batch *when the risk-check stage is invoked*, but can flag genuine high-key, low-key, backlit or mixed-light photographs. **Never turn its histogram flags directly into Exposure EV corrections or automatic rejection.**
+- GitHub source and tests exist only on the **isolated recovery branch**; the local dirty `main` and live Lightroom operating mode were not modified. Production integration needs a single active Work Order and WO-057 clean-checkout dependency closure first.
+
+### Open gates
+
+1. Isolated proposed calibration guard and review-risk CLI have source, tests, and replay evidence; **neither is wired into production**. Photo quality remains unverified.
+2. Run review-risk tool on a genuinely unseen control/holdout set with visual or photographer-accepted references. Measure false alerts, missed true problem cases and processing speed. Do not tune against the held-out answers.
+3. Validate real **Lightroom RAW renderer** Before/After in a safe isolated Catalog with exact preset, Camera Profile, WB and recorded Exposure2012; obtain a photographer-accepted exposure outcome.
+4. Only after safe production dependency integration and scoped review: activate these checks in the intended workflow, run full tests, clean checkout proof, Commit/Push, and acceptance.
+
+**No autonomous background continuation or unseen Lightroom operations have been scheduled.**
